@@ -81,61 +81,70 @@ resource "aws_s3_bucket_logging" "terraform_state_logging" {
   target_prefix = "state-bucket-logs/"
 }
 
-# HTTPS-only policy for logs bucket
-resource "aws_s3_bucket_policy" "terraform_state_logs_https_only" {
+# Apply policy to terraform state logs bucket
+resource "aws_s3_bucket_policy" "terraform_state_logs_policy" {
   depends_on = [
     aws_s3_bucket_public_access_block.terraform_state_logs_public_access_block,
     aws_s3_bucket_ownership_controls.terraform_state_logs_ownership
   ]
   
   bucket = aws_s3_bucket.terraform_state_logs.id
-
+  
   policy = jsonencode({
     Version = "2012-10-17"
-    Id      = "LogsHttpsOnlyPolicy"
     Statement = [
       {
-        Sid       = "HttpsOnly"
-        Effect    = "Deny"
+        Sid    = "s3-log-delivery"
+        Effect = "Allow"
+        Principal = {
+          Service = "logging.s3.amazonaws.com"
+        }
+        Action = "s3:PutObject"
+        Resource = [
+          "${aws_s3_bucket.terraform_state_logs.arn}/*"
+        ]
+      },
+      {
+        Sid    = "HttpsOnly"
+        Effect = "Deny"
         Principal = "*"
-        Action    = "s3:*"
+        Action = "s3:*"
         Resource = [
           aws_s3_bucket.terraform_state_logs.arn,
-          "${aws_s3_bucket.terraform_state_logs.arn}/*",
+          "${aws_s3_bucket.terraform_state_logs.arn}/*"
         ]
         Condition = {
           Bool = {
             "aws:SecureTransport" = "false"
           }
         }
-      },
+      }
     ]
   })
 }
 
-# Enforce HTTPS-only access to the Terraform state bucket
-resource "aws_s3_bucket_policy" "terraform_state_https_only" {
+# Apply policy to terraform state bucket
+resource "aws_s3_bucket_policy" "terraform_state_policy" {
   bucket = aws_s3_bucket.terraform_state.id
-
+  
   policy = jsonencode({
     Version = "2012-10-17"
-    Id      = "HttpsOnlyPolicy"
     Statement = [
       {
-        Sid       = "HttpsOnly"
-        Effect    = "Deny"
+        Sid    = "HttpsOnly"
+        Effect = "Deny"
         Principal = "*"
-        Action    = "s3:*"
+        Action = "s3:*"
         Resource = [
           aws_s3_bucket.terraform_state.arn,
-          "${aws_s3_bucket.terraform_state.arn}/*",
+          "${aws_s3_bucket.terraform_state.arn}/*"
         ]
         Condition = {
           Bool = {
             "aws:SecureTransport" = "false"
           }
         }
-      },
+      }
     ]
   })
 }

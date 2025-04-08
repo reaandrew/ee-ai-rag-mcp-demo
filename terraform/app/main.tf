@@ -60,43 +60,8 @@ resource "aws_s3_bucket_acl" "logs_bucket_acl" {
   acl    = "log-delivery-write"
 }
 
-# Set up logging for the raw PDFs bucket
-resource "aws_s3_bucket_logging" "raw_pdfs_logging" {
-  bucket = aws_s3_bucket.raw_pdfs.id
-
-  target_bucket = aws_s3_bucket.logs_bucket.id
-  target_prefix = "s3-access-logs/"
-}
-
-# Enforce HTTPS-only access to the raw PDFs bucket
-resource "aws_s3_bucket_policy" "raw_pdfs_https_only" {
-  bucket = aws_s3_bucket.raw_pdfs.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Id      = "HttpsOnlyPolicy"
-    Statement = [
-      {
-        Sid       = "HttpsOnly"
-        Effect    = "Deny"
-        Principal = "*"
-        Action    = "s3:*"
-        Resource = [
-          aws_s3_bucket.raw_pdfs.arn,
-          "${aws_s3_bucket.raw_pdfs.arn}/*",
-        ]
-        Condition = {
-          Bool = {
-            "aws:SecureTransport" = "false"
-          }
-        }
-      },
-    ]
-  })
-}
-
-# Enforce HTTPS-only access to the logs bucket
-resource "aws_s3_bucket_policy" "logs_bucket_https_only" {
+# Apply bucket policy to logs bucket with log delivery permissions
+resource "aws_s3_bucket_policy" "logs_bucket_policy" {
   # Make sure public access block and ownership are set up first
   depends_on = [
     aws_s3_bucket_public_access_block.logs_bucket_public_access_block,
@@ -104,26 +69,70 @@ resource "aws_s3_bucket_policy" "logs_bucket_https_only" {
   ]
   
   bucket = aws_s3_bucket.logs_bucket.id
-
+  
   policy = jsonencode({
     Version = "2012-10-17"
-    Id      = "LogsHttpsOnlyPolicy"
     Statement = [
       {
-        Sid       = "HttpsOnly"
-        Effect    = "Deny"
+        Sid    = "s3-log-delivery"
+        Effect = "Allow"
+        Principal = {
+          Service = "logging.s3.amazonaws.com"
+        }
+        Action = "s3:PutObject"
+        Resource = [
+          "${aws_s3_bucket.logs_bucket.arn}/*"
+        ]
+      },
+      {
+        Sid    = "HttpsOnly"
+        Effect = "Deny"
         Principal = "*"
-        Action    = "s3:*"
+        Action = "s3:*"
         Resource = [
           aws_s3_bucket.logs_bucket.arn,
-          "${aws_s3_bucket.logs_bucket.arn}/*",
+          "${aws_s3_bucket.logs_bucket.arn}/*"
         ]
         Condition = {
           Bool = {
             "aws:SecureTransport" = "false"
           }
         }
-      },
+      }
     ]
   })
+}
+
+# Enforce HTTPS-only policy on raw PDFs bucket
+resource "aws_s3_bucket_policy" "raw_pdfs_policy" {
+  bucket = aws_s3_bucket.raw_pdfs.id
+  
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "HttpsOnly"
+        Effect = "Deny"
+        Principal = "*"
+        Action = "s3:*"
+        Resource = [
+          aws_s3_bucket.raw_pdfs.arn,
+          "${aws_s3_bucket.raw_pdfs.arn}/*"
+        ]
+        Condition = {
+          Bool = {
+            "aws:SecureTransport" = "false"
+          }
+        }
+      }
+    ]
+  })
+}
+
+# Set up logging for the raw PDFs bucket
+resource "aws_s3_bucket_logging" "raw_pdfs_logging" {
+  bucket = aws_s3_bucket.raw_pdfs.id
+
+  target_bucket = aws_s3_bucket.logs_bucket.id
+  target_prefix = "s3-access-logs/"
 }
