@@ -32,6 +32,87 @@ resource "aws_s3_bucket_versioning" "terraform_state_versioning" {
   }
 }
 
+# Create logging bucket for terraform state
+resource "aws_s3_bucket" "terraform_state_logs" {
+  bucket = "${var.terraform_state_bucket}-logs"
+
+  tags = {
+    Name        = "${var.terraform_state_bucket}-logs"
+    Description = "Stores access logs for ${var.terraform_state_bucket}"
+    ManagedBy   = "terraform"
+  }
+}
+
+# Block public access for logs bucket
+resource "aws_s3_bucket_public_access_block" "terraform_state_logs_public_access_block" {
+  bucket = aws_s3_bucket.terraform_state_logs.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+# Set ownership controls for logs bucket
+resource "aws_s3_bucket_ownership_controls" "terraform_state_logs_ownership" {
+  bucket = aws_s3_bucket.terraform_state_logs.id
+  
+  rule {
+    object_ownership = "BucketOwnerPreferred"
+  }
+}
+
+# Set ACL for logs bucket
+resource "aws_s3_bucket_acl" "terraform_state_logs_acl" {
+  depends_on = [
+    aws_s3_bucket_public_access_block.terraform_state_logs_public_access_block,
+    aws_s3_bucket_ownership_controls.terraform_state_logs_ownership
+  ]
+  
+  bucket = aws_s3_bucket.terraform_state_logs.id
+  acl    = "log-delivery-write"
+}
+
+# Configure logging for terraform state bucket
+resource "aws_s3_bucket_logging" "terraform_state_logging" {
+  bucket = aws_s3_bucket.terraform_state.id
+
+  target_bucket = aws_s3_bucket.terraform_state_logs.id
+  target_prefix = "state-bucket-logs/"
+}
+
+# HTTPS-only policy for logs bucket
+resource "aws_s3_bucket_policy" "terraform_state_logs_https_only" {
+  depends_on = [
+    aws_s3_bucket_public_access_block.terraform_state_logs_public_access_block,
+    aws_s3_bucket_ownership_controls.terraform_state_logs_ownership
+  ]
+  
+  bucket = aws_s3_bucket.terraform_state_logs.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Id      = "LogsHttpsOnlyPolicy"
+    Statement = [
+      {
+        Sid       = "HttpsOnly"
+        Effect    = "Deny"
+        Principal = "*"
+        Action    = "s3:*"
+        Resource = [
+          aws_s3_bucket.terraform_state_logs.arn,
+          "${aws_s3_bucket.terraform_state_logs.arn}/*",
+        ]
+        Condition = {
+          Bool = {
+            "aws:SecureTransport" = "false"
+          }
+        }
+      },
+    ]
+  })
+}
+
 # Enforce HTTPS-only access to the Terraform state bucket
 resource "aws_s3_bucket_policy" "terraform_state_https_only" {
   bucket = aws_s3_bucket.terraform_state.id
@@ -215,7 +296,9 @@ resource "aws_iam_policy" "app_specific_policy" {
         Effect   = "Allow"
         Resource = [
           "arn:aws:s3:::ee-ai-rag-mcp-demo-raw-pdfs*",
-          "arn:aws:s3:::ee-ai-rag-mcp-demo-raw-pdfs*/*"
+          "arn:aws:s3:::ee-ai-rag-mcp-demo-raw-pdfs*/*",
+          "arn:aws:s3:::${var.terraform_state_bucket}-logs",
+          "arn:aws:s3:::${var.terraform_state_bucket}-logs/*"
         ]
       }
     ]
@@ -242,6 +325,11 @@ output "ci_role_arn" {
 output "terraform_state_bucket" {
   value       = aws_s3_bucket.terraform_state.bucket
   description = "Name of the S3 bucket for Terraform state"
+}
+
+output "terraform_state_logs_bucket" {
+  value       = aws_s3_bucket.terraform_state_logs.bucket
+  description = "Name of the S3 bucket for Terraform state access logs"
 }
 
 output "terraform_lock_table" {
