@@ -20,8 +20,8 @@ This repository uses SonarQube for quality checks:
 
 ### Configuration
 
-The workflow is configured to automatically set up the SonarCloud project with:
-- Organization: Your GitHub username or organization
+The workflow is configured to use the SonarCloud project with:
+- Organization: reaandrew (this must match your SonarCloud organization name)
 - Project key: Automatically generated based on your repository name
 
 No manual configuration is needed in `sonar-project.properties` as GitHub Actions will set these values dynamically.

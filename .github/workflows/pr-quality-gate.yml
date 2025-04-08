@@ -41,7 +41,7 @@ jobs:
         with:
           # Additional arguments for first time setup
           args: >
-            -Dsonar.organization=${{ github.repository_owner }}
+            -Dsonar.organization=reaandrew
             -Dsonar.projectKey=${{ github.repository_owner }}_${{ github.event.repository.name }}
             -Dsonar.alm.github.app.enabled=false
             -Dsonar.pullrequest.provider=github
