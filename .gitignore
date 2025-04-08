@@ -13,6 +13,13 @@ yarn.lock
 .env.test.local
 .env.production.local
 
+# Terraform
+*.tfvars
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
 # Build artifacts
 /dist
 /build

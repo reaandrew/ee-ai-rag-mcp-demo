@@ -1,0 +1,7 @@
+aws_account_id       = "276447169330"
+aws_region           = "eu-west-2"
+github_org           = "reaandrew"
+github_repo          = "ee-ai-rag-mcp-demo"
+terraform_state_bucket = "ee-ai-rag-mcp-demo-terraform-state"
+terraform_lock_table = "ee-ai-rag-mcp-demo-terraform-locks"
+ci_role_name         = "ee-ai-rag-mcp-demo-ci-role"
