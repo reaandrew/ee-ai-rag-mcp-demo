@@ -292,7 +292,7 @@ resource "aws_iam_policy" "app_specific_policy" {
     Version = "2012-10-17"
     Statement = [
       {
-        # CloudWatch Logs permissions - expanded to include TagResource and PutRetentionPolicy
+        # CloudWatch Logs permissions - expanded to include TagResource, ListTagsForResource and PutRetentionPolicy
         Action = [
           "logs:CreateLogGroup",
           "logs:CreateLogStream",
@@ -304,6 +304,7 @@ resource "aws_iam_policy" "app_specific_policy" {
           "logs:TagResource",
           "logs:UntagResource",
           "logs:ListTagsLogGroup",
+          "logs:ListTagsForResource",
           "logs:PutRetentionPolicy"
         ]
         Effect   = "Allow"
