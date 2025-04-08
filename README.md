@@ -13,15 +13,16 @@ This repository uses SonarQube for quality checks:
 ### Setup Requirements
 
 1. Create a SonarCloud account at https://sonarcloud.io/
-2. Set up your project in SonarCloud
-3. Add the following secrets to your GitHub repository:
+2. Add the following secrets to your GitHub repository:
    - `SONAR_TOKEN`: Your SonarCloud API token
 
 ### Configuration
 
-The SonarQube configuration is in `sonar-project.properties`. Adjust the following values:
-- `sonar.projectKey`: Your SonarCloud project key
-- `sonar.organization`: Your SonarCloud organization name
+The workflow is configured to automatically set up the SonarCloud project with:
+- Organization: Your GitHub username or organization
+- Project key: Automatically generated based on your repository name
+
+No manual configuration is needed in `sonar-project.properties` as GitHub Actions will set these values dynamically.
 
 ## Conventional Commits
 
