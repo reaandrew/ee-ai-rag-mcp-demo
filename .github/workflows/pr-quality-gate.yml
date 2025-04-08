@@ -33,7 +33,7 @@ jobs:
           npm run test:coverage
           
       - name: Upload coverage reports
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v2
         with:
           name: coverage-reports
           path: coverage-reports/
@@ -59,7 +59,7 @@ jobs:
           pip install -r requirements-dev.txt
           
       - name: Download coverage reports
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v2
         with:
           name: coverage-reports
           path: coverage-reports/
