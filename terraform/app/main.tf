@@ -87,7 +87,9 @@ resource "aws_s3_bucket_policy" "logs_bucket_policy" {
       {
         Sid    = "HttpsOnly"
         Effect = "Deny"
-        Principal = "*"
+        Principal = {
+          "AWS": "*"
+        }
         Action = "s3:*"
         Resource = [
           aws_s3_bucket.logs_bucket.arn,
@@ -113,7 +115,9 @@ resource "aws_s3_bucket_policy" "raw_pdfs_policy" {
       {
         Sid    = "HttpsOnly"
         Effect = "Deny"
-        Principal = "*"
+        Principal = {
+          "AWS": "*"
+        }
         Action = "s3:*"
         Resource = [
           aws_s3_bucket.raw_pdfs.arn,
