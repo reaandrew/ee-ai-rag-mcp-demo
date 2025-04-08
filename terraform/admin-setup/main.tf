@@ -164,6 +164,11 @@ resource "aws_iam_policy" "app_specific_policy" {
           "s3:DeleteObject",
           "s3:PutBucketPolicy",
           "s3:GetBucketPolicy",
+          "s3:GetBucketTagging",
+          "s3:PutBucketTagging",
+          "s3:ListBucketVersions",
+          "s3:PutObjectTagging",
+          "s3:GetObjectTagging",
           
           # CloudFormation for Terraform
           "cloudformation:DescribeStacks",
