@@ -8,9 +8,11 @@ from urllib.parse import unquote_plus
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-# Initialize S3 and Textract clients
-s3_client = boto3.client("s3")
-textract_client = boto3.client("textract")
+# Initialize S3 and Textract clients with default region
+# AWS Lambda environment has region configuration, but for local testing we set a default
+default_region = "eu-west-2"  # Match the region in Terraform config
+s3_client = boto3.client("s3", region_name=default_region)
+textract_client = boto3.client("textract", region_name=default_region)
 
 
 def extract_text_from_pdf(bucket_name, file_key):
