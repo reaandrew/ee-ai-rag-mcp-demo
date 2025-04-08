@@ -7,44 +7,16 @@ on:
       - main
 
 jobs:
-  sonarqube:
-    name: SonarQube Scan
+  sonarcloud:
+    name: SonarCloud
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
         with:
-          fetch-depth: 0  # Fetch all history for accurate blame information
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v3
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: "lts/*"
+          fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
           
-      - name: Install dependencies
-        run: npm install
-        
-      - name: Run tests with coverage
-        run: npm test || echo "No tests yet, continuing workflow"
-        
-      - name: SonarQube Scan
+      - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@master
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        with:
-          # Additional arguments for first time setup
-          args: >
-            -Dsonar.organization=reaandrew
-            -Dsonar.projectKey=${{ github.repository_owner }}_${{ github.event.repository.name }}
-            -Dsonar.alm.github.app.enabled=false
-            -Dsonar.pullrequest.provider=github
-            -Dsonar.pullrequest.key=${{ github.event.pull_request.number }}
-            -Dsonar.pullrequest.branch=${{ github.head_ref }}
-            -Dsonar.pullrequest.base=${{ github.base_ref }}

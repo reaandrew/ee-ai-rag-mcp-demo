@@ -13,18 +13,17 @@ This repository uses SonarQube for quality checks:
 ### Setup Requirements
 
 1. Create a SonarCloud account at https://sonarcloud.io/
-2. Create a SonarCloud organization (if you don't have one)
-3. Add the following secrets to your GitHub repository:
+2. Create or join a SonarCloud organization named "reaandrew"
+3. Create a new project with key "reaandrew_ee-ai-rag-mcp-demo" in SonarCloud
+4. Add the following secrets to your GitHub repository:
    - `SONAR_TOKEN`: Your SonarCloud API token
-4. **Important**: Disable automatic analysis in SonarCloud for this repository
 
 ### Configuration
 
-The workflow is configured to use the SonarCloud project with:
-- Organization: reaandrew (this must match your SonarCloud organization name)
-- Project key: Automatically generated based on your repository name
-
-No manual configuration is needed in `sonar-project.properties` as GitHub Actions will set these values dynamically.
+The SonarCloud configuration is simplifies using the standard approach:
+- Configuration is stored in sonar-project.properties
+- Uses SonarSource's official GitHub Actions
+- Works with both PR analysis and branch analysis
 
 ## Conventional Commits
 
