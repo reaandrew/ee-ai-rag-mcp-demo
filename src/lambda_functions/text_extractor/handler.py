@@ -105,7 +105,7 @@ def process_document_async(bucket_name, file_key):
 
     # Wait for the job to complete
     status = "IN_PROGRESS"
-    max_tries = 20  # Adjust based on expected document size/complexity
+    max_tries = 12  # Adjust for 1 minute timeout (12 * 5 = 60 seconds)
     wait_seconds = 5
     total_tries = 0
 
@@ -129,7 +129,10 @@ def process_document_async(bucket_name, file_key):
             raise e
 
     if total_tries >= max_tries and status == "IN_PROGRESS":
-        raise Exception(f"Textract job timed out after {total_tries} tries")
+        seconds_waited = total_tries * wait_seconds
+        error_msg = f"Textract job timed out after {seconds_waited} seconds "
+        error_msg += "(max timeout: 60 seconds)"
+        raise Exception(error_msg)
 
     # Get the results
     extracted_text = ""
