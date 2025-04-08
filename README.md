@@ -1,6 +1,26 @@
 # ee-ai-rag-mcp-demo
 
-A repository with conventional commit enforcement and automatic versioning.
+A repository with conventional commit enforcement, automatic versioning, and SonarQube code quality checks.
+
+## Quality Gates with SonarQube
+
+This repository uses SonarQube for quality checks:
+
+1. **PR Quality Gate**: Runs SonarQube analysis on all PRs to the main branch
+2. **Main Branch Quality Gate**: Runs analysis after merges to main
+
+### Setup Requirements
+
+1. Create a SonarCloud account at https://sonarcloud.io/
+2. Set up your project in SonarCloud
+3. Add the following secrets to your GitHub repository:
+   - `SONAR_TOKEN`: Your SonarCloud API token
+
+### Configuration
+
+The SonarQube configuration is in `sonar-project.properties`. Adjust the following values:
+- `sonar.projectKey`: Your SonarCloud project key
+- `sonar.organization`: Your SonarCloud organization name
 
 ## Conventional Commits
 
