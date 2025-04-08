@@ -155,34 +155,6 @@ resource "aws_iam_policy" "app_specific_policy" {
           "logs:DescribeLogStreams",
           "logs:PutLogEvents",
           
-          # S3 permissions for application buckets
-          "s3:CreateBucket",
-          "s3:DeleteBucket",
-          "s3:ListBucket",
-          "s3:GetObject",
-          "s3:PutObject",
-          "s3:DeleteObject",
-          "s3:PutBucketPolicy",
-          "s3:GetBucketPolicy",
-          "s3:GetBucketTagging",
-          "s3:PutBucketTagging",
-          "s3:ListBucketVersions",
-          "s3:PutObjectTagging",
-          "s3:GetObjectTagging",
-          "s3:GetBucketAcl",
-          "s3:PutBucketAcl",
-          "s3:GetObjectAcl", 
-          "s3:PutObjectAcl",
-          "s3:GetBucketVersioning",
-          "s3:PutBucketVersioning",
-          "s3:GetBucketOwnershipControls",
-          "s3:PutBucketOwnershipControls",
-          "s3:GetBucketPublicAccessBlock",
-          "s3:PutBucketPublicAccessBlock",
-          "s3:GetBucketCors",
-          "s3:PutBucketCors",
-          "s3:DeleteBucketCors",
-          
           # CloudFormation for Terraform
           "cloudformation:DescribeStacks",
           "cloudformation:ListStacks",
@@ -194,7 +166,29 @@ resource "aws_iam_policy" "app_specific_policy" {
         ]
         Effect   = "Allow"
         Resource = "*"
-        # Note: This is a broad policy for demonstration. In practice, you should scope permissions more narrowly.
+      },
+      {
+        # Terraform state bucket permissions
+        Action = [
+          "s3:ListBucket",
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:DeleteObject"
+        ]
+        Effect   = "Allow"
+        Resource = [
+          "arn:aws:s3:::${var.terraform_state_bucket}",
+          "arn:aws:s3:::${var.terraform_state_bucket}/*"
+        ]
+      },
+      {
+        # Application S3 buckets permissions - allow all S3 operations on specific bucket pattern
+        Action = "s3:*"
+        Effect   = "Allow"
+        Resource = [
+          "arn:aws:s3:::ee-ai-rag-mcp-demo-raw-pdfs*",
+          "arn:aws:s3:::ee-ai-rag-mcp-demo-raw-pdfs*/*"
+        ]
       }
     ]
   })
