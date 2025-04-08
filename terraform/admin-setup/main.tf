@@ -118,8 +118,37 @@ resource "aws_iam_policy" "app_specific_policy" {
     Version = "2012-10-17"
     Statement = [
       {
+        # API Gateway permissions
+        Action    = "apigateway:*"
+        Effect    = "Allow"
+        Resource  = "*"
+      },
+      {
+        # CloudWatch Logs permissions
         Action = [
-          # Lambda permissions
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:DeleteLogGroup",
+          "logs:DeleteLogStream",
+          "logs:DescribeLogGroups",
+          "logs:DescribeLogStreams",
+          "logs:PutLogEvents"
+        ]
+        Effect   = "Allow"
+        Resource = "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:*"
+      },
+      {
+        # IAM service role permissions - restricted to specific roles
+        Action = [
+          "iam:GetRole",
+          "iam:PassRole"
+        ]
+        Effect   = "Allow"
+        Resource = "arn:aws:iam::${var.aws_account_id}:role/ee-ai-rag-mcp-demo-*"
+      },
+      {
+        # Lambda function permissions - restricted to specific functions
+        Action = [
           "lambda:CreateFunction",
           "lambda:DeleteFunction",
           "lambda:GetFunction",
@@ -130,35 +159,10 @@ resource "aws_iam_policy" "app_specific_policy" {
           "lambda:PublishVersion",
           "lambda:CreateAlias",
           "lambda:DeleteAlias",
-          "lambda:UpdateAlias",
-          
-          # IAM permissions for service roles
-          "iam:GetRole",
-          "iam:PassRole",
-          "iam:CreateRole",
-          "iam:DeleteRole",
-          "iam:AttachRolePolicy",
-          "iam:DetachRolePolicy",
-          "iam:PutRolePolicy",
-          "iam:DeleteRolePolicy",
-          "iam:GetRolePolicy",
-          
-          # API Gateway permissions
-          "apigateway:*",
-          
-          # CloudWatch Logs permissions
-          "logs:CreateLogGroup",
-          "logs:CreateLogStream",
-          "logs:DeleteLogGroup",
-          "logs:DeleteLogStream",
-          "logs:DescribeLogGroups",
-          "logs:DescribeLogStreams",
-          "logs:PutLogEvents",
-          
-          # Other AWS service permissions can be added here as needed
+          "lambda:UpdateAlias"
         ]
         Effect   = "Allow"
-        Resource = "*"
+        Resource = "arn:aws:lambda:${var.aws_region}:${var.aws_account_id}:function:ee-ai-rag-mcp-demo-text-extractor"
       },
       {
         # Terraform state bucket permissions
