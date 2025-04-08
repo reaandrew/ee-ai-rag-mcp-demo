@@ -38,14 +38,6 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "raw_pdfs_encrypti
   }
 }
 
-# Suspend versioning for the raw PDFs bucket
-resource "aws_s3_bucket_versioning" "raw_pdfs_versioning" {
-  bucket = aws_s3_bucket.raw_pdfs.id
-  
-  versioning_configuration {
-    status = "Suspended"
-  }
-}
 
 # Configure lifecycle rules for the raw PDFs bucket
 resource "aws_s3_bucket_lifecycle_configuration" "raw_pdfs_lifecycle" {
@@ -97,14 +89,6 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "logs_bucket_encry
   }
 }
 
-# Suspend versioning for the logs bucket
-resource "aws_s3_bucket_versioning" "logs_bucket_versioning" {
-  bucket = aws_s3_bucket.logs_bucket.id
-  
-  versioning_configuration {
-    status = "Suspended"
-  }
-}
 
 # Configure lifecycle rules for the logs bucket
 resource "aws_s3_bucket_lifecycle_configuration" "logs_bucket_lifecycle" {
@@ -193,7 +177,6 @@ resource "aws_s3_bucket_policy" "logs_bucket_policy" {
 resource "aws_s3_bucket_policy" "raw_pdfs_policy" {
   depends_on = [
     aws_s3_bucket_public_access_block.raw_pdfs_public_access_block,
-    aws_s3_bucket_versioning.raw_pdfs_versioning,
     aws_s3_bucket_server_side_encryption_configuration.raw_pdfs_encryption
   ]
   

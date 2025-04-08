@@ -23,14 +23,6 @@ resource "aws_s3_bucket_public_access_block" "terraform_state_public_access_bloc
   restrict_public_buckets = true
 }
 
-# Suspend versioning for the S3 bucket
-resource "aws_s3_bucket_versioning" "terraform_state_versioning" {
-  bucket = aws_s3_bucket.terraform_state.id
-  
-  versioning_configuration {
-    status = "Suspended"
-  }
-}
 
 # Enable default encryption for the terraform state bucket
 resource "aws_s3_bucket_server_side_encryption_configuration" "terraform_state_encryption" {
@@ -75,14 +67,6 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "terraform_state_l
   }
 }
 
-# Suspend versioning for the terraform state logs bucket
-resource "aws_s3_bucket_versioning" "terraform_state_logs_versioning" {
-  bucket = aws_s3_bucket.terraform_state_logs.id
-  
-  versioning_configuration {
-    status = "Suspended"
-  }
-}
 
 # Configure lifecycle rules for the terraform state logs bucket
 resource "aws_s3_bucket_lifecycle_configuration" "terraform_state_logs_lifecycle" {
@@ -183,7 +167,6 @@ resource "aws_s3_bucket_policy" "terraform_state_logs_policy" {
 resource "aws_s3_bucket_policy" "terraform_state_policy" {
   depends_on = [
     aws_s3_bucket_public_access_block.terraform_state_public_access_block,
-    aws_s3_bucket_versioning.terraform_state_versioning,
     aws_s3_bucket_server_side_encryption_configuration.terraform_state_encryption
   ]
   
