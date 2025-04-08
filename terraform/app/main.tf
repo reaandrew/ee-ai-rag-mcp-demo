@@ -148,11 +148,12 @@ resource "aws_s3_bucket_acl" "logs_bucket_acl" {
   acl    = "log-delivery-write"
 }
 
-# Log delivery policy for logs bucket
-resource "aws_s3_bucket_policy" "logs_bucket_delivery_policy" {
+# Combined policy for logs bucket (includes log delivery and HTTPS enforcement)
+resource "aws_s3_bucket_policy" "logs_bucket_policy" {
   depends_on = [
     aws_s3_bucket_public_access_block.logs_bucket_public_access_block,
-    aws_s3_bucket_ownership_controls.logs_bucket_ownership
+    aws_s3_bucket_ownership_controls.logs_bucket_ownership,
+    aws_s3_bucket_acl.logs_bucket_acl
   ]
 
   bucket = aws_s3_bucket.logs_bucket.id
@@ -170,24 +171,7 @@ resource "aws_s3_bucket_policy" "logs_bucket_delivery_policy" {
         Resource = [
           "${aws_s3_bucket.logs_bucket.arn}/*"
         ]
-      }
-    ]
-  })
-}
-
-# HTTPS enforcement policy for logs bucket
-resource "aws_s3_bucket_policy" "logs_bucket_https_policy" {
-  depends_on = [
-    aws_s3_bucket_public_access_block.logs_bucket_public_access_block,
-    aws_s3_bucket_ownership_controls.logs_bucket_ownership,
-    aws_s3_bucket_policy.logs_bucket_delivery_policy
-  ]
-
-  bucket = aws_s3_bucket.logs_bucket.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
+      },
       {
         Sid    = "HttpsOnly"
         Effect = "Deny"
@@ -209,6 +193,12 @@ resource "aws_s3_bucket_policy" "logs_bucket_https_policy" {
 
 # Apply HTTPS-only policy to raw PDFs bucket
 resource "aws_s3_bucket_policy" "raw_pdfs_policy" {
+  depends_on = [
+    aws_s3_bucket_public_access_block.raw_pdfs_public_access_block,
+    aws_s3_bucket_versioning.raw_pdfs_versioning,
+    aws_s3_bucket_server_side_encryption_configuration.raw_pdfs_encryption
+  ]
+  
   bucket = aws_s3_bucket.raw_pdfs.id
   
   policy = jsonencode({
@@ -237,7 +227,7 @@ resource "aws_s3_bucket_policy" "raw_pdfs_policy" {
 # Set up logging for the raw PDFs bucket
 resource "aws_s3_bucket_logging" "raw_pdfs_logging" {
   depends_on = [
-    aws_s3_bucket_policy.logs_bucket_delivery_policy,
+    aws_s3_bucket_policy.logs_bucket_policy,
     aws_s3_bucket_acl.logs_bucket_acl
   ]
   

@@ -126,7 +126,7 @@ resource "aws_s3_bucket_acl" "terraform_state_logs_acl" {
 # Configure logging for terraform state bucket
 resource "aws_s3_bucket_logging" "terraform_state_logging" {
   depends_on = [
-    aws_s3_bucket_policy.terraform_state_logs_delivery_policy,
+    aws_s3_bucket_policy.terraform_state_logs_policy,
     aws_s3_bucket_acl.terraform_state_logs_acl
   ]
   
@@ -137,11 +137,12 @@ resource "aws_s3_bucket_logging" "terraform_state_logging" {
 }
 
 
-# Log delivery policy for terraform state logs bucket
-resource "aws_s3_bucket_policy" "terraform_state_logs_delivery_policy" {
+# Combined policy for terraform state logs bucket (includes log delivery and HTTPS enforcement)
+resource "aws_s3_bucket_policy" "terraform_state_logs_policy" {
   depends_on = [
     aws_s3_bucket_public_access_block.terraform_state_logs_public_access_block,
-    aws_s3_bucket_ownership_controls.terraform_state_logs_ownership
+    aws_s3_bucket_ownership_controls.terraform_state_logs_ownership,
+    aws_s3_bucket_acl.terraform_state_logs_acl
   ]
 
   bucket = aws_s3_bucket.terraform_state_logs.id
@@ -159,24 +160,7 @@ resource "aws_s3_bucket_policy" "terraform_state_logs_delivery_policy" {
         Resource = [
           "${aws_s3_bucket.terraform_state_logs.arn}/*"
         ]
-      }
-    ]
-  })
-}
-
-# HTTPS enforcement policy for terraform state logs bucket
-resource "aws_s3_bucket_policy" "terraform_state_logs_https_policy" {
-  depends_on = [
-    aws_s3_bucket_public_access_block.terraform_state_logs_public_access_block,
-    aws_s3_bucket_ownership_controls.terraform_state_logs_ownership,
-    aws_s3_bucket_policy.terraform_state_logs_delivery_policy
-  ]
-
-  bucket = aws_s3_bucket.terraform_state_logs.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
+      },
       {
         Sid    = "HttpsOnly"
         Effect = "Deny"
@@ -198,6 +182,12 @@ resource "aws_s3_bucket_policy" "terraform_state_logs_https_policy" {
 
 # Apply HTTPS-only policy to terraform state bucket
 resource "aws_s3_bucket_policy" "terraform_state_policy" {
+  depends_on = [
+    aws_s3_bucket_public_access_block.terraform_state_public_access_block,
+    aws_s3_bucket_versioning.terraform_state_versioning,
+    aws_s3_bucket_server_side_encryption_configuration.terraform_state_encryption
+  ]
+  
   bucket = aws_s3_bucket.terraform_state.id
   
   policy = jsonencode({
