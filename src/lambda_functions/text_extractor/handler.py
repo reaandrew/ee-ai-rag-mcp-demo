@@ -53,12 +53,14 @@ def extract_text_from_pdf(bucket_name, file_key):
         except textract_client.exceptions.InvalidParameterException as e:
             # The PDF may be too large for synchronous processing
             # Fall back to asynchronous processing
-            if "Page limit" in str(e):
+            error_message = str(e)
+            if "Page limit" in error_message:
                 logger.info(
                     f"PDF {file_key} is too large for synchronous processing. Using async API."
                 )
                 extracted_text, page_count = process_document_async(bucket_name, file_key)
             else:
+                logger.error(f"Unhandled InvalidParameterException: {error_message}")
                 raise e
 
         extraction_result = {
