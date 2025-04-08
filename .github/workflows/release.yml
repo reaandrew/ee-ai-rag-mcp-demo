@@ -17,6 +17,9 @@ jobs:
     name: Release
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    outputs:
+      new_release_published: ${{ steps.semantic.outputs.new_release_published }}
+      new_release_version: ${{ steps.semantic.outputs.new_release_version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -32,7 +35,18 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Release
+      - name: Semantic Release
+        id: semantic
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx semantic-release
+        run: |
+          RELEASE_OUTPUT=$(npx semantic-release)
+          echo "::set-output name=release_output::$RELEASE_OUTPUT"
+          
+          if [[ $RELEASE_OUTPUT == *"The next release version is"* ]]; then
+            echo "::set-output name=new_release_published::true"
+            VERSION=$(echo "$RELEASE_OUTPUT" | grep -oP "The next release version is \K[0-9]+\.[0-9]+\.[0-9]+")
+            echo "::set-output name=new_release_version::$VERSION"
+          else
+            echo "::set-output name=new_release_published::false"
+          fi
