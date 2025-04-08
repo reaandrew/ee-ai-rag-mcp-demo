@@ -155,12 +155,6 @@ resource "aws_iam_policy" "app_specific_policy" {
     Version = "2012-10-17"
     Statement = [
       {
-        # API Gateway permissions
-        Action    = "apigateway:*"
-        Effect    = "Allow"
-        Resource  = "*"
-      },
-      {
         # CloudWatch Logs permissions
         Action = [
           "logs:CreateLogGroup",
