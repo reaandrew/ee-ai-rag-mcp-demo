@@ -121,7 +121,7 @@ resource "aws_s3_bucket_acl" "terraform_state_logs_acl" {
 # Configure logging for terraform state bucket
 resource "aws_s3_bucket_logging" "terraform_state_logging" {
   depends_on = [
-    aws_s3_bucket_policy.terraform_state_logs_policy,
+    aws_s3_bucket_policy.terraform_state_logs_delivery_policy,
     aws_s3_bucket_acl.terraform_state_logs_acl
   ]
   
@@ -131,15 +131,16 @@ resource "aws_s3_bucket_logging" "terraform_state_logging" {
   target_prefix = "state-bucket-logs/"
 }
 
-# Apply log delivery policy to terraform state logs bucket
-resource "aws_s3_bucket_policy" "terraform_state_logs_policy" {
+
+# Log delivery policy for terraform state logs bucket
+resource "aws_s3_bucket_policy" "terraform_state_logs_delivery_policy" {
   depends_on = [
     aws_s3_bucket_public_access_block.terraform_state_logs_public_access_block,
     aws_s3_bucket_ownership_controls.terraform_state_logs_ownership
   ]
-  
+
   bucket = aws_s3_bucket.terraform_state_logs.id
-  
+
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -153,6 +154,38 @@ resource "aws_s3_bucket_policy" "terraform_state_logs_policy" {
         Resource = [
           "${aws_s3_bucket.terraform_state_logs.arn}/*"
         ]
+      }
+    ]
+  })
+}
+
+# HTTPS enforcement policy for terraform state logs bucket
+resource "aws_s3_bucket_policy" "terraform_state_logs_https_policy" {
+  depends_on = [
+    aws_s3_bucket_public_access_block.terraform_state_logs_public_access_block,
+    aws_s3_bucket_ownership_controls.terraform_state_logs_ownership,
+    aws_s3_bucket_policy.terraform_state_logs_delivery_policy
+  ]
+
+  bucket = aws_s3_bucket.terraform_state_logs.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "HttpsOnly"
+        Effect = "Deny"
+        Principal = "*"
+        Action = "s3:*"
+        Resource = [
+          aws_s3_bucket.terraform_state_logs.arn,
+          "${aws_s3_bucket.terraform_state_logs.arn}/*"
+        ]
+        Condition = {
+          Bool = {
+            "aws:SecureTransport" = "false"
+          }
+        }
       }
     ]
   })
@@ -183,6 +216,7 @@ resource "aws_s3_bucket_policy" "terraform_state_policy" {
     ]
   })
 }
+
 
 
 # Create DynamoDB table for Terraform state locking

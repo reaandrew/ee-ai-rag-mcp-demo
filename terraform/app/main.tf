@@ -138,16 +138,15 @@ resource "aws_s3_bucket_acl" "logs_bucket_acl" {
   acl    = "log-delivery-write"
 }
 
-# Apply log delivery policy to logs bucket
-resource "aws_s3_bucket_policy" "logs_bucket_policy" {
-  # Make sure public access block and ownership are set up first
+# Log delivery policy for logs bucket
+resource "aws_s3_bucket_policy" "logs_bucket_delivery_policy" {
   depends_on = [
     aws_s3_bucket_public_access_block.logs_bucket_public_access_block,
     aws_s3_bucket_ownership_controls.logs_bucket_ownership
   ]
-  
+
   bucket = aws_s3_bucket.logs_bucket.id
-  
+
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -161,6 +160,38 @@ resource "aws_s3_bucket_policy" "logs_bucket_policy" {
         Resource = [
           "${aws_s3_bucket.logs_bucket.arn}/*"
         ]
+      }
+    ]
+  })
+}
+
+# HTTPS enforcement policy for logs bucket
+resource "aws_s3_bucket_policy" "logs_bucket_https_policy" {
+  depends_on = [
+    aws_s3_bucket_public_access_block.logs_bucket_public_access_block,
+    aws_s3_bucket_ownership_controls.logs_bucket_ownership,
+    aws_s3_bucket_policy.logs_bucket_delivery_policy
+  ]
+
+  bucket = aws_s3_bucket.logs_bucket.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "HttpsOnly"
+        Effect = "Deny"
+        Principal = "*"
+        Action = "s3:*"
+        Resource = [
+          aws_s3_bucket.logs_bucket.arn,
+          "${aws_s3_bucket.logs_bucket.arn}/*"
+        ]
+        Condition = {
+          Bool = {
+            "aws:SecureTransport" = "false"
+          }
+        }
       }
     ]
   })
@@ -196,7 +227,8 @@ resource "aws_s3_bucket_policy" "raw_pdfs_policy" {
 # Set up logging for the raw PDFs bucket
 resource "aws_s3_bucket_logging" "raw_pdfs_logging" {
   depends_on = [
-    aws_s3_bucket_policy.logs_bucket_policy
+    aws_s3_bucket_policy.logs_bucket_delivery_policy,
+    aws_s3_bucket_acl.logs_bucket_acl
   ]
   
   bucket = aws_s3_bucket.raw_pdfs.id
