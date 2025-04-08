@@ -4,7 +4,11 @@
   "description": "A demo repository with conventional commits and automatic versioning",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"No tests yet\" && exit 0",
+    "test": "pytest",
+    "test:coverage": "pytest --cov=src --cov-report=xml:coverage-reports/python-coverage.xml --cov-report=term",
+    "lint": "flake8 src && black --check src tests",
+    "format": "black src tests",
+    "build:lambda": "make build-lambda",
     "prepare": "husky install",
     "sonar": "sonar-scanner"
   },
