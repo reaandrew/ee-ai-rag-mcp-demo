@@ -87,14 +87,39 @@ jobs:
         with:
           terraform_version: "1.5.7"
           
+      # Set environment variables for Terraform backend and variables
+      - name: Set Terraform Environment Variables
+        env:
+          RELEASE_VERSION: ${{ needs.release.outputs.new_release_version }}
+        run: |
+          # Backend configuration
+          echo "TF_STATE_BUCKET=ee-ai-rag-mcp-demo-terraform-state" >> $GITHUB_ENV
+          echo "TF_LOCK_TABLE=ee-ai-rag-mcp-demo-terraform-locks" >> $GITHUB_ENV
+          
+          # Terraform variables
+          echo "TF_VAR_environment=prod" >> $GITHUB_ENV
+          echo "TF_VAR_app_version=${RELEASE_VERSION}" >> $GITHUB_ENV
+          echo "TF_VAR_raw_pdfs_bucket_name=ee-ai-rag-mcp-demo-raw-pdfs-${RELEASE_VERSION}" >> $GITHUB_ENV
+          
+          # For debugging
+          echo "Setting up Terraform for version: ${RELEASE_VERSION}"
+          
       - name: Terraform Init
         working-directory: ./terraform/app
-        run: terraform init -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" -backend-config="region=eu-west-2" -backend-config="dynamodb_table=${{ secrets.TF_LOCK_TABLE }}" -backend-config="key=terraform/app/terraform.tfstate"
+        run: terraform init -backend-config="bucket=${{ env.TF_STATE_BUCKET }}" -backend-config="region=eu-west-2" -backend-config="dynamodb_table=${{ env.TF_LOCK_TABLE }}" -backend-config="key=terraform/app/terraform.tfstate"
         
       - name: Terraform Plan
         working-directory: ./terraform/app
-        run: terraform plan -var="environment=prod" -var="app_version=${{ needs.release.outputs.new_release_version }}" -var="raw_pdfs_bucket_name=ee-ai-rag-mcp-demo-raw-pdfs-${{ needs.release.outputs.new_release_version }}" -out=tfplan
+        run: terraform plan -out=tfplan
         
       - name: Terraform Apply
         working-directory: ./terraform/app
         run: terraform apply -auto-approve tfplan
+        
+      - name: Display Terraform Outputs
+        working-directory: ./terraform/app
+        run: |
+          echo "Terraform deployment completed successfully!"
+          echo "Bucket Name: $(terraform output -raw raw_pdfs_bucket_name)"
+          echo "Bucket ARN: $(terraform output -raw raw_pdfs_bucket_arn)"
+          echo "Deployed Version: $(terraform output -raw deployed_version)"
