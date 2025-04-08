@@ -22,18 +22,28 @@ class TestTextExtractorHandler(unittest.TestCase):
         self.s3_client = boto3.client("s3", region_name="us-east-1")
         self.s3_stubber = Stubber(self.s3_client)
 
-        # Create a patcher for the boto3 client within the handler module
+        # Create a mock Textract client
+        self.textract_client = boto3.client("textract", region_name="us-east-1")
+        self.textract_stubber = Stubber(self.textract_client)
+
+        # Create patchers for the boto3 clients within the handler module
         self.s3_client_patch = mock.patch(
             "src.lambda_functions.text_extractor.handler.s3_client", self.s3_client
         )
+        self.textract_client_patch = mock.patch(
+            "src.lambda_functions.text_extractor.handler.textract_client", self.textract_client
+        )
+
         self.s3_client_patch.start()
+        self.textract_client_patch.start()
 
     def tearDown(self):
         """
         Clean up resources after each test.
         """
-        # Stop the patcher
+        # Stop the patchers
         self.s3_client_patch.stop()
+        self.textract_client_patch.stop()
 
     def test_extract_text_from_pdf(self):
         """
@@ -56,8 +66,26 @@ class TestTextExtractorHandler(unittest.TestCase):
             {"Bucket": bucket_name, "Key": file_key},
         )
 
-        # Activate the stubber
+        # Stub the Textract response
+        self.textract_stubber.add_response(
+            "detect_document_text",
+            {
+                "DocumentMetadata": {"Pages": 1},
+                "Blocks": [
+                    {
+                        "BlockType": "LINE",
+                        "Text": "Sample text from PDF.",
+                        "Id": "1",
+                        "Confidence": 99.0,
+                    }
+                ],
+            },
+            {"Document": {"S3Object": {"Bucket": bucket_name, "Name": file_key}}},
+        )
+
+        # Activate the stubbers
         self.s3_stubber.activate()
+        self.textract_stubber.activate()
 
         # Call the function
         result = extract_text_from_pdf(bucket_name, file_key)
@@ -67,10 +95,12 @@ class TestTextExtractorHandler(unittest.TestCase):
         self.assertEqual(result["source"]["file_key"], file_key)
         self.assertEqual(result["source"]["size_bytes"], content_length)
         self.assertIn("extracted_text", result)
+        self.assertIn("Sample text from PDF.", result["extracted_text"])
         self.assertEqual(result["status"], "success")
 
-        # Verify that the stubber was used correctly
+        # Verify that the stubbers were used correctly
         self.s3_stubber.assert_no_pending_responses()
+        self.textract_stubber.assert_no_pending_responses()
 
     def test_lambda_handler_with_valid_event(self):
         """
@@ -103,8 +133,26 @@ class TestTextExtractorHandler(unittest.TestCase):
             {"Bucket": bucket_name, "Key": file_key},
         )
 
-        # Activate the stubber
+        # Stub the Textract response
+        self.textract_stubber.add_response(
+            "detect_document_text",
+            {
+                "DocumentMetadata": {"Pages": 1},
+                "Blocks": [
+                    {
+                        "BlockType": "LINE",
+                        "Text": "Sample text from PDF.",
+                        "Id": "1",
+                        "Confidence": 99.0,
+                    }
+                ],
+            },
+            {"Document": {"S3Object": {"Bucket": bucket_name, "Name": file_key}}},
+        )
+
+        # Activate the stubbers
         self.s3_stubber.activate()
+        self.textract_stubber.activate()
 
         # Call the lambda handler
         response = lambda_handler(event, {})
@@ -115,8 +163,9 @@ class TestTextExtractorHandler(unittest.TestCase):
         self.assertIn("results", response["body"])
         self.assertEqual(len(response["body"]["results"]), 1)
 
-        # Verify that the stubber was used correctly
+        # Verify that the stubbers were used correctly
         self.s3_stubber.assert_no_pending_responses()
+        self.textract_stubber.assert_no_pending_responses()
 
     def test_lambda_handler_with_non_pdf_file(self):
         """
