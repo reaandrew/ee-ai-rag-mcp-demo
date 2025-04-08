@@ -58,6 +58,7 @@ class TestTextExtractorHandler(unittest.TestCase):
         file_key = "sample.pdf"
         content_length = 12345
         last_modified = datetime.now()
+        job_id = "test-job-id"
 
         # Stub the head_object method to return our test data
         self.s3_stubber.add_response(
@@ -70,10 +71,26 @@ class TestTextExtractorHandler(unittest.TestCase):
             {"Bucket": bucket_name, "Key": file_key},
         )
 
-        # Stub the Textract response
+        # Stub the async Textract API responses
+        # 1. Start async job
         self.textract_stubber.add_response(
-            "detect_document_text",
+            "start_document_text_detection",
+            {"JobId": job_id},
+            {"DocumentLocation": {"S3Object": {"Bucket": bucket_name, "Name": file_key}}},
+        )
+
+        # 2. Check job status
+        self.textract_stubber.add_response(
+            "get_document_text_detection",
+            {"JobStatus": "SUCCEEDED", "DocumentMetadata": {"Pages": 1}},
+            {"JobId": job_id},
+        )
+
+        # 3. Get results
+        self.textract_stubber.add_response(
+            "get_document_text_detection",
             {
+                "JobStatus": "SUCCEEDED",
                 "DocumentMetadata": {"Pages": 1},
                 "Blocks": [
                     {
@@ -84,7 +101,7 @@ class TestTextExtractorHandler(unittest.TestCase):
                     }
                 ],
             },
-            {"Document": {"S3Object": {"Bucket": bucket_name, "Name": file_key}}},
+            {"JobId": job_id},
         )
 
         # Activate the stubbers
@@ -115,6 +132,7 @@ class TestTextExtractorHandler(unittest.TestCase):
         file_key = "sample.pdf"
         content_length = 12345
         last_modified = datetime.now()
+        job_id = "test-job-id"
 
         # Create a mock S3 event
         event = {
@@ -137,10 +155,26 @@ class TestTextExtractorHandler(unittest.TestCase):
             {"Bucket": bucket_name, "Key": file_key},
         )
 
-        # Stub the Textract response
+        # Stub the async Textract API responses
+        # 1. Start async job
         self.textract_stubber.add_response(
-            "detect_document_text",
+            "start_document_text_detection",
+            {"JobId": job_id},
+            {"DocumentLocation": {"S3Object": {"Bucket": bucket_name, "Name": file_key}}},
+        )
+
+        # 2. Check job status
+        self.textract_stubber.add_response(
+            "get_document_text_detection",
+            {"JobStatus": "SUCCEEDED", "DocumentMetadata": {"Pages": 1}},
+            {"JobId": job_id},
+        )
+
+        # 3. Get results
+        self.textract_stubber.add_response(
+            "get_document_text_detection",
             {
+                "JobStatus": "SUCCEEDED",
                 "DocumentMetadata": {"Pages": 1},
                 "Blocks": [
                     {
@@ -151,7 +185,7 @@ class TestTextExtractorHandler(unittest.TestCase):
                     }
                 ],
             },
-            {"Document": {"S3Object": {"Bucket": bucket_name, "Name": file_key}}},
+            {"JobId": job_id},
         )
 
         # Activate the stubbers
@@ -241,17 +275,16 @@ class TestTextExtractorHandler(unittest.TestCase):
         # Verify that the stubber was used correctly
         self.s3_stubber.assert_no_pending_responses()
 
-    def test_extract_text_from_pdf_large_document_fallback(self):
+    def test_extract_text_from_pdf_large_document(self):
         """
-        Test the extract_text_from_pdf function with a large document that
-        requires fallback to async processing.
+        Test the extract_text_from_pdf function with a large document.
         """
         # Define test data
         bucket_name = "test-bucket"
         file_key = "large-sample.pdf"
         content_length = 54321
         last_modified = datetime.now()
-        job_id = "fallback-job-id"
+        job_id = "large-doc-job-id"
 
         # Stub the head_object method to return our test data
         self.s3_stubber.add_response(
@@ -264,16 +297,7 @@ class TestTextExtractorHandler(unittest.TestCase):
             {"Bucket": bucket_name, "Key": file_key},
         )
 
-        # Stub the Textract detect_document_text to raise an InvalidParameterException for page limit
-        self.textract_stubber.add_client_error(
-            "detect_document_text",
-            service_error_code="InvalidParameterException",
-            service_message="Page limit exceeded. The document has more pages than allowed.",
-            http_status_code=400,
-            expected_params={"Document": {"S3Object": {"Bucket": bucket_name, "Name": file_key}}},
-        )
-
-        # Then mock responses for the async process which should be called for fallback
+        # Stub the async Textract API responses
         # 1. Start async job
         self.textract_stubber.add_response(
             "start_document_text_detection",
@@ -418,19 +442,19 @@ class TestTextExtractorHandler(unittest.TestCase):
         # This approach avoids any timing issues in tests
 
         # The current implementation in handler.py uses:
-        # max_tries = 12  # 12 tries
+        # max_tries = 30  # 30 tries
         # wait_seconds = 5  # 5 seconds each
-        # Total timeout = 12 * 5 = 60 seconds
+        # Total timeout = 30 * 5 = 150 seconds
 
         # Create a sample Exception that matches what's raised in the timeout case
-        expected_timeout_seconds = 60
+        expected_timeout_seconds = 150
         timeout_exception = Exception(
-            f"Textract job timed out after {12 * 5} seconds (max timeout: 60 seconds)"
+            f"Textract job timed out after {30 * 5} seconds (max timeout: 150 seconds)"
         )
 
-        # Verify the exception message contains both "timed out" and "60 seconds"
+        # Verify the exception message contains both "timed out" and "150 seconds"
         self.assertIn("timed out", str(timeout_exception))
-        self.assertIn("60 seconds", str(timeout_exception))
+        self.assertIn("150 seconds", str(timeout_exception))
 
         # This test is now simple and doesn't rely on mocking or actual timeouts
         # It verifies that the timeout logic is correctly implemented but doesn't execute it

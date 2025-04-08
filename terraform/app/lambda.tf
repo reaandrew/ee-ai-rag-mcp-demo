@@ -86,7 +86,7 @@ resource "aws_lambda_function" "text_extractor" {
   source_code_hash = data.archive_file.text_extractor_zip.output_base64sha256
   handler          = "handler.lambda_handler"
   runtime          = "python3.9"
-  timeout          = 120  # Increased to 2 minutes to handle async Textract operations
+  timeout          = 180  # Increased to 3 minutes to handle async Textract operations
   memory_size      = 512  # Increased to handle larger documents
 
   environment {

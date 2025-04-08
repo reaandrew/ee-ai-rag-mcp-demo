@@ -32,36 +32,10 @@ def extract_text_from_pdf(bucket_name, file_key):
         # Get the object metadata
         metadata = s3_client.head_object(Bucket=bucket_name, Key=file_key)
 
-        # For PDFs with fewer pages (<=5), we can use the synchronous API
-        # For larger PDFs, use the asynchronous API
-
-        # 1. First try the synchronous API with DetectDocumentText
-        try:
-            logger.info(f"Using synchronous Textract API for {file_key}")
-            response = textract_client.detect_document_text(
-                Document={"S3Object": {"Bucket": bucket_name, "Name": file_key}}
-            )
-
-            # Extract text blocks from the response
-            extracted_text = ""
-            for item in response["Blocks"]:
-                if item["BlockType"] == "LINE":
-                    extracted_text += item["Text"] + "\n"
-
-            page_count = 1  # Synchronous API doesn't provide page count
-
-        except textract_client.exceptions.InvalidParameterException as e:
-            # The PDF may be too large for synchronous processing
-            # Fall back to asynchronous processing
-            error_message = str(e)
-            if "Page limit" in error_message:
-                logger.info(
-                    f"PDF {file_key} is too large for synchronous processing. Using async API."
-                )
-                extracted_text, page_count = process_document_async(bucket_name, file_key)
-            else:
-                logger.error(f"Unhandled InvalidParameterException: {error_message}")
-                raise e
+        # Always use the asynchronous API for PDF processing
+        # Synchronous API doesn't support PDF format
+        logger.info(f"Using asynchronous Textract API for {file_key}")
+        extracted_text, page_count = process_document_async(bucket_name, file_key)
 
         extraction_result = {
             "source": {
@@ -105,7 +79,7 @@ def process_document_async(bucket_name, file_key):
 
     # Wait for the job to complete
     status = "IN_PROGRESS"
-    max_tries = 12  # Adjust for 1 minute timeout (12 * 5 = 60 seconds)
+    max_tries = 30  # Allow up to 2.5 minutes polling time (30 * 5 = 150 seconds)
     wait_seconds = 5
     total_tries = 0
 
@@ -131,7 +105,7 @@ def process_document_async(bucket_name, file_key):
     if total_tries >= max_tries and status == "IN_PROGRESS":
         seconds_waited = total_tries * wait_seconds
         error_msg = f"Textract job timed out after {seconds_waited} seconds "
-        error_msg += "(max timeout: 60 seconds)"
+        error_msg += "(max timeout: 150 seconds)"
         raise Exception(error_msg)
 
     # Get the results
