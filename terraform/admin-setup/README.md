@@ -75,9 +75,10 @@ jobs:
       - uses: actions/checkout@v3
       
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v2
+        uses: aws-actions/configure-aws-credentials@v1
         with:
-          role-to-assume: ${{ secrets.CI_ROLE_ARN }}
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/ee-ai-rag-mcp-demo-ci-role
+          role-session-name: GitHub_AWS_Terraform
           aws-region: eu-west-2
           
       - name: Setup Terraform
