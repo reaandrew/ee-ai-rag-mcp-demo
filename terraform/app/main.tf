@@ -156,5 +156,17 @@ resource "aws_s3_bucket_logging" "raw_pdfs_logging" {
   bucket = aws_s3_bucket.raw_pdfs.id
 
   target_bucket = aws_s3_bucket.logs_bucket.id
-  target_prefix = "s3-access-logs/"
+  target_prefix = "raw-pdfs-logs/"
+}
+
+# Set up logging for the logs bucket itself (logs-of-logs pattern)
+resource "aws_s3_bucket_logging" "logs_bucket_logging" {
+  depends_on = [
+    aws_s3_bucket_policy.logs_bucket_logging_policy
+  ]
+  
+  bucket = aws_s3_bucket.logs_bucket.id
+
+  target_bucket = aws_s3_bucket.logs_bucket.id
+  target_prefix = "logs-bucket-logs/"
 }

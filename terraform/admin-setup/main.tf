@@ -81,6 +81,18 @@ resource "aws_s3_bucket_logging" "terraform_state_logging" {
   target_prefix = "state-bucket-logs/"
 }
 
+# Configure logging for terraform state logs bucket itself (logs-of-logs pattern)
+resource "aws_s3_bucket_logging" "terraform_state_logs_logging" {
+  depends_on = [
+    aws_s3_bucket_policy.terraform_state_logs_logging_policy
+  ]
+  
+  bucket = aws_s3_bucket.terraform_state_logs.id
+
+  target_bucket = aws_s3_bucket.terraform_state_logs.id
+  target_prefix = "logs-bucket-logs/"
+}
+
 # Apply log delivery policy to terraform state logs bucket
 resource "aws_s3_bucket_policy" "terraform_state_logs_logging_policy" {
   depends_on = [
