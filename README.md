@@ -13,8 +13,10 @@ This repository uses SonarQube for quality checks:
 ### Setup Requirements
 
 1. Create a SonarCloud account at https://sonarcloud.io/
-2. Add the following secrets to your GitHub repository:
+2. Create a SonarCloud organization (if you don't have one)
+3. Add the following secrets to your GitHub repository:
    - `SONAR_TOKEN`: Your SonarCloud API token
+4. **Important**: Disable automatic analysis in SonarCloud for this repository
 
 ### Configuration
 

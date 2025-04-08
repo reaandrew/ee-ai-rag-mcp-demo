@@ -42,3 +42,5 @@ jobs:
           args: >
             -Dsonar.organization=${{ github.repository_owner }}
             -Dsonar.projectKey=${{ github.repository_owner }}_${{ github.event.repository.name }}
+            -Dsonar.alm.github.app.enabled=false
+            -Dsonar.pullrequest.provider=github
