@@ -13,6 +13,16 @@ resource "aws_s3_bucket" "terraform_state" {
   }
 }
 
+# Block public access for Terraform state bucket
+resource "aws_s3_bucket_public_access_block" "terraform_state_public_access_block" {
+  bucket = aws_s3_bucket.terraform_state.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
 # Enable versioning for the S3 bucket
 resource "aws_s3_bucket_versioning" "terraform_state_versioning" {
   bucket = aws_s3_bucket.terraform_state.id
@@ -20,6 +30,33 @@ resource "aws_s3_bucket_versioning" "terraform_state_versioning" {
   versioning_configuration {
     status = "Enabled"
   }
+}
+
+# Enforce HTTPS-only access to the Terraform state bucket
+resource "aws_s3_bucket_policy" "terraform_state_https_only" {
+  bucket = aws_s3_bucket.terraform_state.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Id      = "HttpsOnlyPolicy"
+    Statement = [
+      {
+        Sid       = "HttpsOnly"
+        Effect    = "Deny"
+        Principal = "*"
+        Action    = "s3:*"
+        Resource = [
+          aws_s3_bucket.terraform_state.arn,
+          "${aws_s3_bucket.terraform_state.arn}/*",
+        ]
+        Condition = {
+          Bool = {
+            "aws:SecureTransport" = "false"
+          }
+        }
+      },
+    ]
+  })
 }
 
 # Create DynamoDB table for Terraform state locking
