@@ -1,0 +1,24 @@
+{
+  "name": "ee-ai-rag-mcp-demo",
+  "version": "0.0.0-development",
+  "description": "A demo repository with conventional commits and automatic versioning",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"No tests configured\"",
+    "prepare": "husky install"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/ee-ai-rag-mcp-demo.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@commitlint/cli": "^17.6.5",
+    "@commitlint/config-conventional": "^17.6.5",
+    "@semantic-release/git": "^10.0.1",
+    "husky": "^8.0.3",
+    "semantic-release": "^21.0.2"
+  }
+}
