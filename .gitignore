@@ -29,6 +29,15 @@ yarn.lock
 
 # Coverage
 /coverage
+coverage-reports/
+.coverage
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
 
 # Logs
 logs
