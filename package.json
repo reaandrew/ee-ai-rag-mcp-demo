@@ -10,7 +10,7 @@
     "format": "black src tests",
     "build:lambda": "make build-lambda",
     "prepare": "husky install",
-    "sonar": "sonar-scanner"
+    "sonar": "npm run test:coverage && sonar-scanner -Dsonar.python.coverage.reportPaths=coverage-reports/python-coverage.xml"
   },
   "repository": {
     "type": "git",
