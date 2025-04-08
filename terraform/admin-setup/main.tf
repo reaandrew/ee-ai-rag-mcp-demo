@@ -157,9 +157,7 @@ resource "aws_s3_bucket_policy" "terraform_state_logs_policy" {
       {
         Sid    = "HttpsOnly"
         Effect = "Deny"
-        Principal = {
-          "AWS": "*"
-        }
+        Principal = "*"
         Action = "s3:*"
         Resource = [
           aws_s3_bucket.terraform_state_logs.arn,
@@ -185,9 +183,7 @@ resource "aws_s3_bucket_policy" "terraform_state_policy" {
       {
         Sid    = "HttpsOnly"
         Effect = "Deny"
-        Principal = {
-          "AWS": "*"
-        }
+        Principal = "*"
         Action = "s3:*"
         Resource = [
           aws_s3_bucket.terraform_state.arn,
