@@ -56,6 +56,11 @@ resource "aws_s3_bucket_lifecycle_configuration" "raw_pdfs_lifecycle" {
   rule {
     id = "archive-old-versions"
     status = "Enabled"
+    
+    # Add filter block to satisfy the requirement
+    filter {
+      prefix = ""  # Empty prefix means apply to all objects
+    }
 
     noncurrent_version_transition {
       noncurrent_days = 30
@@ -110,6 +115,11 @@ resource "aws_s3_bucket_lifecycle_configuration" "logs_bucket_lifecycle" {
   rule {
     id = "expire-old-logs"
     status = "Enabled"
+    
+    # Add filter block to satisfy the requirement
+    filter {
+      prefix = ""  # Empty prefix means apply to all objects
+    }
 
     expiration {
       days = 90

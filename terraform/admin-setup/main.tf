@@ -91,6 +91,11 @@ resource "aws_s3_bucket_lifecycle_configuration" "terraform_state_logs_lifecycle
   rule {
     id = "expire-old-logs"
     status = "Enabled"
+    
+    # Add filter block to satisfy the requirement
+    filter {
+      prefix = ""  # Empty prefix means apply to all objects
+    }
 
     expiration {
       days = 90
@@ -315,7 +320,7 @@ resource "aws_iam_policy" "app_specific_policy" {
     Version = "2012-10-17"
     Statement = [
       {
-        # CloudWatch Logs permissions
+        # CloudWatch Logs permissions - expanded to include TagResource
         Action = [
           "logs:CreateLogGroup",
           "logs:CreateLogStream",
@@ -323,22 +328,42 @@ resource "aws_iam_policy" "app_specific_policy" {
           "logs:DeleteLogStream",
           "logs:DescribeLogGroups",
           "logs:DescribeLogStreams",
-          "logs:PutLogEvents"
+          "logs:PutLogEvents",
+          "logs:TagResource",
+          "logs:UntagResource",
+          "logs:ListTagsLogGroup"
         ]
         Effect   = "Allow"
         Resource = "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:*"
       },
       {
-        # IAM service role permissions - restricted to specific roles
+        # IAM service role permissions - expanded for CI role
         Action = [
+          "iam:CreateRole",
+          "iam:DeleteRole",
           "iam:GetRole",
-          "iam:PassRole"
+          "iam:PassRole",
+          "iam:TagRole",
+          "iam:ListRolePolicies",
+          "iam:ListAttachedRolePolicies",
+          "iam:CreatePolicy",
+          "iam:DeletePolicy",
+          "iam:GetPolicy",
+          "iam:GetPolicyVersion",
+          "iam:ListPolicyVersions",
+          "iam:AttachRolePolicy",
+          "iam:DetachRolePolicy",
+          "iam:PutRolePolicy",
+          "iam:DeleteRolePolicy"
         ]
         Effect   = "Allow"
-        Resource = "arn:aws:iam::${var.aws_account_id}:role/ee-ai-rag-mcp-demo-*"
+        Resource = [
+          "arn:aws:iam::${var.aws_account_id}:role/ee-ai-rag-mcp-demo-*",
+          "arn:aws:iam::${var.aws_account_id}:policy/ee-ai-rag-mcp-demo-*"
+        ]
       },
       {
-        # Lambda function permissions - restricted to specific functions
+        # Lambda function permissions - expanded to include permissions management
         Action = [
           "lambda:CreateFunction",
           "lambda:DeleteFunction",
@@ -350,10 +375,24 @@ resource "aws_iam_policy" "app_specific_policy" {
           "lambda:PublishVersion",
           "lambda:CreateAlias",
           "lambda:DeleteAlias",
-          "lambda:UpdateAlias"
+          "lambda:UpdateAlias",
+          "lambda:GetPolicy",
+          "lambda:AddPermission",
+          "lambda:RemovePermission",
+          "lambda:TagResource",
+          "lambda:UntagResource",
+          "lambda:ListTags"
         ]
         Effect   = "Allow"
-        Resource = "arn:aws:lambda:${var.aws_region}:${var.aws_account_id}:function:ee-ai-rag-mcp-demo-text-extractor"
+        Resource = "arn:aws:lambda:${var.aws_region}:${var.aws_account_id}:function:ee-ai-rag-mcp-demo-*"
+      },
+      {
+        # Lambda service permissions
+        Action = [
+          "lambda:ListFunctions"
+        ]
+        Effect   = "Allow"
+        Resource = "*"
       },
       {
         # Terraform state bucket permissions
