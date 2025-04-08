@@ -81,8 +81,8 @@ resource "aws_s3_bucket_logging" "terraform_state_logging" {
   target_prefix = "state-bucket-logs/"
 }
 
-# Apply policy to terraform state logs bucket
-resource "aws_s3_bucket_policy" "terraform_state_logs_policy" {
+# Apply log delivery policy to terraform state logs bucket
+resource "aws_s3_bucket_policy" "terraform_state_logs_logging_policy" {
   depends_on = [
     aws_s3_bucket_public_access_block.terraform_state_logs_public_access_block,
     aws_s3_bucket_ownership_controls.terraform_state_logs_ownership
@@ -103,7 +103,24 @@ resource "aws_s3_bucket_policy" "terraform_state_logs_policy" {
         Resource = [
           "${aws_s3_bucket.terraform_state_logs.arn}/*"
         ]
-      },
+      }
+    ]
+  })
+}
+
+# Apply HTTPS-only policy to terraform state logs bucket 
+resource "aws_s3_bucket_policy" "terraform_state_logs_https_policy" {
+  depends_on = [
+    aws_s3_bucket_public_access_block.terraform_state_logs_public_access_block,
+    aws_s3_bucket_ownership_controls.terraform_state_logs_ownership,
+    aws_s3_bucket_policy.terraform_state_logs_logging_policy
+  ]
+  
+  bucket = aws_s3_bucket.terraform_state_logs.id
+  
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
       {
         Sid    = "HttpsOnly"
         Effect = "Deny"
