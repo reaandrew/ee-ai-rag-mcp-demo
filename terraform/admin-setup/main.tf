@@ -131,7 +131,7 @@ resource "aws_s3_bucket_logging" "terraform_state_logging" {
   target_prefix = "state-bucket-logs/"
 }
 
-# Apply combined policy to terraform state logs bucket (logging and HTTPS-only)
+# Apply log delivery policy to terraform state logs bucket
 resource "aws_s3_bucket_policy" "terraform_state_logs_policy" {
   depends_on = [
     aws_s3_bucket_public_access_block.terraform_state_logs_public_access_block,
@@ -153,30 +153,12 @@ resource "aws_s3_bucket_policy" "terraform_state_logs_policy" {
         Resource = [
           "${aws_s3_bucket.terraform_state_logs.arn}/*"
         ]
-      },
-      {
-        Sid    = "HttpsOnly"
-        Effect = "Deny"
-        Principal = {
-          AWS     = "*"
-          Service = "logging.s3.amazonaws.com"
-        }
-        Action = "s3:*"
-        Resource = [
-          aws_s3_bucket.terraform_state_logs.arn,
-          "${aws_s3_bucket.terraform_state_logs.arn}/*"
-        ]
-        Condition = {
-          Bool = {
-            "aws:SecureTransport" = "false"
-          }
-        }
       }
     ]
   })
 }
 
-# Apply policy to terraform state bucket
+# Apply HTTPS-only policy to terraform state bucket
 resource "aws_s3_bucket_policy" "terraform_state_policy" {
   bucket = aws_s3_bucket.terraform_state.id
   
@@ -186,10 +168,7 @@ resource "aws_s3_bucket_policy" "terraform_state_policy" {
       {
         Sid    = "HttpsOnly"
         Effect = "Deny"
-        Principal = {
-          AWS     = "*"
-          Service = "logging.s3.amazonaws.com"
-        }
+        Principal = "*"
         Action = "s3:*"
         Resource = [
           aws_s3_bucket.terraform_state.arn,
@@ -204,6 +183,7 @@ resource "aws_s3_bucket_policy" "terraform_state_policy" {
     ]
   })
 }
+
 
 # Create DynamoDB table for Terraform state locking
 resource "aws_dynamodb_table" "terraform_lock" {

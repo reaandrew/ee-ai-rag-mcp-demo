@@ -138,7 +138,7 @@ resource "aws_s3_bucket_acl" "logs_bucket_acl" {
   acl    = "log-delivery-write"
 }
 
-# Apply combined policy to logs bucket (logging and HTTPS-only)
+# Apply log delivery policy to logs bucket
 resource "aws_s3_bucket_policy" "logs_bucket_policy" {
   # Make sure public access block and ownership are set up first
   depends_on = [
@@ -161,30 +161,12 @@ resource "aws_s3_bucket_policy" "logs_bucket_policy" {
         Resource = [
           "${aws_s3_bucket.logs_bucket.arn}/*"
         ]
-      },
-      {
-        Sid    = "HttpsOnly"
-        Effect = "Deny"
-        Principal = {
-          AWS     = "*"
-          Service = "logging.s3.amazonaws.com"
-        }
-        Action = "s3:*"
-        Resource = [
-          aws_s3_bucket.logs_bucket.arn,
-          "${aws_s3_bucket.logs_bucket.arn}/*"
-        ]
-        Condition = {
-          Bool = {
-            "aws:SecureTransport" = "false"
-          }
-        }
       }
     ]
   })
 }
 
-# Enforce HTTPS-only policy on raw PDFs bucket
+# Apply HTTPS-only policy to raw PDFs bucket
 resource "aws_s3_bucket_policy" "raw_pdfs_policy" {
   bucket = aws_s3_bucket.raw_pdfs.id
   
@@ -192,12 +174,9 @@ resource "aws_s3_bucket_policy" "raw_pdfs_policy" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid    = "HttpsOnly"
+        Sid    = "HttpsOnly" 
         Effect = "Deny"
-        Principal = {
-          AWS     = "*"
-          Service = "logging.s3.amazonaws.com"
-        }
+        Principal = "*"
         Action = "s3:*"
         Resource = [
           aws_s3_bucket.raw_pdfs.arn,
@@ -212,6 +191,7 @@ resource "aws_s3_bucket_policy" "raw_pdfs_policy" {
     ]
   })
 }
+
 
 # Set up logging for the raw PDFs bucket
 resource "aws_s3_bucket_logging" "raw_pdfs_logging" {
