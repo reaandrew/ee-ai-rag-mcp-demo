@@ -5,6 +5,7 @@ provider "aws" {
 # Create S3 bucket for Terraform state
 resource "aws_s3_bucket" "terraform_state" {
   bucket = var.terraform_state_bucket
+  force_destroy = true  # Allow terraform to delete bucket even if it contains objects
 
   tags = {
     Name        = var.terraform_state_bucket
@@ -38,6 +39,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "terraform_state_e
 # Create logging bucket for terraform state
 resource "aws_s3_bucket" "terraform_state_logs" {
   bucket = "${var.terraform_state_bucket}-logs"
+  force_destroy = true  # Allow terraform to delete bucket even if it contains objects
 
   tags = {
     Name        = "${var.terraform_state_bucket}-logs"

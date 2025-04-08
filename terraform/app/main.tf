@@ -1,6 +1,7 @@
 # S3 bucket for storing raw PDFs
 resource "aws_s3_bucket" "raw_pdfs" {
   bucket = var.raw_pdfs_bucket_name
+  force_destroy = true  # Allow terraform to delete bucket even if it contains objects
 
   tags = {
     Environment = var.environment
@@ -10,6 +11,7 @@ resource "aws_s3_bucket" "raw_pdfs" {
 # Enable logging for the raw PDFs bucket
 resource "aws_s3_bucket" "logs_bucket" {
   bucket = "${var.raw_pdfs_bucket_name}-logs"
+  force_destroy = true  # Allow terraform to delete bucket even if it contains objects
 
   tags = {
     Environment = var.environment
