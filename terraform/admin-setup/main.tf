@@ -32,6 +32,17 @@ resource "aws_s3_bucket_versioning" "terraform_state_versioning" {
   }
 }
 
+# Enable default encryption for the terraform state bucket
+resource "aws_s3_bucket_server_side_encryption_configuration" "terraform_state_encryption" {
+  bucket = aws_s3_bucket.terraform_state.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
 # Create logging bucket for terraform state
 resource "aws_s3_bucket" "terraform_state_logs" {
   bucket = "${var.terraform_state_bucket}-logs"
@@ -51,6 +62,40 @@ resource "aws_s3_bucket_public_access_block" "terraform_state_logs_public_access
   block_public_policy     = true
   ignore_public_acls      = true
   restrict_public_buckets = true
+}
+
+# Enable default encryption for the terraform state logs bucket
+resource "aws_s3_bucket_server_side_encryption_configuration" "terraform_state_logs_encryption" {
+  bucket = aws_s3_bucket.terraform_state_logs.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
+# Enable versioning for the terraform state logs bucket
+resource "aws_s3_bucket_versioning" "terraform_state_logs_versioning" {
+  bucket = aws_s3_bucket.terraform_state_logs.id
+  
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+# Configure lifecycle rules for the terraform state logs bucket
+resource "aws_s3_bucket_lifecycle_configuration" "terraform_state_logs_lifecycle" {
+  bucket = aws_s3_bucket.terraform_state_logs.id
+
+  rule {
+    id = "expire-old-logs"
+    status = "Enabled"
+
+    expiration {
+      days = 90
+    }
+  }
 }
 
 # Set ownership controls for logs bucket
@@ -75,26 +120,19 @@ resource "aws_s3_bucket_acl" "terraform_state_logs_acl" {
 
 # Configure logging for terraform state bucket
 resource "aws_s3_bucket_logging" "terraform_state_logging" {
+  depends_on = [
+    aws_s3_bucket_policy.terraform_state_logs_policy,
+    aws_s3_bucket_acl.terraform_state_logs_acl
+  ]
+  
   bucket = aws_s3_bucket.terraform_state.id
 
   target_bucket = aws_s3_bucket.terraform_state_logs.id
   target_prefix = "state-bucket-logs/"
 }
 
-# Configure logging for terraform state logs bucket itself (logs-of-logs pattern)
-resource "aws_s3_bucket_logging" "terraform_state_logs_logging" {
-  depends_on = [
-    aws_s3_bucket_policy.terraform_state_logs_logging_policy
-  ]
-  
-  bucket = aws_s3_bucket.terraform_state_logs.id
-
-  target_bucket = aws_s3_bucket.terraform_state_logs.id
-  target_prefix = "logs-bucket-logs/"
-}
-
-# Apply log delivery policy to terraform state logs bucket
-resource "aws_s3_bucket_policy" "terraform_state_logs_logging_policy" {
+# Apply combined policy to terraform state logs bucket (logging and HTTPS-only)
+resource "aws_s3_bucket_policy" "terraform_state_logs_policy" {
   depends_on = [
     aws_s3_bucket_public_access_block.terraform_state_logs_public_access_block,
     aws_s3_bucket_ownership_controls.terraform_state_logs_ownership
@@ -115,24 +153,7 @@ resource "aws_s3_bucket_policy" "terraform_state_logs_logging_policy" {
         Resource = [
           "${aws_s3_bucket.terraform_state_logs.arn}/*"
         ]
-      }
-    ]
-  })
-}
-
-# Apply HTTPS-only policy to terraform state logs bucket 
-resource "aws_s3_bucket_policy" "terraform_state_logs_https_policy" {
-  depends_on = [
-    aws_s3_bucket_public_access_block.terraform_state_logs_public_access_block,
-    aws_s3_bucket_ownership_controls.terraform_state_logs_ownership,
-    aws_s3_bucket_policy.terraform_state_logs_logging_policy
-  ]
-  
-  bucket = aws_s3_bucket.terraform_state_logs.id
-  
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
+      },
       {
         Sid    = "HttpsOnly"
         Effect = "Deny"
