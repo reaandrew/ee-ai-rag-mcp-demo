@@ -7,3 +7,75 @@ resource "aws_s3_bucket" "raw_pdfs" {
     Version     = var.app_version
   }
 }
+
+# Enable logging for the raw PDFs bucket
+resource "aws_s3_bucket" "logs_bucket" {
+  bucket = "${var.raw_pdfs_bucket_name}-logs"
+
+  tags = {
+    Environment = var.environment
+    Version     = var.app_version
+    Description = "Logging bucket for ${var.raw_pdfs_bucket_name}"
+  }
+}
+
+# Grant log delivery permissions to the logs bucket
+resource "aws_s3_bucket_acl" "logs_bucket_acl" {
+  bucket = aws_s3_bucket.logs_bucket.id
+  acl    = "log-delivery-write"
+}
+
+# Set up logging for the raw PDFs bucket
+resource "aws_s3_bucket_logging" "raw_pdfs_logging" {
+  bucket = aws_s3_bucket.raw_pdfs.id
+
+  target_bucket = aws_s3_bucket.logs_bucket.id
+  target_prefix = "s3-access-logs/"
+}
+
+# Block public access for the raw PDFs bucket
+resource "aws_s3_bucket_public_access_block" "raw_pdfs_public_access_block" {
+  bucket = aws_s3_bucket.raw_pdfs.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+# Block public access for the logs bucket
+resource "aws_s3_bucket_public_access_block" "logs_bucket_public_access_block" {
+  bucket = aws_s3_bucket.logs_bucket.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+# Enforce HTTPS-only access to the raw PDFs bucket
+resource "aws_s3_bucket_policy" "raw_pdfs_https_only" {
+  bucket = aws_s3_bucket.raw_pdfs.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Id      = "HttpsOnlyPolicy"
+    Statement = [
+      {
+        Sid       = "HttpsOnly"
+        Effect    = "Deny"
+        Principal = "*"
+        Action    = "s3:*"
+        Resource = [
+          aws_s3_bucket.raw_pdfs.arn,
+          "${aws_s3_bucket.raw_pdfs.arn}/*",
+        ]
+        Condition = {
+          Bool = {
+            "aws:SecureTransport" = "false"
+          }
+        }
+      },
+    ]
+  })
+}

@@ -155,14 +155,7 @@ resource "aws_iam_policy" "app_specific_policy" {
           "logs:DescribeLogStreams",
           "logs:PutLogEvents",
           
-          # CloudFormation for Terraform
-          "cloudformation:DescribeStacks",
-          "cloudformation:ListStacks",
-          "cloudformation:CreateStack",
-          "cloudformation:DeleteStack",
-          "cloudformation:DescribeStackEvents",
-          "cloudformation:UpdateStack",
-          "cloudformation:GetTemplate"
+          # Other AWS service permissions can be added here as needed
         ]
         Effect   = "Allow"
         Resource = "*"
