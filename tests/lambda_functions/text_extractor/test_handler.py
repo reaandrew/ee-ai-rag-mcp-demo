@@ -160,6 +160,74 @@ class TestTextExtractorHandler(unittest.TestCase):
         self.assertIn("message", response["body"])
         self.assertIn("results", response["body"])
         self.assertEqual(len(response["body"]["results"]), 0)
+        
+    def test_extract_text_from_pdf_exception(self):
+        """
+        Test the extract_text_from_pdf function when an exception occurs.
+        """
+        # Define test data
+        bucket_name = "test-bucket"
+        file_key = "sample.pdf"
+        
+        # Make the S3 client raise an exception when head_object is called
+        self.s3_stubber.add_client_error(
+            "head_object",
+            service_error_code="NoSuchKey",
+            service_message="The specified key does not exist.",
+            http_status_code=404,
+            expected_params={"Bucket": bucket_name, "Key": file_key}
+        )
+        
+        # Activate the stubber
+        self.s3_stubber.activate()
+        
+        # Call the function and expect an exception
+        with self.assertRaises(Exception):
+            extract_text_from_pdf(bucket_name, file_key)
+            
+        # Verify that the stubber was used correctly
+        self.s3_stubber.assert_no_pending_responses()
+        
+    def test_lambda_handler_with_exception(self):
+        """
+        Test the lambda_handler function when an exception occurs.
+        """
+        # Define test data
+        bucket_name = "test-bucket"
+        file_key = "sample.pdf"
+        
+        # Create a mock S3 event
+        event = {
+            "Records": [
+                {
+                    "eventSource": "aws:s3",
+                    "s3": {"bucket": {"name": bucket_name}, "object": {"key": file_key}},
+                }
+            ]
+        }
+        
+        # Make the S3 client raise an exception when head_object is called
+        self.s3_stubber.add_client_error(
+            "head_object",
+            service_error_code="NoSuchKey",
+            service_message="The specified key does not exist.",
+            http_status_code=404,
+            expected_params={"Bucket": bucket_name, "Key": file_key}
+        )
+        
+        # Activate the stubber
+        self.s3_stubber.activate()
+        
+        # Call the lambda handler
+        response = lambda_handler(event, {})
+        
+        # Verify the response
+        self.assertEqual(response["statusCode"], 500)
+        self.assertIn("message", response["body"])
+        self.assertIn("Error extracting text from PDFs", response["body"]["message"])
+        
+        # Verify that the stubber was used correctly
+        self.s3_stubber.assert_no_pending_responses()
 
 
 if __name__ == "__main__":
