@@ -4,7 +4,6 @@ resource "aws_s3_bucket" "raw_pdfs" {
 
   tags = {
     Environment = var.environment
-    Version     = var.app_version
   }
 }
 
@@ -14,7 +13,6 @@ resource "aws_s3_bucket" "logs_bucket" {
 
   tags = {
     Environment = var.environment
-    Version     = var.app_version
     Description = "Logging bucket for ${var.raw_pdfs_bucket_name}"
   }
 }
@@ -40,12 +38,12 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "raw_pdfs_encrypti
   }
 }
 
-# Enable versioning for the raw PDFs bucket
+# Suspend versioning for the raw PDFs bucket
 resource "aws_s3_bucket_versioning" "raw_pdfs_versioning" {
   bucket = aws_s3_bucket.raw_pdfs.id
   
   versioning_configuration {
-    status = "Enabled"
+    status = "Suspended"
   }
 }
 
@@ -54,7 +52,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "raw_pdfs_lifecycle" {
   bucket = aws_s3_bucket.raw_pdfs.id
 
   rule {
-    id = "archive-old-versions"
+    id = "archive-old-objects"
     status = "Enabled"
     
     # Add filter block to satisfy the requirement
@@ -62,18 +60,18 @@ resource "aws_s3_bucket_lifecycle_configuration" "raw_pdfs_lifecycle" {
       prefix = ""  # Empty prefix means apply to all objects
     }
 
-    noncurrent_version_transition {
-      noncurrent_days = 30
-      storage_class   = "STANDARD_IA"
+    transition {
+      days          = 30
+      storage_class = "STANDARD_IA"
     }
 
-    noncurrent_version_transition {
-      noncurrent_days = 90
-      storage_class   = "GLACIER"
+    transition {
+      days          = 90
+      storage_class = "GLACIER"
     }
 
-    noncurrent_version_expiration {
-      noncurrent_days = 365
+    expiration {
+      days = 365
     }
   }
 }
@@ -99,12 +97,12 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "logs_bucket_encry
   }
 }
 
-# Enable versioning for the logs bucket
+# Suspend versioning for the logs bucket
 resource "aws_s3_bucket_versioning" "logs_bucket_versioning" {
   bucket = aws_s3_bucket.logs_bucket.id
   
   versioning_configuration {
-    status = "Enabled"
+    status = "Suspended"
   }
 }
 

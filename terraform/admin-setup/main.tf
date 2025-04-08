@@ -23,12 +23,12 @@ resource "aws_s3_bucket_public_access_block" "terraform_state_public_access_bloc
   restrict_public_buckets = true
 }
 
-# Enable versioning for the S3 bucket
+# Suspend versioning for the S3 bucket
 resource "aws_s3_bucket_versioning" "terraform_state_versioning" {
   bucket = aws_s3_bucket.terraform_state.id
   
   versioning_configuration {
-    status = "Enabled"
+    status = "Suspended"
   }
 }
 
@@ -75,12 +75,12 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "terraform_state_l
   }
 }
 
-# Enable versioning for the terraform state logs bucket
+# Suspend versioning for the terraform state logs bucket
 resource "aws_s3_bucket_versioning" "terraform_state_logs_versioning" {
   bucket = aws_s3_bucket.terraform_state_logs.id
   
   versioning_configuration {
-    status = "Enabled"
+    status = "Suspended"
   }
 }
 
@@ -92,7 +92,6 @@ resource "aws_s3_bucket_lifecycle_configuration" "terraform_state_logs_lifecycle
     id = "expire-old-logs"
     status = "Enabled"
     
-    # Add filter block to satisfy the requirement
     filter {
       prefix = ""  # Empty prefix means apply to all objects
     }
@@ -310,7 +309,7 @@ resource "aws_iam_policy" "app_specific_policy" {
     Version = "2012-10-17"
     Statement = [
       {
-        # CloudWatch Logs permissions - expanded to include TagResource
+        # CloudWatch Logs permissions - expanded to include TagResource and PutRetentionPolicy
         Action = [
           "logs:CreateLogGroup",
           "logs:CreateLogStream",
@@ -321,7 +320,8 @@ resource "aws_iam_policy" "app_specific_policy" {
           "logs:PutLogEvents",
           "logs:TagResource",
           "logs:UntagResource",
-          "logs:ListTagsLogGroup"
+          "logs:ListTagsLogGroup",
+          "logs:PutRetentionPolicy"
         ]
         Effect   = "Allow"
         Resource = "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:*"
@@ -344,7 +344,8 @@ resource "aws_iam_policy" "app_specific_policy" {
           "iam:AttachRolePolicy",
           "iam:DetachRolePolicy",
           "iam:PutRolePolicy",
-          "iam:DeleteRolePolicy"
+          "iam:DeleteRolePolicy",
+          "iam:TagPolicy"
         ]
         Effect   = "Allow"
         Resource = [
@@ -371,7 +372,8 @@ resource "aws_iam_policy" "app_specific_policy" {
           "lambda:RemovePermission",
           "lambda:TagResource",
           "lambda:UntagResource",
-          "lambda:ListTags"
+          "lambda:ListTags",
+          "lambda:GetFunctionCodeSigningConfig"
         ]
         Effect   = "Allow"
         Resource = "arn:aws:lambda:${var.aws_region}:${var.aws_account_id}:function:ee-ai-rag-mcp-demo-*"

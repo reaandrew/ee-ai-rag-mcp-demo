@@ -49,6 +49,16 @@ resource "aws_iam_policy" "text_extractor_policy" {
           aws_s3_bucket.raw_pdfs.arn,
           "${aws_s3_bucket.raw_pdfs.arn}/*"
         ]
+      },
+      {
+        Action = [
+          "textract:DetectDocumentText",
+          "textract:AnalyzeDocument",
+          "textract:StartDocumentTextDetection",
+          "textract:GetDocumentTextDetection"
+        ]
+        Effect   = "Allow"
+        Resource = "*"
       }
     ]
   })
@@ -76,8 +86,8 @@ resource "aws_lambda_function" "text_extractor" {
   source_code_hash = data.archive_file.text_extractor_zip.output_base64sha256
   handler          = "handler.lambda_handler"
   runtime          = "python3.9"
-  timeout          = 30
-  memory_size      = 256
+  timeout          = 120  # Increased to 2 minutes to handle async Textract operations
+  memory_size      = 512  # Increased to handle larger documents
 
   environment {
     variables = {
