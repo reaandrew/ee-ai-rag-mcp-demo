@@ -169,6 +169,16 @@ resource "aws_iam_policy" "app_specific_policy" {
           "s3:ListBucketVersions",
           "s3:PutObjectTagging",
           "s3:GetObjectTagging",
+          "s3:GetBucketAcl",
+          "s3:PutBucketAcl",
+          "s3:GetObjectAcl", 
+          "s3:PutObjectAcl",
+          "s3:GetBucketVersioning",
+          "s3:PutBucketVersioning",
+          "s3:GetBucketOwnershipControls",
+          "s3:PutBucketOwnershipControls",
+          "s3:GetBucketPublicAccessBlock",
+          "s3:PutBucketPublicAccessBlock",
           
           # CloudFormation for Terraform
           "cloudformation:DescribeStacks",
