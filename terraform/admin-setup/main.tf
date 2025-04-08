@@ -179,6 +179,9 @@ resource "aws_iam_policy" "app_specific_policy" {
           "s3:PutBucketOwnershipControls",
           "s3:GetBucketPublicAccessBlock",
           "s3:PutBucketPublicAccessBlock",
+          "s3:GetBucketCors",
+          "s3:PutBucketCors",
+          "s3:DeleteBucketCors",
           
           # CloudFormation for Terraform
           "cloudformation:DescribeStacks",
