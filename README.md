@@ -8,6 +8,7 @@ This repository uses SonarQube for quality checks:
 
 1. **PR Quality Gate**: Runs SonarQube analysis on all PRs to the main branch
 2. **Main Branch Quality Gate**: Runs analysis after merges to main
+3. **Release Protection**: Version tags are only created if SonarQube checks pass
 
 ### Setup Requirements
 
