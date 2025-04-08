@@ -4,14 +4,9 @@ from unittest import mock
 from datetime import datetime
 import boto3
 from botocore.stub import Stubber
-import sys
-import os
-
-# Add the src directory to the Python path so we can import the Lambda function code
-sys.path.append(os.path.join(os.path.dirname(__file__), '../../../'))
 
 # Import the Lambda handler
-from src.lambda.text_extractor.handler import lambda_handler, extract_text_from_pdf
+from src.lambda_functions.text_extractor.handler import lambda_handler, extract_text_from_pdf
 
 class TestTextExtractorHandler(unittest.TestCase):
     """
@@ -26,10 +21,9 @@ class TestTextExtractorHandler(unittest.TestCase):
         self.s3_client = boto3.client('s3', region_name='us-east-1')
         self.s3_stubber = Stubber(self.s3_client)
         
-        # Create a patcher for the boto3 client
-        self.s3_client_patch = mock.patch('boto3.client')
-        self.mock_s3_client = self.s3_client_patch.start()
-        self.mock_s3_client.return_value = self.s3_client
+        # Create a patcher for the boto3 client within the handler module
+        self.s3_client_patch = mock.patch('src.lambda_functions.text_extractor.handler.s3_client', self.s3_client)
+        self.s3_client_patch.start()
         
     def tearDown(self):
         """

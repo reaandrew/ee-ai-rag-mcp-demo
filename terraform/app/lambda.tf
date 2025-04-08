@@ -63,7 +63,7 @@ resource "aws_iam_role_policy_attachment" "text_extractor_attachment" {
 # Package the Lambda function
 data "archive_file" "text_extractor_zip" {
   type        = "zip"
-  source_dir  = "${path.module}/../../src/lambda/text_extractor"
+  source_dir  = "${path.module}/../../src/lambda_functions/text_extractor"
   output_path = "${path.module}/../../build/text-extractor.zip"
 }
 

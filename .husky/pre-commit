@@ -1,5 +1,6 @@
 #!/usr/bin/env sh
 . "$(dirname -- "$0")/_/husky.sh"
 
-# Run linting before committing
+# Run linting and tests before committing
 npm run lint --if-present
+npm run test --if-present

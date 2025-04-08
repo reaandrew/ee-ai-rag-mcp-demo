@@ -1,0 +1,7 @@
+organization=reaandrew
+projectKey=reaandrew_ee-ai-rag-mcp-demo
+serverUrl=https://sonarcloud.io
+serverVersion=8.0.0.61643
+dashboardUrl=https://sonarcloud.io/dashboard?id=reaandrew_ee-ai-rag-mcp-demo
+ceTaskId=AZYVK-qBa3PmsnjCt_jo
+ceTaskUrl=https://sonarcloud.io/api/ce/task?id=AZYVK-qBa3PmsnjCt_jo
