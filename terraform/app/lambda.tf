@@ -155,10 +155,28 @@ resource "aws_iam_role_policy_attachment" "text_chunker_attachment" {
   policy_arn = aws_iam_policy.text_chunker_policy.arn
 }
 
-# Reference the pre-built Lambda packages
-locals {
-  text_extractor_zip_path = "${path.module}/../../build/text-extractor.zip"
-  text_chunker_zip_path   = "${path.module}/../../build/text-chunker.zip"
+# Package the text_extractor Lambda function
+data "archive_file" "text_extractor_zip" {
+  type        = "zip"
+  source_dir  = "${path.module}/../../src/lambda_functions/text_extractor"
+  output_path = "${path.module}/../../build/text-extractor.zip"
+}
+
+# Package the text_chunker Lambda function
+data "archive_file" "text_chunker_zip" {
+  type        = "zip"
+  source_dir  = "${path.module}/../../src/lambda_functions/text_chunker"
+  output_path = "${path.module}/../../build/text-chunker.zip"
+}
+
+# Lambda layer for text chunker dependencies
+resource "aws_lambda_layer_version" "text_chunker_layer" {
+  layer_name = "ee-ai-rag-mcp-demo-text-chunker-layer"
+  filename   = "${path.module}/../../build/text-chunker-layer.zip"
+  source_code_hash = filebase64sha256("${path.module}/../../build/text-chunker-layer.zip")
+
+  compatible_runtimes = ["python3.9"]
+  description = "Layer containing dependencies for text_chunker Lambda function"
 }
 
 # Create the Lambda function
@@ -166,8 +184,8 @@ resource "aws_lambda_function" "text_extractor" {
   function_name    = "ee-ai-rag-mcp-demo-text-extractor"
   description      = "Extracts text from uploaded PDF files"
   role             = aws_iam_role.text_extractor_role.arn
-  filename         = local.text_extractor_zip_path
-  source_code_hash = filebase64sha256(local.text_extractor_zip_path)
+  filename         = data.archive_file.text_extractor_zip.output_path
+  source_code_hash = data.archive_file.text_extractor_zip.output_base64sha256
   handler          = "handler.lambda_handler"
   runtime          = "python3.9"
   timeout          = 180  # Increased to 3 minutes to handle async Textract operations
@@ -227,12 +245,13 @@ resource "aws_lambda_function" "text_chunker" {
   function_name    = "ee-ai-rag-mcp-demo-text-chunker"
   description      = "Chunks extracted text from text files for RAG applications"
   role             = aws_iam_role.text_chunker_role.arn
-  filename         = local.text_chunker_zip_path
-  source_code_hash = filebase64sha256(local.text_chunker_zip_path)
+  filename         = data.archive_file.text_chunker_zip.output_path
+  source_code_hash = data.archive_file.text_chunker_zip.output_base64sha256
   handler          = "handler.lambda_handler"
   runtime          = "python3.9"
   timeout          = 60   # 1 minute timeout for processing text files
   memory_size      = 256  # 256MB for text chunking
+  layers           = [aws_lambda_layer_version.text_chunker_layer.arn]
 
   environment {
     variables = {

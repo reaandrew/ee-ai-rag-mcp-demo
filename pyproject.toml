@@ -13,5 +13,22 @@ exclude = '''
   | buck-out
   | build
   | dist
+  | src/lambda_functions/.*/dependencies
 )/
 '''
+
+[tool.coverage.run]
+source = ["src/lambda_functions"]
+omit = [
+    "src/lambda_functions/*/dependencies/**"
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "pass",
+    "raise ImportError"
+]

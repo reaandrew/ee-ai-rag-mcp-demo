@@ -27,6 +27,11 @@ yarn.lock
 /.next
 /.nuxt
 
+# Lambda dependencies
+src/lambda_functions/*/dependencies/
+include/
+run_tests.sh
+
 # Coverage
 /coverage
 coverage-reports/

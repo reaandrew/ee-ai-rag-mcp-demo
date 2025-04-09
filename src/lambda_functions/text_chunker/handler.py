@@ -3,7 +3,7 @@ import boto3
 import logging
 import os
 from urllib.parse import unquote_plus
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 # Set up logging
 logger = logging.getLogger()

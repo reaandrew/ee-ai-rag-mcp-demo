@@ -4,14 +4,15 @@
   "description": "A demo repository with conventional commits and automatic versioning",
   "main": "index.js",
   "scripts": {
-    "test": "pytest",
+    "test": "python -m pytest --cov-config=.coveragerc --cov --cov-report=term",
     "test:coverage": "pytest --cov=src --cov-report=xml:coverage-reports/python-coverage.xml --cov-report=term",
     "check:coverage": "node .husky/check-coverage.js",
     "lint": "flake8 src && black --check src tests",
     "format": "black src tests",
     "build:lambda": "chmod +x ./build_lambda.sh && make build-lambda",
     "prepare": "husky install",
-    "sonar": "npm run test:coverage && sonar-scanner -Dsonar.python.coverage.reportPaths=coverage-reports/python-coverage.xml"
+    "sonar": "npm run test:coverage && sonar-scanner -Dsonar.python.coverage.reportPaths=coverage-reports/python-coverage.xml",
+    "test:focused": "python -m pytest tests --cov=src/lambda_functions/text_chunker/handler.py --cov=src/lambda_functions/text_extractor/handler.py --cov-report=term"
   },
   "repository": {
     "type": "git",

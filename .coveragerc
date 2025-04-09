@@ -1,0 +1,15 @@
+[run]
+include =
+    src/lambda_functions/text_chunker/handler.py
+    src/lambda_functions/text_chunker/__init__.py
+    src/lambda_functions/text_extractor/handler.py
+    src/lambda_functions/text_extractor/__init__.py
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    pass
+    raise ImportError
