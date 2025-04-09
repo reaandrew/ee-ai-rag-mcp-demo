@@ -22,6 +22,18 @@ variable "raw_pdfs_bucket_name" {
   default     = "ee-ai-rag-mcp-demo-raw-pdfs"
 }
 
+variable "extracted_text_bucket_name" {
+  description = "Name of the S3 bucket for storing extracted text"
+  type        = string
+  default     = "extracted-text"
+}
+
+variable "extracted_text_prefix" {
+  description = "Prefix for objects in the extracted text bucket"
+  type        = string
+  default     = "ee-ai-rag-mcp-demo"
+}
+
 variable "app_version" {
   description = "The application version being deployed"
   type        = string

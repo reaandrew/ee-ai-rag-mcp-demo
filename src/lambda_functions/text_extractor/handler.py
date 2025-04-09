@@ -2,6 +2,8 @@ import json
 import boto3
 import logging
 import time
+import os
+import re
 from urllib.parse import unquote_plus
 
 # Set up logging
@@ -13,6 +15,11 @@ logger.setLevel(logging.INFO)
 default_region = "eu-west-2"  # Match the region in Terraform config
 s3_client = boto3.client("s3", region_name=default_region)
 textract_client = boto3.client("textract", region_name=default_region)
+
+# Get environment variables
+EXTRACTED_TEXT_BUCKET = os.environ.get("EXTRACTED_TEXT_BUCKET", "extracted-text")
+EXTRACTED_TEXT_PREFIX = os.environ.get("EXTRACTED_TEXT_PREFIX", "ee-ai-rag-mcp-demo")
+DELETE_ORIGINAL_PDF = os.environ.get("DELETE_ORIGINAL_PDF", "true").lower() == "true"
 
 
 def extract_text_from_pdf(bucket_name, file_key):
@@ -37,6 +44,25 @@ def extract_text_from_pdf(bucket_name, file_key):
         logger.info(f"Using asynchronous Textract API for {file_key}")
         extracted_text, page_count = process_document_async(bucket_name, file_key)
 
+        # Save the extracted text to the destination bucket
+        # Create the target key by replacing the .pdf extension with .txt
+        filename = os.path.basename(file_key)
+        txt_filename = re.sub(r"\.pdf$", ".txt", filename, flags=re.IGNORECASE)
+        target_key = f"{EXTRACTED_TEXT_PREFIX}/{txt_filename}"
+
+        logger.info(f"Saving extracted text to {EXTRACTED_TEXT_BUCKET}/{target_key}")
+        s3_client.put_object(
+            Bucket=EXTRACTED_TEXT_BUCKET,
+            Key=target_key,
+            Body=extracted_text,
+            ContentType="text/plain",
+        )
+
+        # Delete the original PDF if configured to do so
+        if DELETE_ORIGINAL_PDF:
+            logger.info(f"Deleting original PDF from {bucket_name}/{file_key}")
+            s3_client.delete_object(Bucket=bucket_name, Key=file_key)
+
         extraction_result = {
             "source": {
                 "bucket": bucket_name,
@@ -45,9 +71,16 @@ def extract_text_from_pdf(bucket_name, file_key):
                 "last_modified": str(metadata.get("LastModified", "")),
                 "content_type": metadata.get("ContentType", "application/pdf"),
             },
+            "output": {
+                "bucket": EXTRACTED_TEXT_BUCKET,
+                "file_key": target_key,
+                "size_bytes": len(extracted_text),
+                "content_type": "text/plain",
+            },
             "extracted_text": extracted_text,
             "page_count": page_count,
             "status": "success",
+            "original_deleted": DELETE_ORIGINAL_PDF,
         }
 
         logger.info(f"Successfully extracted text from {file_key}")

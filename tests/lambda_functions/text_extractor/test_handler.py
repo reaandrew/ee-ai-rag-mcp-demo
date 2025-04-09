@@ -4,12 +4,16 @@ from unittest import mock
 from datetime import datetime
 import boto3
 from botocore.stub import Stubber
+import os
 
 # Import the Lambda handler
 from src.lambda_functions.text_extractor.handler import (
     lambda_handler,
     extract_text_from_pdf,
     process_document_async,
+    EXTRACTED_TEXT_BUCKET,
+    EXTRACTED_TEXT_PREFIX,
+    DELETE_ORIGINAL_PDF,
 )
 
 
@@ -59,6 +63,7 @@ class TestTextExtractorHandler(unittest.TestCase):
         content_length = 12345
         last_modified = datetime.now()
         job_id = "test-job-id"
+        extracted_text = "Sample text from PDF."
 
         # Stub the head_object method to return our test data
         self.s3_stubber.add_response(
@@ -95,7 +100,7 @@ class TestTextExtractorHandler(unittest.TestCase):
                 "Blocks": [
                     {
                         "BlockType": "LINE",
-                        "Text": "Sample text from PDF.",
+                        "Text": extracted_text,
                         "Id": "1",
                         "Confidence": 99.0,
                     }
@@ -103,6 +108,28 @@ class TestTextExtractorHandler(unittest.TestCase):
             },
             {"JobId": job_id},
         )
+
+        # Stub the put_object method for saving the extracted text
+        txt_filename = "sample.txt"
+        target_key = f"{EXTRACTED_TEXT_PREFIX}/{txt_filename}"
+        self.s3_stubber.add_response(
+            "put_object",
+            {},
+            {
+                "Bucket": EXTRACTED_TEXT_BUCKET,
+                "Key": target_key,
+                "Body": extracted_text + "\n",
+                "ContentType": "text/plain",
+            },
+        )
+
+        # Stub the delete_object method for the original PDF if DELETE_ORIGINAL_PDF is True
+        if DELETE_ORIGINAL_PDF:
+            self.s3_stubber.add_response(
+                "delete_object",
+                {},
+                {"Bucket": bucket_name, "Key": file_key},
+            )
 
         # Activate the stubbers
         self.s3_stubber.activate()
@@ -119,6 +146,15 @@ class TestTextExtractorHandler(unittest.TestCase):
         self.assertIn("Sample text from PDF.", result["extracted_text"])
         self.assertEqual(result["status"], "success")
 
+        # Verify output information
+        self.assertIn("output", result)
+        self.assertEqual(result["output"]["bucket"], EXTRACTED_TEXT_BUCKET)
+        self.assertEqual(result["output"]["file_key"], target_key)
+        self.assertEqual(result["output"]["content_type"], "text/plain")
+
+        # Verify deletion status
+        self.assertEqual(result["original_deleted"], DELETE_ORIGINAL_PDF)
+
         # Verify that the stubbers were used correctly
         self.s3_stubber.assert_no_pending_responses()
         self.textract_stubber.assert_no_pending_responses()
@@ -133,6 +169,7 @@ class TestTextExtractorHandler(unittest.TestCase):
         content_length = 12345
         last_modified = datetime.now()
         job_id = "test-job-id"
+        extracted_text = "Sample text from PDF."
 
         # Create a mock S3 event
         event = {
@@ -179,7 +216,7 @@ class TestTextExtractorHandler(unittest.TestCase):
                 "Blocks": [
                     {
                         "BlockType": "LINE",
-                        "Text": "Sample text from PDF.",
+                        "Text": extracted_text,
                         "Id": "1",
                         "Confidence": 99.0,
                     }
@@ -187,6 +224,28 @@ class TestTextExtractorHandler(unittest.TestCase):
             },
             {"JobId": job_id},
         )
+
+        # Stub the put_object method for saving the extracted text
+        txt_filename = "sample.txt"
+        target_key = f"{EXTRACTED_TEXT_PREFIX}/{txt_filename}"
+        self.s3_stubber.add_response(
+            "put_object",
+            {},
+            {
+                "Bucket": EXTRACTED_TEXT_BUCKET,
+                "Key": target_key,
+                "Body": extracted_text + "\n",
+                "ContentType": "text/plain",
+            },
+        )
+
+        # Stub the delete_object method for the original PDF if DELETE_ORIGINAL_PDF is True
+        if DELETE_ORIGINAL_PDF:
+            self.s3_stubber.add_response(
+                "delete_object",
+                {},
+                {"Bucket": bucket_name, "Key": file_key},
+            )
 
         # Activate the stubbers
         self.s3_stubber.activate()
@@ -200,6 +259,15 @@ class TestTextExtractorHandler(unittest.TestCase):
         self.assertIn("message", response["body"])
         self.assertIn("results", response["body"])
         self.assertEqual(len(response["body"]["results"]), 1)
+
+        # Verify the saved output details
+        result = response["body"]["results"][0]
+        self.assertIn("output", result)
+        self.assertEqual(result["output"]["bucket"], EXTRACTED_TEXT_BUCKET)
+        self.assertEqual(result["output"]["file_key"], target_key)
+
+        # Verify deletion status
+        self.assertEqual(result["original_deleted"], DELETE_ORIGINAL_PDF)
 
         # Verify that the stubbers were used correctly
         self.s3_stubber.assert_no_pending_responses()
@@ -285,6 +353,7 @@ class TestTextExtractorHandler(unittest.TestCase):
         content_length = 54321
         last_modified = datetime.now()
         job_id = "large-doc-job-id"
+        extracted_text = "Large document text from multiple pages."
 
         # Stub the head_object method to return our test data
         self.s3_stubber.add_response(
@@ -321,7 +390,7 @@ class TestTextExtractorHandler(unittest.TestCase):
                 "Blocks": [
                     {
                         "BlockType": "LINE",
-                        "Text": "Large document text from multiple pages.",
+                        "Text": extracted_text,
                         "Id": "1",
                         "Confidence": 95.0,
                     }
@@ -330,6 +399,28 @@ class TestTextExtractorHandler(unittest.TestCase):
             },
             {"JobId": job_id},
         )
+
+        # Stub the put_object method for saving the extracted text
+        txt_filename = "large-sample.txt"
+        target_key = f"{EXTRACTED_TEXT_PREFIX}/{txt_filename}"
+        self.s3_stubber.add_response(
+            "put_object",
+            {},
+            {
+                "Bucket": EXTRACTED_TEXT_BUCKET,
+                "Key": target_key,
+                "Body": extracted_text + "\n",
+                "ContentType": "text/plain",
+            },
+        )
+
+        # Stub the delete_object method for the original PDF if DELETE_ORIGINAL_PDF is True
+        if DELETE_ORIGINAL_PDF:
+            self.s3_stubber.add_response(
+                "delete_object",
+                {},
+                {"Bucket": bucket_name, "Key": file_key},
+            )
 
         # Activate the stubbers
         self.s3_stubber.activate()
@@ -346,6 +437,15 @@ class TestTextExtractorHandler(unittest.TestCase):
         self.assertIn("Large document text from multiple pages.", result["extracted_text"])
         self.assertEqual(result["status"], "success")
         self.assertEqual(result["page_count"], 6)  # Should get the page count from async process
+
+        # Verify output information
+        self.assertIn("output", result)
+        self.assertEqual(result["output"]["bucket"], EXTRACTED_TEXT_BUCKET)
+        self.assertEqual(result["output"]["file_key"], target_key)
+        self.assertEqual(result["output"]["content_type"], "text/plain")
+
+        # Verify deletion status
+        self.assertEqual(result["original_deleted"], DELETE_ORIGINAL_PDF)
 
         # Verify that the stubbers were used correctly
         self.s3_stubber.assert_no_pending_responses()

@@ -42,12 +42,24 @@ resource "aws_iam_policy" "text_extractor_policy" {
         Action = [
           "s3:GetObject",
           "s3:HeadObject",
-          "s3:ListBucket"
+          "s3:ListBucket",
+          "s3:DeleteObject"  # Permission to delete original PDF
         ]
         Effect = "Allow"
         Resource = [
           aws_s3_bucket.raw_pdfs.arn,
           "${aws_s3_bucket.raw_pdfs.arn}/*"
+        ]
+      },
+      {
+        Action = [
+          "s3:PutObject",    # Permission to write to extracted text bucket
+          "s3:ListBucket"
+        ]
+        Effect = "Allow"
+        Resource = [
+          aws_s3_bucket.extracted_text.arn,
+          "${aws_s3_bucket.extracted_text.arn}/*"
         ]
       },
       {
@@ -91,7 +103,10 @@ resource "aws_lambda_function" "text_extractor" {
 
   environment {
     variables = {
-      ENVIRONMENT = var.environment
+      ENVIRONMENT = var.environment,
+      EXTRACTED_TEXT_BUCKET = var.extracted_text_bucket_name,
+      EXTRACTED_TEXT_PREFIX = var.extracted_text_prefix,
+      DELETE_ORIGINAL_PDF = "true"
     }
   }
 

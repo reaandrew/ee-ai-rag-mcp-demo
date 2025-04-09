@@ -8,6 +8,16 @@ resource "aws_s3_bucket" "raw_pdfs" {
   }
 }
 
+# S3 bucket for storing extracted text
+resource "aws_s3_bucket" "extracted_text" {
+  bucket = var.extracted_text_bucket_name
+  force_destroy = true  # Allow terraform to delete bucket even if it contains objects
+
+  tags = {
+    Environment = var.environment
+  }
+}
+
 # Enable logging for the raw PDFs bucket
 resource "aws_s3_bucket" "logs_bucket" {
   bucket = "${var.raw_pdfs_bucket_name}-logs"
@@ -29,9 +39,30 @@ resource "aws_s3_bucket_public_access_block" "raw_pdfs_public_access_block" {
   restrict_public_buckets = true
 }
 
+# Block public access for the extracted text bucket - this must come before setting ACLs
+resource "aws_s3_bucket_public_access_block" "extracted_text_public_access_block" {
+  bucket = aws_s3_bucket.extracted_text.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
 # Enable default encryption for the raw PDFs bucket
 resource "aws_s3_bucket_server_side_encryption_configuration" "raw_pdfs_encryption" {
   bucket = aws_s3_bucket.raw_pdfs.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
+# Enable default encryption for the extracted text bucket
+resource "aws_s3_bucket_server_side_encryption_configuration" "extracted_text_encryption" {
+  bucket = aws_s3_bucket.extracted_text.id
 
   rule {
     apply_server_side_encryption_by_default {
@@ -195,6 +226,37 @@ resource "aws_s3_bucket_policy" "raw_pdfs_policy" {
         Resource = [
           aws_s3_bucket.raw_pdfs.arn,
           "${aws_s3_bucket.raw_pdfs.arn}/*"
+        ]
+        Condition = {
+          Bool = {
+            "aws:SecureTransport" = "false"
+          }
+        }
+      }
+    ]
+  })
+}
+
+# Apply HTTPS-only policy to extracted text bucket
+resource "aws_s3_bucket_policy" "extracted_text_policy" {
+  depends_on = [
+    aws_s3_bucket_public_access_block.extracted_text_public_access_block,
+    aws_s3_bucket_server_side_encryption_configuration.extracted_text_encryption
+  ]
+  
+  bucket = aws_s3_bucket.extracted_text.id
+  
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "HttpsOnly" 
+        Effect = "Deny"
+        Principal = "*"
+        Action = "s3:*"
+        Resource = [
+          aws_s3_bucket.extracted_text.arn,
+          "${aws_s3_bucket.extracted_text.arn}/*"
         ]
         Condition = {
           Bool = {
