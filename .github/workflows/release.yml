@@ -82,10 +82,29 @@ jobs:
         with:
           node-version: 18
           
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+          
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: "1.5.7"
+          
+      - name: Build Lambda Layers
+        run: |
+          # Install pip dependencies
+          python -m pip install --upgrade pip
+          
+          # Make the script executable
+          chmod +x ./install_lambda_deps.sh
+          
+          # Build the Lambda layers
+          ./install_lambda_deps.sh
+          
+          # Verify the layer was created
+          ls -la build/
           
       # Set environment variables for Terraform backend and variables
       - name: Set Terraform Environment Variables
