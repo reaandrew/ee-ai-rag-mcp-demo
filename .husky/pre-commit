@@ -17,4 +17,12 @@ npm run test --if-present || {
   exit 1
 }
 
+# Check that test coverage meets minimum requirements (80%)
+echo "Checking test coverage..."
+echo "------------------------"
+node .husky/check-coverage.js || {
+  echo "Coverage check failed! Please add more tests to increase coverage."
+  exit 1
+}
+
 echo "Pre-commit checks completed successfully!"
