@@ -100,11 +100,14 @@ jobs:
           # Make the script executable
           chmod +x ./install_lambda_deps.sh
           
-          # Build the Lambda layers
+          # Build the Lambda layers - using simplified approach with minimal dependencies
           ./install_lambda_deps.sh
           
           # Verify the layer was created
           ls -la build/
+          
+          # Show the size of the layer
+          du -h build/text-chunker-layer.zip
           
       # Set environment variables for Terraform backend and variables
       - name: Set Terraform Environment Variables

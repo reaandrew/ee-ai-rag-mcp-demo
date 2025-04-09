@@ -1,4 +1,5 @@
-boto3==1.28.62
-langchain==0.3.23
-langchain-core>=0.3.51
+# Required dependencies for text chunking
+# boto3 is already available in Lambda runtime
 langchain-text-splitters>=0.3.8
+pydantic>=2.0.0,<3.0.0
+regex
