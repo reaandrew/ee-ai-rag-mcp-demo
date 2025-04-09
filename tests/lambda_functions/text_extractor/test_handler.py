@@ -103,6 +103,7 @@ class TestTextExtractorHandler(unittest.TestCase):
                         "Text": extracted_text,
                         "Id": "1",
                         "Confidence": 99.0,
+                        "Page": 1,
                     }
                 ],
             },
@@ -112,13 +113,14 @@ class TestTextExtractorHandler(unittest.TestCase):
         # Stub the put_object method for saving the extracted text
         txt_filename = "sample.txt"
         target_key = f"{EXTRACTED_TEXT_PREFIX}/{txt_filename}"
+        page_delimited_text = f"\n--- PAGE 1 ---\n{extracted_text}\n"
         self.s3_stubber.add_response(
             "put_object",
             {},
             {
                 "Bucket": EXTRACTED_TEXT_BUCKET,
                 "Key": target_key,
-                "Body": extracted_text + "\n",
+                "Body": page_delimited_text,
                 "ContentType": "text/plain",
             },
         )
@@ -219,6 +221,7 @@ class TestTextExtractorHandler(unittest.TestCase):
                         "Text": extracted_text,
                         "Id": "1",
                         "Confidence": 99.0,
+                        "Page": 1,
                     }
                 ],
             },
@@ -228,13 +231,14 @@ class TestTextExtractorHandler(unittest.TestCase):
         # Stub the put_object method for saving the extracted text
         txt_filename = "sample.txt"
         target_key = f"{EXTRACTED_TEXT_PREFIX}/{txt_filename}"
+        page_delimited_text = f"\n--- PAGE 1 ---\n{extracted_text}\n"
         self.s3_stubber.add_response(
             "put_object",
             {},
             {
                 "Bucket": EXTRACTED_TEXT_BUCKET,
                 "Key": target_key,
-                "Body": extracted_text + "\n",
+                "Body": page_delimited_text,
                 "ContentType": "text/plain",
             },
         )
@@ -393,6 +397,7 @@ class TestTextExtractorHandler(unittest.TestCase):
                         "Text": extracted_text,
                         "Id": "1",
                         "Confidence": 95.0,
+                        "Page": 1,
                     }
                 ]
                 # No NextToken since we're simplifying the test
@@ -403,13 +408,14 @@ class TestTextExtractorHandler(unittest.TestCase):
         # Stub the put_object method for saving the extracted text
         txt_filename = "large-sample.txt"
         target_key = f"{EXTRACTED_TEXT_PREFIX}/{txt_filename}"
+        page_delimited_text = f"\n--- PAGE 1 ---\n{extracted_text}\n"
         self.s3_stubber.add_response(
             "put_object",
             {},
             {
                 "Bucket": EXTRACTED_TEXT_BUCKET,
                 "Key": target_key,
-                "Body": extracted_text + "\n",
+                "Body": page_delimited_text,
                 "ContentType": "text/plain",
             },
         )
@@ -481,7 +487,13 @@ class TestTextExtractorHandler(unittest.TestCase):
                 "JobStatus": "SUCCEEDED",
                 "DocumentMetadata": {"Pages": 3},
                 "Blocks": [
-                    {"BlockType": "LINE", "Text": "First page text.", "Id": "1", "Confidence": 99.0}
+                    {
+                        "BlockType": "LINE",
+                        "Text": "First page text.",
+                        "Id": "1",
+                        "Confidence": 99.0,
+                        "Page": 1,
+                    }
                 ],
                 "NextToken": "page2token",
             },
@@ -499,6 +511,7 @@ class TestTextExtractorHandler(unittest.TestCase):
                         "Text": "Second page text.",
                         "Id": "2",
                         "Confidence": 98.0,
+                        "Page": 2,
                     }
                 ],
                 "NextToken": "page3token",
@@ -512,7 +525,13 @@ class TestTextExtractorHandler(unittest.TestCase):
             {
                 "JobStatus": "SUCCEEDED",
                 "Blocks": [
-                    {"BlockType": "LINE", "Text": "Third page text.", "Id": "3", "Confidence": 97.0}
+                    {
+                        "BlockType": "LINE",
+                        "Text": "Third page text.",
+                        "Id": "3",
+                        "Confidence": 97.0,
+                        "Page": 3,
+                    }
                 ]
                 # No NextToken means this is the last page
             },
@@ -527,8 +546,11 @@ class TestTextExtractorHandler(unittest.TestCase):
 
         # Verify results
         self.assertEqual(page_count, 3)
+        self.assertIn("--- PAGE 1 ---", extracted_text)
         self.assertIn("First page text.", extracted_text)
+        self.assertIn("--- PAGE 2 ---", extracted_text)
         self.assertIn("Second page text.", extracted_text)
+        self.assertIn("--- PAGE 3 ---", extracted_text)
         self.assertIn("Third page text.", extracted_text)
 
         # Verify that the stubber was used correctly

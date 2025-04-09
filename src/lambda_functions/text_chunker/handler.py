@@ -21,6 +21,90 @@ CHUNK_SIZE = int(os.environ.get("CHUNK_SIZE", "1000"))
 CHUNK_OVERLAP = int(os.environ.get("CHUNK_OVERLAP", "200"))
 
 
+def parse_page_info(text):
+    """
+    Parse text with page delimiters to extract page numbers for each section.
+
+    Args:
+        text (str): The text containing page delimiters
+
+    Returns:
+        tuple: (text without delimiters, dict mapping text positions to page numbers)
+    """
+    import re
+
+    # Pattern to match page delimiters
+    page_pattern = re.compile(r"\n--- PAGE (\d+) ---\n")
+
+    # Find all page markers
+    page_markers = list(page_pattern.finditer(text))
+
+    if not page_markers:
+        # No page markers found, return original text with default page 1
+        return text, {0: 1}
+
+    # Create a mapping from character position to page number
+    page_map = {}
+    cleaned_text = ""
+
+    # Process each page section
+    for i, marker in enumerate(page_markers):
+        page_num = int(marker.group(1))
+
+        # Get the start position after the marker
+        start_pos = marker.end()
+
+        # Get the end position (either next marker or end of text)
+        if i < len(page_markers) - 1:
+            end_pos = page_markers[i + 1].start()
+        else:
+            end_pos = len(text)
+
+        # Get the text for this page
+        page_text = text[start_pos:end_pos]
+
+        # Record the start position in the cleaned text
+        page_map[len(cleaned_text)] = page_num
+
+        # Add the page text to the cleaned text
+        cleaned_text += page_text
+
+    return cleaned_text, page_map
+
+
+def find_page_for_chunk(chunk_start, chunk_end, page_map):
+    """
+    Find the page number(s) for a chunk based on its position in the text.
+
+    Args:
+        chunk_start (int): Start position of the chunk in the text
+        chunk_end (int): End position of the chunk in the text
+        page_map (dict): Mapping from text positions to page numbers
+
+    Returns:
+        list: The page numbers covered by this chunk
+    """
+    # Sort page positions
+    positions = sorted(page_map.keys())
+
+    # Find pages that overlap with the chunk
+    chunk_pages = set()
+
+    for pos in positions:
+        if pos <= chunk_end:
+            # This page starts before or at the chunk end
+            if pos + 100 >= chunk_start:  # Assuming average chunk size, may need adjustment
+                # This page likely overlaps with the chunk
+                chunk_pages.add(page_map[pos])
+
+    # If no pages found, use the last page before chunk_start
+    if not chunk_pages:
+        last_pos = max([p for p in positions if p <= chunk_start], default=0)
+        chunk_pages.add(page_map[last_pos])
+
+    return sorted(list(chunk_pages))
+
+
 def chunk_text(text, metadata=None):
     """
     Split text into chunks using RecursiveCharacterTextSplitter.
@@ -34,6 +118,9 @@ def chunk_text(text, metadata=None):
     """
     logger.info(f"Chunking text of length {len(text)} characters")
 
+    # Parse page information from text
+    cleaned_text, page_map = parse_page_info(text)
+
     # Create a text splitter with the specified configuration
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=CHUNK_SIZE,
@@ -43,22 +130,52 @@ def chunk_text(text, metadata=None):
     )
 
     # Split the text into chunks
-    chunks = text_splitter.split_text(text)
+    chunks = text_splitter.split_text(cleaned_text)
     logger.info(f"Created {len(chunks)} chunks")
 
     # Prepare the result with metadata
     result = []
+
+    # Track position in original text for page mapping
+    pos = 0
+
     for i, chunk in enumerate(chunks):
+        # Calculate this chunk's position in the original text
+        chunk_start = pos
+        chunk_end = pos + len(chunk)
+
+        # Find which pages this chunk belongs to
+        chunk_pages = find_page_for_chunk(chunk_start, chunk_end, page_map)
+
+        # Create chunk info
         chunk_info = {
             "chunk_id": i,
             "total_chunks": len(chunks),
             "text": chunk,
             "chunk_size": len(chunk),
+            "pages": chunk_pages,
+            "start_page": chunk_pages[0] if chunk_pages else 1,
+            "end_page": chunk_pages[-1] if chunk_pages else 1,
         }
+
+        # Update position for next chunk, with adjustment for overlaps
+        if i < len(chunks) - 1:
+            # For overlapping chunks, we need to adjust position
+            next_chunk = chunks[i + 1]
+            overlap = len(chunk) - (len(cleaned_text) - pos - len(next_chunk))
+            pos = chunk_end - overlap
+        else:
+            pos = chunk_end
 
         # Add the provided metadata if available
         if metadata:
-            chunk_info["metadata"] = metadata
+            chunk_info[
+                "metadata"
+            ] = metadata.copy()  # Create a copy to avoid modifying the original
+            # Add page info to metadata for easier access
+            chunk_info["metadata"]["pages"] = chunk_pages
+            chunk_info["metadata"]["start_page"] = chunk_pages[0] if chunk_pages else 1
+            chunk_info["metadata"]["end_page"] = chunk_pages[-1] if chunk_pages else 1
 
         result.append(chunk_info)
 

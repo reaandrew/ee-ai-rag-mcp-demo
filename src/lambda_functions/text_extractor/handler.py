@@ -143,8 +143,11 @@ def process_document_async(bucket_name, file_key):
 
     # Get the results
     extracted_text = ""
+    # Format for storing page info in the extracted text
+    page_delimiter = "\n--- PAGE {page_num} ---\n"
     page_count = 0
     next_token = None
+    current_page = 1
 
     while True:
         if next_token:
@@ -159,9 +162,17 @@ def process_document_async(bucket_name, file_key):
         if "DocumentMetadata" in response:
             page_count = response["DocumentMetadata"]["Pages"]
 
-        # Extract text from blocks
+        # Process blocks, tracking page changes
         for item in response["Blocks"]:
             if item["BlockType"] == "LINE":
+                # Check if this is a new page
+                block_page = item.get("Page", current_page)
+                if block_page > current_page:
+                    # Add page delimiter before starting new page content
+                    extracted_text += page_delimiter.format(page_num=block_page)
+                    current_page = block_page
+
+                # Add the line of text
                 extracted_text += item["Text"] + "\n"
 
         # Check if there are more pages to process
@@ -169,6 +180,10 @@ def process_document_async(bucket_name, file_key):
             next_token = response["NextToken"]
         else:
             break
+
+    # Ensure the page delimiter is at the start of the first page
+    if extracted_text and not extracted_text.startswith("--- PAGE 1 ---"):
+        extracted_text = page_delimiter.format(page_num=1) + extracted_text
 
     msg = (
         f"Completed async Textract job {job_id}. "

@@ -61,12 +61,16 @@ class TestTextChunkerHandler(unittest.TestCase):
         """
         Test the chunk_text function.
         """
-        # Define test data
-        test_text = """This is a test document. It has multiple sentences and should be split into chunks.
-        
-        This is a second paragraph. It provides more text to ensure we have enough content for chunking.
-        
-        This is the third paragraph with even more text to make sure we get several chunks from the text splitter."""
+        # Define test data with page delimiters
+        test_text = """
+--- PAGE 1 ---
+This is a test document. It has multiple sentences and should be split into chunks.
+
+--- PAGE 2 ---
+This is a second paragraph. It provides more text to ensure we have enough content for chunking.
+
+--- PAGE 3 ---
+This is the third paragraph with even more text to make sure we get several chunks from the text splitter."""
 
         metadata = {
             "source_bucket": "test-bucket",
@@ -90,6 +94,19 @@ class TestTextChunkerHandler(unittest.TestCase):
             self.assertEqual(chunk["chunk_size"], len(chunk["text"]))
             self.assertIn("metadata", chunk)
             self.assertEqual(chunk["metadata"]["source_bucket"], "test-bucket")
+
+            # Check for page information
+            self.assertIn("pages", chunk)
+            self.assertIn("start_page", chunk)
+            self.assertIn("end_page", chunk)
+            self.assertIsInstance(chunk["pages"], list)
+            self.assertGreaterEqual(chunk["start_page"], 1)
+            self.assertLessEqual(chunk["end_page"], 3)
+
+            # Verify page information is also in metadata
+            self.assertIn("pages", chunk["metadata"])
+            self.assertIn("start_page", chunk["metadata"])
+            self.assertIn("end_page", chunk["metadata"])
 
     def test_process_text_file(self):
         """
