@@ -368,6 +368,17 @@ resource "aws_iam_policy" "app_specific_policy" {
         Resource = "arn:aws:lambda:${var.aws_region}:${var.aws_account_id}:function:ee-ai-rag-mcp-demo-*"
       },
       {
+        # Lambda layer permissions
+        Action = [
+          "lambda:PublishLayerVersion",
+          "lambda:GetLayerVersion",
+          "lambda:DeleteLayerVersion",
+          "lambda:ListLayerVersions"
+        ]
+        Effect   = "Allow"
+        Resource = "arn:aws:lambda:${var.aws_region}:${var.aws_account_id}:layer:ee-ai-rag-mcp-demo-*"
+      },
+      {
         # Lambda service permissions
         Action = [
           "lambda:ListFunctions"
