@@ -100,7 +100,7 @@ jobs:
           echo "TF_VAR_environment=prod" >> $GITHUB_ENV
           echo "TF_VAR_app_version=${RELEASE_VERSION}" >> $GITHUB_ENV
           echo "TF_VAR_raw_pdfs_bucket_name=ee-ai-rag-mcp-demo-raw-pdfs" >> $GITHUB_ENV  # Remove version from bucket name
-          echo "TF_VAR_extracted_text_bucket_name=extracted-text" >> $GITHUB_ENV
+          echo "TF_VAR_extracted_text_bucket_name=ee-ai-rag-mcp-demo-extracted-text" >> $GITHUB_ENV  # Add proper prefix
           echo "TF_VAR_extracted_text_prefix=ee-ai-rag-mcp-demo" >> $GITHUB_ENV
           
           # For debugging
