@@ -17,7 +17,7 @@ s3_client = boto3.client("s3", region_name=default_region)
 textract_client = boto3.client("textract", region_name=default_region)
 
 # Get environment variables
-EXTRACTED_TEXT_BUCKET = os.environ.get("EXTRACTED_TEXT_BUCKET", "extracted-text")
+EXTRACTED_TEXT_BUCKET = os.environ.get("EXTRACTED_TEXT_BUCKET", "ee-ai-rag-mcp-demo-extracted-text")
 EXTRACTED_TEXT_PREFIX = os.environ.get("EXTRACTED_TEXT_PREFIX", "ee-ai-rag-mcp-demo")
 DELETE_ORIGINAL_PDF = os.environ.get("DELETE_ORIGINAL_PDF", "true").lower() == "true"
 
