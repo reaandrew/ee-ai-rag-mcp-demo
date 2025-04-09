@@ -155,18 +155,10 @@ resource "aws_iam_role_policy_attachment" "text_chunker_attachment" {
   policy_arn = aws_iam_policy.text_chunker_policy.arn
 }
 
-# Package the text_extractor Lambda function
-data "archive_file" "text_extractor_zip" {
-  type        = "zip"
-  source_dir  = "${path.module}/../../src/lambda_functions/text_extractor"
-  output_path = "${path.module}/../../build/text-extractor.zip"
-}
-
-# Package the text_chunker Lambda function
-data "archive_file" "text_chunker_zip" {
-  type        = "zip"
-  source_dir  = "${path.module}/../../src/lambda_functions/text_chunker"
-  output_path = "${path.module}/../../build/text-chunker.zip"
+# Reference the pre-built Lambda packages
+locals {
+  text_extractor_zip_path = "${path.module}/../../build/text_extractor.zip"
+  text_chunker_zip_path   = "${path.module}/../../build/text_chunker.zip"
 }
 
 # Create the Lambda function
@@ -174,8 +166,8 @@ resource "aws_lambda_function" "text_extractor" {
   function_name    = "ee-ai-rag-mcp-demo-text-extractor"
   description      = "Extracts text from uploaded PDF files"
   role             = aws_iam_role.text_extractor_role.arn
-  filename         = data.archive_file.text_extractor_zip.output_path
-  source_code_hash = data.archive_file.text_extractor_zip.output_base64sha256
+  filename         = local.text_extractor_zip_path
+  source_code_hash = filebase64sha256(local.text_extractor_zip_path)
   handler          = "handler.lambda_handler"
   runtime          = "python3.9"
   timeout          = 180  # Increased to 3 minutes to handle async Textract operations
@@ -235,8 +227,8 @@ resource "aws_lambda_function" "text_chunker" {
   function_name    = "ee-ai-rag-mcp-demo-text-chunker"
   description      = "Chunks extracted text from text files for RAG applications"
   role             = aws_iam_role.text_chunker_role.arn
-  filename         = data.archive_file.text_chunker_zip.output_path
-  source_code_hash = data.archive_file.text_chunker_zip.output_base64sha256
+  filename         = local.text_chunker_zip_path
+  source_code_hash = filebase64sha256(local.text_chunker_zip_path)
   handler          = "handler.lambda_handler"
   runtime          = "python3.9"
   timeout          = 60   # 1 minute timeout for processing text files

@@ -9,7 +9,7 @@
     "check:coverage": "node .husky/check-coverage.js",
     "lint": "flake8 src && black --check src tests",
     "format": "black src tests",
-    "build:lambda": "make build-lambda",
+    "build:lambda": "chmod +x ./build_lambda.sh && make build-lambda",
     "prepare": "husky install",
     "sonar": "npm run test:coverage && sonar-scanner -Dsonar.python.coverage.reportPaths=coverage-reports/python-coverage.xml"
   },

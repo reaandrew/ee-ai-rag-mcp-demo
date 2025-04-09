@@ -39,10 +39,7 @@ format:
 # Build Lambda function packages
 build-lambda:
 	mkdir -p $(BUILD_DIR)
-	cd $(SRC_DIR)/lambda/text_extractor && pip install -r requirements.txt -t ./package
-	cd $(SRC_DIR)/lambda/text_extractor && cp -r *.py ./package/
-	cd $(SRC_DIR)/lambda/text_extractor && cd package && zip -r ../../../../$(BUILD_DIR)/text-extractor.zip .
-	rm -rf $(SRC_DIR)/lambda/text_extractor/package
+	./build_lambda.sh
 
 # Run SonarQube scan
 sonar-scan:
