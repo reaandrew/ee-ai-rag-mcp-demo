@@ -5,6 +5,20 @@ from datetime import datetime
 import boto3
 from botocore.stub import Stubber
 import os
+import sys
+
+# Mock the langchain module
+sys.modules["langchain"] = mock.MagicMock()
+sys.modules["langchain.text_splitter"] = mock.MagicMock()
+RecursiveCharacterTextSplitterMock = mock.MagicMock()
+RecursiveCharacterTextSplitterMock.return_value.split_text.return_value = [
+    "This is chunk 1.",
+    "This is chunk 2.",
+    "This is chunk 3.",
+]
+sys.modules[
+    "langchain.text_splitter"
+].RecursiveCharacterTextSplitter = RecursiveCharacterTextSplitterMock
 
 # Import the Lambda handler
 from src.lambda_functions.text_chunker.handler import (
@@ -112,21 +126,22 @@ class TestTextChunkerHandler(unittest.TestCase):
             {"Bucket": bucket_name, "Key": file_key},
         )
 
-        # Stub the put_object method for saving the chunk
+        # Stub the put_object method for saving all three chunks
         filename_without_ext = "sample"
-        chunk_key = f"{CHUNKED_TEXT_PREFIX}/{filename_without_ext}/chunk_0.json"
 
-        # We need to be flexible with the exact content since JSON serialization might vary
-        self.s3_stubber.add_response(
-            "put_object",
-            {},
-            {
-                "Bucket": CHUNKED_TEXT_BUCKET,
-                "Key": chunk_key,
-                "Body": mock.ANY,
-                "ContentType": "application/json",
-            },
-        )
+        # Add responses for all three chunks that our mock will create
+        for i in range(3):
+            chunk_key = f"{CHUNKED_TEXT_PREFIX}/{filename_without_ext}/chunk_{i}.json"
+            self.s3_stubber.add_response(
+                "put_object",
+                {},
+                {
+                    "Bucket": CHUNKED_TEXT_BUCKET,
+                    "Key": chunk_key,
+                    "Body": mock.ANY,
+                    "ContentType": "application/json",
+                },
+            )
 
         # Stub the put_object method for saving the manifest
         manifest_key = f"{CHUNKED_TEXT_PREFIX}/{filename_without_ext}/manifest.json"
@@ -156,7 +171,9 @@ class TestTextChunkerHandler(unittest.TestCase):
         self.assertIn("output", result)
         self.assertEqual(result["output"]["bucket"], CHUNKED_TEXT_BUCKET)
         self.assertEqual(result["output"]["manifest_key"], manifest_key)
-        self.assertGreater(result["output"]["total_chunks"], 0)
+        self.assertEqual(
+            result["output"]["total_chunks"], 3
+        )  # We expect exactly 3 chunks from our mock
 
         # Verify that the stubber was used correctly
         self.s3_stubber.assert_no_pending_responses()
@@ -204,21 +221,22 @@ class TestTextChunkerHandler(unittest.TestCase):
             {"Bucket": bucket_name, "Key": file_key},
         )
 
-        # Stub the put_object method for saving the chunk
+        # Stub the put_object method for saving all three chunks
         filename_without_ext = "sample"
-        chunk_key = f"{CHUNKED_TEXT_PREFIX}/{filename_without_ext}/chunk_0.json"
 
-        # We need to be flexible with the exact content since JSON serialization might vary
-        self.s3_stubber.add_response(
-            "put_object",
-            {},
-            {
-                "Bucket": CHUNKED_TEXT_BUCKET,
-                "Key": chunk_key,
-                "Body": mock.ANY,
-                "ContentType": "application/json",
-            },
-        )
+        # Add responses for all three chunks that our mock will create
+        for i in range(3):
+            chunk_key = f"{CHUNKED_TEXT_PREFIX}/{filename_without_ext}/chunk_{i}.json"
+            self.s3_stubber.add_response(
+                "put_object",
+                {},
+                {
+                    "Bucket": CHUNKED_TEXT_BUCKET,
+                    "Key": chunk_key,
+                    "Body": mock.ANY,
+                    "ContentType": "application/json",
+                },
+            )
 
         # Stub the put_object method for saving the manifest
         manifest_key = f"{CHUNKED_TEXT_PREFIX}/{filename_without_ext}/manifest.json"
@@ -316,9 +334,11 @@ class TestTextChunkerHandler(unittest.TestCase):
         # Activate the stubber
         self.s3_stubber.activate()
 
-        # Call the function and expect an exception
-        with self.assertRaises(Exception):
-            process_text_file(bucket_name, file_key)
+        # Patch the logger to prevent error messages from showing in test output
+        with mock.patch("src.lambda_functions.text_chunker.handler.logger.error"):
+            # Call the function and expect an exception
+            with self.assertRaises(Exception):
+                process_text_file(bucket_name, file_key)
 
         # Verify that the stubber was used correctly
         self.s3_stubber.assert_no_pending_responses()
@@ -353,8 +373,10 @@ class TestTextChunkerHandler(unittest.TestCase):
         # Activate the stubber
         self.s3_stubber.activate()
 
-        # Call the lambda handler
-        response = lambda_handler(event, {})
+        # Patch the loggers to prevent error messages from showing in test output
+        with mock.patch("src.lambda_functions.text_chunker.handler.logger.error"):
+            # Call the lambda handler
+            response = lambda_handler(event, {})
 
         # Verify the response
         self.assertEqual(response["statusCode"], 500)
