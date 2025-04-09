@@ -18,6 +18,16 @@ resource "aws_s3_bucket" "extracted_text" {
   }
 }
 
+# S3 bucket for storing chunked text
+resource "aws_s3_bucket" "chunked_text" {
+  bucket = var.chunked_text_bucket_name
+  force_destroy = true  # Allow terraform to delete bucket even if it contains objects
+
+  tags = {
+    Environment = var.environment
+  }
+}
+
 # Enable logging for the raw PDFs bucket
 resource "aws_s3_bucket" "logs_bucket" {
   bucket = "${var.raw_pdfs_bucket_name}-logs"
@@ -49,6 +59,16 @@ resource "aws_s3_bucket_public_access_block" "extracted_text_public_access_block
   restrict_public_buckets = true
 }
 
+# Block public access for the chunked text bucket - this must come before setting ACLs
+resource "aws_s3_bucket_public_access_block" "chunked_text_public_access_block" {
+  bucket = aws_s3_bucket.chunked_text.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
 # Enable default encryption for the raw PDFs bucket
 resource "aws_s3_bucket_server_side_encryption_configuration" "raw_pdfs_encryption" {
   bucket = aws_s3_bucket.raw_pdfs.id
@@ -71,10 +91,50 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "extracted_text_en
   }
 }
 
+# Enable default encryption for the chunked text bucket
+resource "aws_s3_bucket_server_side_encryption_configuration" "chunked_text_encryption" {
+  bucket = aws_s3_bucket.chunked_text.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
 
 # Configure lifecycle rules for the raw PDFs bucket
 resource "aws_s3_bucket_lifecycle_configuration" "raw_pdfs_lifecycle" {
   bucket = aws_s3_bucket.raw_pdfs.id
+
+  rule {
+    id = "archive-old-objects"
+    status = "Enabled"
+    
+    # Add filter block to satisfy the requirement
+    filter {
+      prefix = ""  # Empty prefix means apply to all objects
+    }
+
+    transition {
+      days          = 30
+      storage_class = "STANDARD_IA"
+    }
+
+    transition {
+      days          = 90
+      storage_class = "GLACIER"
+    }
+
+    expiration {
+      days = 365
+    }
+  }
+}
+
+# Configure lifecycle rules for the chunked text bucket
+resource "aws_s3_bucket_lifecycle_configuration" "chunked_text_lifecycle" {
+  bucket = aws_s3_bucket.chunked_text.id
 
   rule {
     id = "archive-old-objects"
@@ -257,6 +317,37 @@ resource "aws_s3_bucket_policy" "extracted_text_policy" {
         Resource = [
           aws_s3_bucket.extracted_text.arn,
           "${aws_s3_bucket.extracted_text.arn}/*"
+        ]
+        Condition = {
+          Bool = {
+            "aws:SecureTransport" = "false"
+          }
+        }
+      }
+    ]
+  })
+}
+
+# Apply HTTPS-only policy to chunked text bucket
+resource "aws_s3_bucket_policy" "chunked_text_policy" {
+  depends_on = [
+    aws_s3_bucket_public_access_block.chunked_text_public_access_block,
+    aws_s3_bucket_server_side_encryption_configuration.chunked_text_encryption
+  ]
+  
+  bucket = aws_s3_bucket.chunked_text.id
+  
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "HttpsOnly" 
+        Effect = "Deny"
+        Principal = "*"
+        Action = "s3:*"
+        Resource = [
+          aws_s3_bucket.chunked_text.arn,
+          "${aws_s3_bucket.chunked_text.arn}/*"
         ]
         Condition = {
           Bool = {

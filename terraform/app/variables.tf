@@ -28,8 +28,20 @@ variable "extracted_text_bucket_name" {
   default     = "ee-ai-rag-mcp-demo-extracted-text"
 }
 
+variable "chunked_text_bucket_name" {
+  description = "Name of the S3 bucket for storing chunked text"
+  type        = string
+  default     = "ee-ai-rag-mcp-demo-chunked-text"
+}
+
 variable "extracted_text_prefix" {
   description = "Prefix for objects in the extracted text bucket"
+  type        = string
+  default     = "ee-ai-rag-mcp-demo"
+}
+
+variable "chunked_text_prefix" {
+  description = "Prefix for objects in the chunked text bucket"
   type        = string
   default     = "ee-ai-rag-mcp-demo"
 }
