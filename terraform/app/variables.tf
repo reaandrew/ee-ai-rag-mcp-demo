@@ -25,7 +25,7 @@ variable "raw_pdfs_bucket_name" {
 variable "extracted_text_bucket_name" {
   description = "Name of the S3 bucket for storing extracted text"
   type        = string
-  default     = "extracted-text"
+  default     = "ee-ai-rag-mcp-demo-extracted-text"
 }
 
 variable "extracted_text_prefix" {

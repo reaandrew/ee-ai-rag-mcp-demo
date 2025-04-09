@@ -393,6 +393,8 @@ resource "aws_iam_policy" "app_specific_policy" {
         Resource = [
           "arn:aws:s3:::ee-ai-rag-mcp-demo-raw-pdfs*",
           "arn:aws:s3:::ee-ai-rag-mcp-demo-raw-pdfs*/*",
+          "arn:aws:s3:::ee-ai-rag-mcp-demo-extracted-text*",
+          "arn:aws:s3:::ee-ai-rag-mcp-demo-extracted-text*/*",
           "arn:aws:s3:::${var.terraform_state_bucket}-logs",
           "arn:aws:s3:::${var.terraform_state_bucket}-logs/*"
         ]
