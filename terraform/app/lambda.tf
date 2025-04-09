@@ -157,8 +157,8 @@ resource "aws_iam_role_policy_attachment" "text_chunker_attachment" {
 
 # Reference the pre-built Lambda packages
 locals {
-  text_extractor_zip_path = "${path.module}/../../build/text_extractor.zip"
-  text_chunker_zip_path   = "${path.module}/../../build/text_chunker.zip"
+  text_extractor_zip_path = "${path.module}/../../build/text-extractor.zip"
+  text_chunker_zip_path   = "${path.module}/../../build/text-chunker.zip"
 }
 
 # Create the Lambda function

@@ -6,7 +6,8 @@ build_lambda_package() {
     local lambda_name=$1
     local source_dir="src/lambda_functions/$lambda_name"
     local build_dir="build/$lambda_name"
-    local zip_file="build/$lambda_name.zip"
+    local zip_name=$(echo "$lambda_name" | tr '_' '-')
+    local zip_file="build/$zip_name.zip"
     
     echo "Building Lambda package for $lambda_name..."
     
