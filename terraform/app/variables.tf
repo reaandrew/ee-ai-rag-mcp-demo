@@ -50,3 +50,21 @@ variable "app_version" {
   description = "The application version being deployed"
   type        = string
 }
+
+variable "vector_bucket_name" {
+  description = "Name of the S3 bucket for storing vector embeddings"
+  type        = string
+  default     = "ee-ai-rag-mcp-demo-vectors"
+}
+
+variable "vector_prefix" {
+  description = "Prefix for objects in the vector bucket"
+  type        = string
+  default     = "ee-ai-rag-mcp-demo"
+}
+
+variable "bedrock_model_id" {
+  description = "AWS Bedrock model ID to use for generating embeddings"
+  type        = string
+  default     = "amazon.titan-embed-text-v1"
+}
