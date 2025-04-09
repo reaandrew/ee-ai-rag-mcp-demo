@@ -66,5 +66,5 @@ variable "vector_prefix" {
 variable "bedrock_model_id" {
   description = "AWS Bedrock model ID to use for generating embeddings"
   type        = string
-  default     = "amazon.titan-embed-text-v1"
+  default     = "amazon.titan-embed-text-v2:0"
 }
