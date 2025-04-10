@@ -159,6 +159,16 @@ resource "aws_iam_policy" "vector_generator_policy" {
         Resource = [
           "arn:aws:es:${var.aws_region}:${data.aws_caller_identity.current.account_id}:domain/${var.opensearch_domain_name}/*"
         ]
+      },
+      {
+        Action = [
+          "secretsmanager:GetSecretValue",
+          "secretsmanager:DescribeSecret"
+        ]
+        Effect = "Allow"
+        Resource = [
+          "arn:aws:secretsmanager:${var.aws_region}:${data.aws_caller_identity.current.account_id}:secret:ee-ai-rag-mcp-demo/opensearch-master-credentials*"
+        ]
       }
     ]
   })

@@ -81,8 +81,4 @@ variable "opensearch_master_user" {
   default     = "admin"
 }
 
-variable "opensearch_master_password" {
-  description = "Master password for OpenSearch domain"
-  type        = string
-  sensitive   = true
-}
+# OpenSearch master password is now handled by random_password resource and stored in Secrets Manager

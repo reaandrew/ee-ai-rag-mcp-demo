@@ -26,6 +26,30 @@ VECTOR_PREFIX = os.environ.get("VECTOR_PREFIX", "ee-ai-rag-mcp-demo")
 MODEL_ID = os.environ.get("MODEL_ID", "amazon.titan-embed-text-v2:0")
 
 
+# Get OpenSearch credentials from AWS Secrets Manager
+def get_opensearch_credentials():
+    """
+    Retrieve OpenSearch credentials from AWS Secrets Manager.
+    Returns a tuple of (username, password) or (None, None) if not found.
+    """
+    try:
+        # Create a Secrets Manager client
+        secrets_client = boto3.client("secretsmanager", region_name=region)
+
+        # Get the secret value
+        secret_name = "ee-ai-rag-mcp-demo/opensearch-master-credentials"
+        response = secrets_client.get_secret_value(SecretId=secret_name)
+
+        # Parse the secret JSON string
+        secret = json.loads(response["SecretString"])
+        return secret.get("username"), secret.get("password")
+
+    except Exception as e:
+        logger.warning(f"Could not retrieve OpenSearch credentials from Secrets Manager: {str(e)}")
+        logger.warning("Will attempt to use IAM authentication instead")
+        return None, None
+
+
 # Initialize OpenSearch client with AWS authentication
 def get_opensearch_client():
     """
@@ -34,9 +58,25 @@ def get_opensearch_client():
     available in test environments.
     """
     try:
-        # Get AWS credentials for OpenSearch authentication
+        # First try to get credentials from Secrets Manager
+        username, password = get_opensearch_credentials()
+
+        # If we have username/password from Secrets Manager, use basic auth
+        if username and password:
+            logger.info(f"Using Secrets Manager credentials for user: {username}")
+            return OpenSearch(
+                hosts=[{"host": f"{OPENSEARCH_DOMAIN}.{region}.es.amazonaws.com", "port": 443}],
+                http_auth=(username, password),
+                use_ssl=True,
+                verify_certs=True,
+                connection_class=RequestsHttpConnection,
+                timeout=30,
+            )
+
+        # Fall back to IAM authentication
         credentials = boto3.Session().get_credentials()
         if credentials:
+            logger.info("Using IAM authentication for OpenSearch")
             awsauth = AWS4Auth(
                 credentials.access_key,
                 credentials.secret_key,
@@ -55,14 +95,10 @@ def get_opensearch_client():
                 timeout=30,
             )
         else:
-            logger.warning("No AWS credentials found, creating client without authentication")
-            return OpenSearch(
-                hosts=[{"host": f"{OPENSEARCH_DOMAIN}.{region}.es.amazonaws.com", "port": 443}],
-                use_ssl=True,
-                verify_certs=True,
-                connection_class=RequestsHttpConnection,
-                timeout=30,
-            )
+            logger.warning("No authentication method available for OpenSearch")
+            # In test environments, we might want to return a mock client
+            return None
+
     except Exception as e:
         logger.error(f"Error creating OpenSearch client: {str(e)}")
         # In a test environment, we might still want to continue

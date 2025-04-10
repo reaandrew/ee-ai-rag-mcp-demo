@@ -42,6 +42,7 @@ from src.lambda_functions.vector_generator.handler import (
     generate_embedding,
     process_chunk_file,
     create_index_if_not_exists,
+    get_opensearch_credentials,
 )
 
 
@@ -106,6 +107,30 @@ class MockResponse:
 
     def read(self):
         return self.body
+
+
+def test_get_opensearch_credentials():
+    """Test retrieving credentials from Secrets Manager."""
+    mock_response = {"SecretString": json.dumps({"username": "admin", "password": "test-password"})}
+
+    with patch("boto3.client") as mock_boto3:
+        mock_secrets_client = MagicMock()
+        mock_secrets_client.get_secret_value.return_value = mock_response
+        mock_boto3.return_value = mock_secrets_client
+
+        username, password = get_opensearch_credentials()
+
+        # Verify the result
+        assert username == "admin"
+        assert password == "test-password"
+
+        # Verify that boto3.client was called correctly
+        mock_boto3.assert_called_once_with(
+            "secretsmanager", region_name=os.environ.get("AWS_REGION", "eu-west-2")
+        )
+        mock_secrets_client.get_secret_value.assert_called_once_with(
+            SecretId="ee-ai-rag-mcp-demo/opensearch-master-credentials"
+        )
 
 
 def test_create_index_if_not_exists(mock_environment):
