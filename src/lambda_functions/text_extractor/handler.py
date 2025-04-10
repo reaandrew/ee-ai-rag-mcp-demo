@@ -75,13 +75,14 @@ def extract_text_from_pdf(bucket_name, file_key):
                     )
                     original_deleted = False
                 except Exception as head_error:
-                    if "Not Found" in str(head_error) or "404" in str(head_error):
+                    error_msg = str(head_error)
+                    if any(x in error_msg for x in ["Not Found", "404", "NoSuchKey"]):
                         logger.info(
                             f"Verified deletion - PDF no longer exists: {bucket_name}/{file_key}"
                         )
                         original_deleted = True
                     else:
-                        logger.warning(f"Error checking if PDF was deleted: {str(head_error)}")
+                        logger.warning(f"Error checking if PDF was deleted: {error_msg}")
                         original_deleted = False
             except Exception as delete_error:
                 logger.error(f"Error deleting PDF {file_key}: {str(delete_error)}")

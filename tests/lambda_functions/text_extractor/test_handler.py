@@ -351,6 +351,477 @@ class TestTextExtractorHandler(unittest.TestCase):
         # Verify that the stubber was used correctly
         self.s3_stubber.assert_no_pending_responses()
 
+    def test_extract_text_with_delete_error(self):
+        """
+        Test the extract_text_from_pdf function when deletion fails.
+        """
+        # Define test data
+        bucket_name = "test-bucket"
+        file_key = "sample.pdf"
+        content_length = 12345
+        last_modified = datetime.now()
+        job_id = "test-job-id"
+        extracted_text = "Sample text from PDF."
+
+        # Stub the head_object method to return our test data
+        self.s3_stubber.add_response(
+            "head_object",
+            {
+                "ContentLength": content_length,
+                "LastModified": last_modified,
+                "ContentType": "application/pdf",
+            },
+            {"Bucket": bucket_name, "Key": file_key},
+        )
+
+        # Stub the async Textract API responses
+        # 1. Start async job
+        self.textract_stubber.add_response(
+            "start_document_text_detection",
+            {"JobId": job_id},
+            {"DocumentLocation": {"S3Object": {"Bucket": bucket_name, "Name": file_key}}},
+        )
+
+        # 2. Check job status
+        self.textract_stubber.add_response(
+            "get_document_text_detection",
+            {"JobStatus": "SUCCEEDED", "DocumentMetadata": {"Pages": 1}},
+            {"JobId": job_id},
+        )
+
+        # 3. Get results
+        self.textract_stubber.add_response(
+            "get_document_text_detection",
+            {
+                "JobStatus": "SUCCEEDED",
+                "DocumentMetadata": {"Pages": 1},
+                "Blocks": [
+                    {
+                        "BlockType": "LINE",
+                        "Text": extracted_text,
+                        "Id": "1",
+                        "Confidence": 99.0,
+                        "Page": 1,
+                    }
+                ],
+            },
+            {"JobId": job_id},
+        )
+
+        # Stub the put_object method for saving the extracted text
+        txt_filename = "sample.txt"
+        target_key = f"{EXTRACTED_TEXT_PREFIX}/{txt_filename}"
+        page_delimited_text = f"\n--- PAGE 1 ---\n{extracted_text}\n"
+        self.s3_stubber.add_response(
+            "put_object",
+            {},
+            {
+                "Bucket": EXTRACTED_TEXT_BUCKET,
+                "Key": target_key,
+                "Body": page_delimited_text,
+                "ContentType": "text/plain",
+            },
+        )
+
+        # Add an error when trying to delete the object
+        self.s3_stubber.add_client_error(
+            "delete_object",
+            service_error_code="AccessDenied",
+            service_message="Access Denied",
+            http_status_code=403,
+            expected_params={"Bucket": bucket_name, "Key": file_key},
+        )
+
+        # Activate the stubbers
+        self.s3_stubber.activate()
+        self.textract_stubber.activate()
+
+        # Set DELETE_ORIGINAL_PDF to True for this test
+        with mock.patch("src.lambda_functions.text_extractor.handler.DELETE_ORIGINAL_PDF", True):
+            # Call the function
+            result = extract_text_from_pdf(bucket_name, file_key)
+
+        # Verify the result
+        self.assertEqual(result["source"]["bucket"], bucket_name)
+        self.assertEqual(result["source"]["file_key"], file_key)
+        self.assertEqual(result["source"]["size_bytes"], content_length)
+        self.assertIn("extracted_text", result)
+        self.assertIn("Sample text from PDF.", result["extracted_text"])
+        self.assertEqual(result["status"], "success")
+
+        # Verify output information
+        self.assertIn("output", result)
+        self.assertEqual(result["output"]["bucket"], EXTRACTED_TEXT_BUCKET)
+        self.assertEqual(result["output"]["file_key"], target_key)
+        self.assertEqual(result["output"]["content_type"], "text/plain")
+
+        # Verify deletion status - should be False because delete failed
+        self.assertIn("original_deleted", result)
+        self.assertFalse(result["original_deleted"])
+
+        # Verify that the stubbers were used correctly
+        self.s3_stubber.assert_no_pending_responses()
+        self.textract_stubber.assert_no_pending_responses()
+
+    def test_extract_text_with_verification_failed(self):
+        """
+        Test the extract_text_from_pdf function when verification after deletion fails.
+        """
+        # Define test data
+        bucket_name = "test-bucket"
+        file_key = "sample.pdf"
+        content_length = 12345
+        last_modified = datetime.now()
+        job_id = "test-job-id"
+        extracted_text = "Sample text from PDF."
+
+        # Stub the head_object method to return our test data
+        self.s3_stubber.add_response(
+            "head_object",
+            {
+                "ContentLength": content_length,
+                "LastModified": last_modified,
+                "ContentType": "application/pdf",
+            },
+            {"Bucket": bucket_name, "Key": file_key},
+        )
+
+        # Stub the async Textract API responses
+        # 1. Start async job
+        self.textract_stubber.add_response(
+            "start_document_text_detection",
+            {"JobId": job_id},
+            {"DocumentLocation": {"S3Object": {"Bucket": bucket_name, "Name": file_key}}},
+        )
+
+        # 2. Check job status
+        self.textract_stubber.add_response(
+            "get_document_text_detection",
+            {"JobStatus": "SUCCEEDED", "DocumentMetadata": {"Pages": 1}},
+            {"JobId": job_id},
+        )
+
+        # 3. Get results
+        self.textract_stubber.add_response(
+            "get_document_text_detection",
+            {
+                "JobStatus": "SUCCEEDED",
+                "DocumentMetadata": {"Pages": 1},
+                "Blocks": [
+                    {
+                        "BlockType": "LINE",
+                        "Text": extracted_text,
+                        "Id": "1",
+                        "Confidence": 99.0,
+                        "Page": 1,
+                    }
+                ],
+            },
+            {"JobId": job_id},
+        )
+
+        # Stub the put_object method for saving the extracted text
+        txt_filename = "sample.txt"
+        target_key = f"{EXTRACTED_TEXT_PREFIX}/{txt_filename}"
+        page_delimited_text = f"\n--- PAGE 1 ---\n{extracted_text}\n"
+        self.s3_stubber.add_response(
+            "put_object",
+            {},
+            {
+                "Bucket": EXTRACTED_TEXT_BUCKET,
+                "Key": target_key,
+                "Body": page_delimited_text,
+                "ContentType": "text/plain",
+            },
+        )
+
+        # Delete operation succeeds
+        self.s3_stubber.add_response(
+            "delete_object",
+            {},
+            {"Bucket": bucket_name, "Key": file_key},
+        )
+
+        # But when we check if the file still exists, it does (verification fails)
+        self.s3_stubber.add_response(
+            "head_object",
+            {
+                "ContentLength": content_length,
+                "LastModified": last_modified,
+                "ContentType": "application/pdf",
+            },
+            {"Bucket": bucket_name, "Key": file_key},
+        )
+
+        # Activate the stubbers
+        self.s3_stubber.activate()
+        self.textract_stubber.activate()
+
+        # Set DELETE_ORIGINAL_PDF to True for this test
+        with mock.patch("src.lambda_functions.text_extractor.handler.DELETE_ORIGINAL_PDF", True):
+            # Call the function
+            result = extract_text_from_pdf(bucket_name, file_key)
+
+        # Verify the result
+        self.assertEqual(result["source"]["bucket"], bucket_name)
+        self.assertEqual(result["source"]["file_key"], file_key)
+        self.assertEqual(result["source"]["size_bytes"], content_length)
+        self.assertIn("extracted_text", result)
+        self.assertIn("Sample text from PDF.", result["extracted_text"])
+        self.assertEqual(result["status"], "success")
+
+        # Verify output information
+        self.assertIn("output", result)
+        self.assertEqual(result["output"]["bucket"], EXTRACTED_TEXT_BUCKET)
+        self.assertEqual(result["output"]["file_key"], target_key)
+        self.assertEqual(result["output"]["content_type"], "text/plain")
+
+        # Verify deletion status - should be False because verification failed
+        self.assertIn("original_deleted", result)
+        self.assertFalse(result["original_deleted"])
+
+        # Verify that the stubbers were used correctly
+        self.s3_stubber.assert_no_pending_responses()
+        self.textract_stubber.assert_no_pending_responses()
+
+    def test_extract_text_with_verification_error(self):
+        """
+        Test the extract_text_from_pdf function when verification throws an unexpected error.
+        """
+        # Define test data
+        bucket_name = "test-bucket"
+        file_key = "sample.pdf"
+        content_length = 12345
+        last_modified = datetime.now()
+        job_id = "test-job-id"
+        extracted_text = "Sample text from PDF."
+
+        # Stub the head_object method to return our test data
+        self.s3_stubber.add_response(
+            "head_object",
+            {
+                "ContentLength": content_length,
+                "LastModified": last_modified,
+                "ContentType": "application/pdf",
+            },
+            {"Bucket": bucket_name, "Key": file_key},
+        )
+
+        # Stub the async Textract API responses
+        # 1. Start async job
+        self.textract_stubber.add_response(
+            "start_document_text_detection",
+            {"JobId": job_id},
+            {"DocumentLocation": {"S3Object": {"Bucket": bucket_name, "Name": file_key}}},
+        )
+
+        # 2. Check job status
+        self.textract_stubber.add_response(
+            "get_document_text_detection",
+            {"JobStatus": "SUCCEEDED", "DocumentMetadata": {"Pages": 1}},
+            {"JobId": job_id},
+        )
+
+        # 3. Get results
+        self.textract_stubber.add_response(
+            "get_document_text_detection",
+            {
+                "JobStatus": "SUCCEEDED",
+                "DocumentMetadata": {"Pages": 1},
+                "Blocks": [
+                    {
+                        "BlockType": "LINE",
+                        "Text": extracted_text,
+                        "Id": "1",
+                        "Confidence": 99.0,
+                        "Page": 1,
+                    }
+                ],
+            },
+            {"JobId": job_id},
+        )
+
+        # Stub the put_object method for saving the extracted text
+        txt_filename = "sample.txt"
+        target_key = f"{EXTRACTED_TEXT_PREFIX}/{txt_filename}"
+        page_delimited_text = f"\n--- PAGE 1 ---\n{extracted_text}\n"
+        self.s3_stubber.add_response(
+            "put_object",
+            {},
+            {
+                "Bucket": EXTRACTED_TEXT_BUCKET,
+                "Key": target_key,
+                "Body": page_delimited_text,
+                "ContentType": "text/plain",
+            },
+        )
+
+        # Delete operation succeeds
+        self.s3_stubber.add_response(
+            "delete_object",
+            {},
+            {"Bucket": bucket_name, "Key": file_key},
+        )
+
+        # But when we check if the file still exists, we get an unexpected error
+        self.s3_stubber.add_client_error(
+            "head_object",
+            service_error_code="InternalError",
+            service_message="Internal Server Error",
+            http_status_code=500,
+            expected_params={"Bucket": bucket_name, "Key": file_key},
+        )
+
+        # Activate the stubbers
+        self.s3_stubber.activate()
+        self.textract_stubber.activate()
+
+        # Set DELETE_ORIGINAL_PDF to True for this test
+        with mock.patch("src.lambda_functions.text_extractor.handler.DELETE_ORIGINAL_PDF", True):
+            # Call the function
+            result = extract_text_from_pdf(bucket_name, file_key)
+
+        # Verify the result
+        self.assertEqual(result["source"]["bucket"], bucket_name)
+        self.assertEqual(result["source"]["file_key"], file_key)
+        self.assertEqual(result["source"]["size_bytes"], content_length)
+        self.assertIn("extracted_text", result)
+        self.assertIn("Sample text from PDF.", result["extracted_text"])
+        self.assertEqual(result["status"], "success")
+
+        # Verify output information
+        self.assertIn("output", result)
+        self.assertEqual(result["output"]["bucket"], EXTRACTED_TEXT_BUCKET)
+        self.assertEqual(result["output"]["file_key"], target_key)
+        self.assertEqual(result["output"]["content_type"], "text/plain")
+
+        # Verify deletion status - should be False because verification errored
+        self.assertIn("original_deleted", result)
+        self.assertFalse(result["original_deleted"])
+
+        # Verify that the stubbers were used correctly
+        self.s3_stubber.assert_no_pending_responses()
+        self.textract_stubber.assert_no_pending_responses()
+
+    def test_extract_text_with_successful_deletion(self):
+        """
+        Test the extract_text_from_pdf function with successful deletion and verification.
+        """
+        # Define test data
+        bucket_name = "test-bucket"
+        file_key = "sample.pdf"
+        content_length = 12345
+        last_modified = datetime.now()
+        job_id = "test-job-id"
+        extracted_text = "Sample text from PDF."
+
+        # Stub the head_object method to return our test data
+        self.s3_stubber.add_response(
+            "head_object",
+            {
+                "ContentLength": content_length,
+                "LastModified": last_modified,
+                "ContentType": "application/pdf",
+            },
+            {"Bucket": bucket_name, "Key": file_key},
+        )
+
+        # Stub the async Textract API responses
+        # 1. Start async job
+        self.textract_stubber.add_response(
+            "start_document_text_detection",
+            {"JobId": job_id},
+            {"DocumentLocation": {"S3Object": {"Bucket": bucket_name, "Name": file_key}}},
+        )
+
+        # 2. Check job status
+        self.textract_stubber.add_response(
+            "get_document_text_detection",
+            {"JobStatus": "SUCCEEDED", "DocumentMetadata": {"Pages": 1}},
+            {"JobId": job_id},
+        )
+
+        # 3. Get results
+        self.textract_stubber.add_response(
+            "get_document_text_detection",
+            {
+                "JobStatus": "SUCCEEDED",
+                "DocumentMetadata": {"Pages": 1},
+                "Blocks": [
+                    {
+                        "BlockType": "LINE",
+                        "Text": extracted_text,
+                        "Id": "1",
+                        "Confidence": 99.0,
+                        "Page": 1,
+                    }
+                ],
+            },
+            {"JobId": job_id},
+        )
+
+        # Stub the put_object method for saving the extracted text
+        txt_filename = "sample.txt"
+        target_key = f"{EXTRACTED_TEXT_PREFIX}/{txt_filename}"
+        page_delimited_text = f"\n--- PAGE 1 ---\n{extracted_text}\n"
+        self.s3_stubber.add_response(
+            "put_object",
+            {},
+            {
+                "Bucket": EXTRACTED_TEXT_BUCKET,
+                "Key": target_key,
+                "Body": page_delimited_text,
+                "ContentType": "text/plain",
+            },
+        )
+
+        # Delete operation succeeds
+        self.s3_stubber.add_response(
+            "delete_object",
+            {},
+            {"Bucket": bucket_name, "Key": file_key},
+        )
+
+        # When we check if the file still exists, we get a 404 (success)
+        self.s3_stubber.add_client_error(
+            "head_object",
+            service_error_code="NoSuchKey",
+            service_message="The specified key does not exist.",
+            http_status_code=404,
+            expected_params={"Bucket": bucket_name, "Key": file_key},
+        )
+
+        # Activate the stubbers
+        self.s3_stubber.activate()
+        self.textract_stubber.activate()
+
+        # Set DELETE_ORIGINAL_PDF to True for this test
+        with mock.patch("src.lambda_functions.text_extractor.handler.DELETE_ORIGINAL_PDF", True):
+            # Call the function
+            result = extract_text_from_pdf(bucket_name, file_key)
+
+        # Verify the result
+        self.assertEqual(result["source"]["bucket"], bucket_name)
+        self.assertEqual(result["source"]["file_key"], file_key)
+        self.assertEqual(result["source"]["size_bytes"], content_length)
+        self.assertIn("extracted_text", result)
+        self.assertIn("Sample text from PDF.", result["extracted_text"])
+        self.assertEqual(result["status"], "success")
+
+        # Verify output information
+        self.assertIn("output", result)
+        self.assertEqual(result["output"]["bucket"], EXTRACTED_TEXT_BUCKET)
+        self.assertEqual(result["output"]["file_key"], target_key)
+        self.assertEqual(result["output"]["content_type"], "text/plain")
+
+        # Verify deletion status - should be True because deletion and verification succeeded
+        self.assertIn("original_deleted", result)
+        self.assertTrue(result["original_deleted"])
+
+        # Verify that the stubbers were used correctly
+        self.s3_stubber.assert_no_pending_responses()
+        self.textract_stubber.assert_no_pending_responses()
+
     def test_extract_text_from_pdf_large_document(self):
         """
         Test the extract_text_from_pdf function with a large document.
