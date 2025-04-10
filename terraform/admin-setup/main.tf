@@ -479,7 +479,10 @@ resource "aws_iam_policy" "opensearch_secretsmanager_policy" {
           "secretsmanager:UpdateSecret",
           "secretsmanager:TagResource",
           "secretsmanager:UntagResource",
-          "secretsmanager:ListSecretVersionIds"
+          "secretsmanager:ListSecretVersionIds",
+          "secretsmanager:GetResourcePolicy",
+          "secretsmanager:PutResourcePolicy",
+          "secretsmanager:DeleteResourcePolicy"
         ]
         Effect   = "Allow"
         Resource = "arn:aws:secretsmanager:${var.aws_region}:${var.aws_account_id}:secret:ee-ai-rag-mcp-demo*"
