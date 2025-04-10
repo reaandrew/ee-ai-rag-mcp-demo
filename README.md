@@ -115,3 +115,10 @@ To integrate with your RAG applications:
 4. Retrieve relevant text chunks to provide context to your LLM
 
 For details on the OpenSearch configuration and how to query the vectors, refer to the AWS OpenSearch documentation.
+
+## Future Improvements
+
+- Improve test coverage for utility modules:
+  - Create comprehensive tests for `src/utils/bedrock_utils.py` (current coverage: 0%)
+  - Create comprehensive tests for `src/utils/opensearch_utils.py` (current coverage: 0%)
+  - Target at least 80% coverage for these modules

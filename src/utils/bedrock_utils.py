@@ -22,22 +22,26 @@ EMBEDDING_MODEL_ID = os.environ.get("EMBEDDING_MODEL_ID", "amazon.titan-embed-te
 LLM_MODEL_ID = os.environ.get("LLM_MODEL_ID", "anthropic.claude-3-sonnet-20240229-v1:0")
 
 
-def generate_embedding(text):
+def generate_embedding(text, model_id=None):
     """
     Generate embeddings for the provided text using AWS Bedrock.
 
     Args:
         text (str): The text to generate embeddings for
+        model_id (str, optional): Model ID to use, defaults to EMBEDDING_MODEL_ID
 
     Returns:
         list: The embedding vector
     """
     try:
+        # Use the default model if none is specified
+        if model_id is None:
+            model_id = EMBEDDING_MODEL_ID
         # Prepare request body for Titan embedding model
         request_body = json.dumps({"inputText": text})
 
         # Call Bedrock to generate embeddings
-        response = bedrock_runtime.invoke_model(modelId=EMBEDDING_MODEL_ID, body=request_body)
+        response = bedrock_runtime.invoke_model(modelId=model_id, body=request_body)
 
         # Parse response
         response_body = json.loads(response["body"].read())
@@ -50,19 +54,23 @@ def generate_embedding(text):
         raise e
 
 
-def generate_llm_response(prompt):
+def generate_llm_response(prompt, model_id=None):
     """
     Generate a response from Claude based on the prompt.
 
     Args:
         prompt (dict): The formatted prompt for Claude
+        model_id (str, optional): Model ID to use, defaults to LLM_MODEL_ID
 
     Returns:
         str: The generated response
     """
     try:
+        # Use the default model if none is specified
+        if model_id is None:
+            model_id = LLM_MODEL_ID
         # Call Bedrock to generate response
-        response = bedrock_runtime.invoke_model(modelId=LLM_MODEL_ID, body=json.dumps(prompt))
+        response = bedrock_runtime.invoke_model(modelId=model_id, body=json.dumps(prompt))
 
         # Parse response
         response_body = json.loads(response["body"].read())
