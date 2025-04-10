@@ -387,6 +387,36 @@ resource "aws_iam_policy" "app_specific_policy" {
         Resource = "*"
       },
       {
+        # API Gateway permissions - necessary for Lambda authorizer integration
+        Action = [
+          "apigateway:GET",
+          "apigateway:POST",
+          "apigateway:PUT",
+          "apigateway:PATCH",
+          "apigateway:DELETE",
+          "apigateway:TagResource",
+          "apigateway:UntagResource"
+        ]
+        Effect   = "Allow"
+        Resource = [
+          "arn:aws:apigateway:${var.aws_region}::/apis",
+          "arn:aws:apigateway:${var.aws_region}::/apis/*",
+          "arn:aws:apigateway:${var.aws_region}::/tags/*",
+          "arn:aws:apigateway:${var.aws_region}::/v2/apis/*",
+          "arn:aws:apigateway:${var.aws_region}::/restapis",
+          "arn:aws:apigateway:${var.aws_region}::/restapis/*"
+        ]
+      },
+      {
+        # API Gateway service operations that don't support resource-level permissions
+        Action = [
+          "apigateway:GET",
+          "apigateway:POST"
+        ]
+        Effect   = "Allow"
+        Resource = "arn:aws:apigateway:${var.aws_region}::/*"
+      },
+      {
         # Terraform state bucket permissions
         Action = [
           "s3:ListBucket",

@@ -68,7 +68,6 @@ resource "aws_opensearch_domain" "vectors" {
   # Additional advanced options
   advanced_options = {
     "rest.action.multi.allow_explicit_index" = "true"
-    "override_main_response_version"         = "true"
   }
 
   # Access control policy for domain
