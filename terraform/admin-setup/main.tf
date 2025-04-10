@@ -421,6 +421,66 @@ resource "aws_iam_policy" "app_specific_policy" {
   })
 }
 
+# Create OpenSearch and Secrets Manager policy
+resource "aws_iam_policy" "opensearch_secretsmanager_policy" {
+  name        = "${var.ci_role_name}-opensearch-secretsmanager-policy"
+  description = "Permissions for OpenSearch and Secrets Manager"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        # OpenSearch permissions
+        Action = [
+          "es:CreateDomain",
+          "es:DeleteDomain",
+          "es:DescribeDomain",
+          "es:DescribeDomainConfig",
+          "es:UpdateDomainConfig",
+          "es:ListDomainNames",
+          "es:AddTags",
+          "es:ListTags",
+          "es:ESHttpGet",
+          "es:ESHttpPost",
+          "es:ESHttpPut",
+          "es:ESHttpDelete"
+        ]
+        Effect   = "Allow"
+        Resource = "arn:aws:es:${var.aws_region}:${var.aws_account_id}:domain/ee-ai-rag-mcp-demo*"
+      },
+      {
+        # Additional OpenSearch service-level permissions
+        Action = [
+          "es:ListDomainNames",
+          "es:DescribeElasticsearchDomains",
+          "es:DescribeElasticsearchInstanceTypeLimits",
+          "es:CreateElasticsearchDomain",
+          "es:DeleteElasticsearchDomain",
+          "es:ESHttpHead"
+        ]
+        Effect   = "Allow"
+        Resource = "*"
+      },
+      {
+        # Secrets Manager permissions
+        Action = [
+          "secretsmanager:CreateSecret",
+          "secretsmanager:DeleteSecret",
+          "secretsmanager:GetSecretValue",
+          "secretsmanager:DescribeSecret",
+          "secretsmanager:PutSecretValue",
+          "secretsmanager:UpdateSecret",
+          "secretsmanager:TagResource",
+          "secretsmanager:UntagResource",
+          "secretsmanager:ListSecretVersionIds"
+        ]
+        Effect   = "Allow"
+        Resource = "arn:aws:secretsmanager:${var.aws_region}:${var.aws_account_id}:secret:ee-ai-rag-mcp-demo*"
+      }
+    ]
+  })
+}
+
 # Attach policies to the CI role
 resource "aws_iam_role_policy_attachment" "terraform_state_attachment" {
   role       = aws_iam_role.ci_role.name
@@ -430,6 +490,12 @@ resource "aws_iam_role_policy_attachment" "terraform_state_attachment" {
 resource "aws_iam_role_policy_attachment" "app_specific_attachment" {
   role       = aws_iam_role.ci_role.name
   policy_arn = aws_iam_policy.app_specific_policy.arn
+}
+
+# Attach OpenSearch and Secrets Manager policy to the CI role
+resource "aws_iam_role_policy_attachment" "opensearch_secretsmanager_attachment" {
+  role       = aws_iam_role.ci_role.name
+  policy_arn = aws_iam_policy.opensearch_secretsmanager_policy.arn
 }
 
 # Output the role ARN for use in CI setup

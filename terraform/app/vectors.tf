@@ -206,8 +206,7 @@ resource "aws_lambda_function" "vector_generator" {
       OPENSEARCH_DOMAIN = var.opensearch_domain_name,
       OPENSEARCH_INDEX = "rag-vectors",
       VECTOR_PREFIX = var.vector_prefix,
-      MODEL_ID = var.bedrock_model_id,
-      AWS_REGION = var.aws_region
+      MODEL_ID = var.bedrock_model_id
     }
   }
 

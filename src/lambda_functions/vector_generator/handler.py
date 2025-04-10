@@ -11,8 +11,9 @@ from requests_aws4auth import AWS4Auth
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-# Get AWS region from environment or default to eu-west-2
-region = os.environ.get("AWS_REGION", "eu-west-2")  # Match the region in Terraform config
+# Use the Lambda runtime's AWS_REGION environment variable
+# This is automatically set by the Lambda runtime
+region = os.environ.get("AWS_REGION")
 
 # Initialize AWS clients
 s3_client = boto3.client("s3", region_name=region)
