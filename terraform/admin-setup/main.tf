@@ -449,17 +449,24 @@ resource "aws_iam_policy" "opensearch_secretsmanager_policy" {
         Resource = "arn:aws:es:${var.aws_region}:${var.aws_account_id}:domain/ee-ai-rag-mcp-demo*"
       },
       {
-        # Additional OpenSearch service-level permissions
+        # List and describe services at the global level (these require * resource as they don't support resource-level permissions)
         Action = [
           "es:ListDomainNames",
+          "es:DescribeElasticsearchInstanceTypeLimits"
+        ]
+        Effect   = "Allow"
+        Resource = "*"
+      },
+      {
+        # Domain-specific actions with proper resource constraint
+        Action = [
           "es:DescribeElasticsearchDomains",
-          "es:DescribeElasticsearchInstanceTypeLimits",
           "es:CreateElasticsearchDomain",
           "es:DeleteElasticsearchDomain",
           "es:ESHttpHead"
         ]
         Effect   = "Allow"
-        Resource = "*"
+        Resource = "arn:aws:es:${var.aws_region}:${var.aws_account_id}:domain/ee-ai-rag-mcp-demo*"
       },
       {
         # Secrets Manager permissions
