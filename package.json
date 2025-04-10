@@ -11,7 +11,7 @@
     "format": "black src tests",
     "build:lambda": "chmod +x ./build_lambda.sh && make build-lambda",
     "prepare": "husky install",
-    "sonar": "npm run test:coverage && sonar-scanner -Dsonar.python.coverage.reportPaths=coverage-reports/python-coverage.xml",
+    "sonar": "python -m pytest --cov=src --cov-report=xml:coverage-reports/python-coverage.xml --cov-report=term --cov-config=.coveragerc && sonar-scanner -Dsonar.python.coverage.reportPaths=coverage-reports/python-coverage.xml",
     "test:focused": "python -m pytest tests --cov=src/lambda_functions/text_chunker/handler.py --cov=src/lambda_functions/text_extractor/handler.py --cov-report=term"
   },
   "repository": {
