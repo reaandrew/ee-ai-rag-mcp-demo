@@ -215,6 +215,7 @@ resource "aws_lambda_function" "vector_generator" {
       ENVIRONMENT = var.environment,
       CHUNKED_TEXT_BUCKET = var.chunked_text_bucket_name,
       OPENSEARCH_DOMAIN = var.opensearch_domain_name,
+      OPENSEARCH_ENDPOINT = aws_opensearch_domain.vectors.endpoint,
       OPENSEARCH_INDEX = "rag-vectors",
       VECTOR_PREFIX = var.vector_prefix,
       MODEL_ID = var.bedrock_model_id

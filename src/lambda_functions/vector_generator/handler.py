@@ -23,6 +23,7 @@ bedrock_runtime = boto3.client("bedrock-runtime", region_name=region)
 # Get environment variables
 CHUNKED_TEXT_BUCKET = os.environ.get("CHUNKED_TEXT_BUCKET", "ee-ai-rag-mcp-demo-chunked-text")
 OPENSEARCH_DOMAIN = os.environ.get("OPENSEARCH_DOMAIN", "ee-ai-rag-mcp-demo-vectors")
+OPENSEARCH_ENDPOINT = os.environ.get("OPENSEARCH_ENDPOINT", None)  # Will be populated from Terraform
 OPENSEARCH_INDEX = os.environ.get("OPENSEARCH_INDEX", "rag-vectors")
 VECTOR_PREFIX = os.environ.get("VECTOR_PREFIX", "ee-ai-rag-mcp-demo")
 MODEL_ID = os.environ.get("MODEL_ID", "amazon.titan-embed-text-v2:0")
@@ -66,8 +67,16 @@ def get_opensearch_client():
         # If we have username/password from Secrets Manager, use basic auth
         if username and password:
             logger.info(f"Using Secrets Manager credentials for user: {username}")
+            # Use the OpenSearch endpoint from the environment variable if available
+            if OPENSEARCH_ENDPOINT:
+                host = OPENSEARCH_ENDPOINT
+                logger.info(f"Using OpenSearch endpoint from environment: {host}")
+            else:
+                host = f"{OPENSEARCH_DOMAIN}.{region}.es.amazonaws.com"
+                logger.info(f"Using constructed OpenSearch endpoint: {host}")
+                
             return OpenSearch(
-                hosts=[{"host": f"{OPENSEARCH_DOMAIN}.{region}.es.amazonaws.com", "port": 443}],
+                hosts=[{"host": host, "port": 443}],
                 http_auth=(username, password),
                 use_ssl=True,
                 verify_certs=True,
@@ -88,8 +97,16 @@ def get_opensearch_client():
             )
 
             # Create OpenSearch client with AWS authentication
+            # Use the OpenSearch endpoint from the environment variable if available
+            if OPENSEARCH_ENDPOINT:
+                host = OPENSEARCH_ENDPOINT
+                logger.info(f"Using OpenSearch endpoint from environment: {host}")
+            else:
+                host = f"{OPENSEARCH_DOMAIN}.{region}.es.amazonaws.com"
+                logger.info(f"Using constructed OpenSearch endpoint: {host}")
+            
             return OpenSearch(
-                hosts=[{"host": f"{OPENSEARCH_DOMAIN}.{region}.es.amazonaws.com", "port": 443}],
+                hosts=[{"host": host, "port": 443}],
                 http_auth=awsauth,
                 use_ssl=True,
                 verify_certs=True,
