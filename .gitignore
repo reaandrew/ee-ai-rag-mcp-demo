@@ -31,6 +31,7 @@ yarn.lock
 src/lambda_functions/*/dependencies/
 include/
 run_tests.sh
+package/
 
 # Coverage
 /coverage
