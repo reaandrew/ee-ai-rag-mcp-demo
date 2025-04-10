@@ -61,6 +61,14 @@ resource "aws_opensearch_domain" "vectors" {
       master_user_name     = var.opensearch_master_user
       master_user_password = random_password.opensearch_master_password.result
     }
+    # Enable fine-grained access control
+    anonymous_auth_enabled         = false
+  }
+  
+  # Additional advanced options
+  advanced_options = {
+    "rest.action.multi.allow_explicit_index" = "true"
+    "override_main_response_version"         = "true"
   }
 
   # Access control policy for domain
