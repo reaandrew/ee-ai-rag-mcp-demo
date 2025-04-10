@@ -42,5 +42,6 @@ mkdir -p build
 # Build Lambda packages
 build_lambda_package "text_extractor"
 build_lambda_package "text_chunker"
+build_lambda_package "vector_generator"
 
 echo "All Lambda packages built successfully"

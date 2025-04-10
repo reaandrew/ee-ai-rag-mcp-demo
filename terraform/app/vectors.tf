@@ -187,6 +187,16 @@ data "archive_file" "vector_generator_zip" {
   output_path = "${path.module}/../../build/vector-generator.zip"
 }
 
+# Lambda layer for vector_generator dependencies
+resource "aws_lambda_layer_version" "vector_generator_layer" {
+  layer_name = "ee-ai-rag-mcp-demo-vector-generator-layer"
+  filename   = "${path.module}/../../build/vector-generator-layer.zip"
+  source_code_hash = filebase64sha256("${path.module}/../../build/vector-generator-layer.zip")
+
+  compatible_runtimes = ["python3.9"]
+  description = "Layer containing dependencies for vector_generator Lambda function"
+}
+
 # Create the vector_generator Lambda function
 resource "aws_lambda_function" "vector_generator" {
   function_name    = "ee-ai-rag-mcp-demo-vector-generator"
@@ -198,6 +208,7 @@ resource "aws_lambda_function" "vector_generator" {
   runtime          = "python3.9"
   timeout          = 60   # 1 minute timeout for processing chunks
   memory_size      = 256  # 256MB for vector generation
+  layers           = [aws_lambda_layer_version.vector_generator_layer.arn]
 
   environment {
     variables = {
