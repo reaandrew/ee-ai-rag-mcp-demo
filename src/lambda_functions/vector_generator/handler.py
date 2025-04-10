@@ -13,7 +13,8 @@ logger.setLevel(logging.INFO)
 
 # Use the Lambda runtime's AWS_REGION environment variable
 # This is automatically set by the Lambda runtime
-region = os.environ.get("AWS_REGION")
+# Provide a fallback for testing environments where AWS_REGION might not be set
+region = os.environ.get("AWS_REGION", "eu-west-2")
 
 # Initialize AWS clients
 s3_client = boto3.client("s3", region_name=region)
