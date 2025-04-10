@@ -185,6 +185,17 @@ def create_index_if_not_exists():
 
     except Exception as e:
         logger.error(f"Error creating OpenSearch index: {str(e)}")
+        # Log more details about the error for debugging
+        if "403" in str(e) or "AuthorizationException" in str(e):
+            logger.error("Authorization failure. Check IAM permissions and OpenSearch policy.")
+            logger.error(f"Using endpoint: {OPENSEARCH_ENDPOINT}")
+            try:
+                # Try to get IAM role info for debugging
+                sts_client = boto3.client("sts")
+                identity = sts_client.get_caller_identity()
+                logger.error(f"Lambda execution identity: {identity.get('Arn')}")
+            except Exception as sts_error:
+                logger.error(f"Could not get caller identity: {str(sts_error)}")
         raise e
 
 

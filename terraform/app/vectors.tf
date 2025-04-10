@@ -153,11 +153,18 @@ resource "aws_iam_policy" "vector_generator_policy" {
           "es:ESHttpGet",
           "es:ESHttpPost",
           "es:ESHttpPut",
-          "es:ESHttpDelete"
+          "es:ESHttpDelete",
+          "es:ESHttpHead",
+          "opensearch:ESHttpGet",
+          "opensearch:ESHttpPost",
+          "opensearch:ESHttpPut",
+          "opensearch:ESHttpDelete",
+          "opensearch:ESHttpHead"
         ]
         Effect = "Allow"
         Resource = [
-          "arn:aws:es:${var.aws_region}:${data.aws_caller_identity.current.account_id}:domain/${var.opensearch_domain_name}/*"
+          "arn:aws:es:${var.aws_region}:${data.aws_caller_identity.current.account_id}:domain/${var.opensearch_domain_name}/*",
+          "arn:aws:opensearch:${var.aws_region}:${data.aws_caller_identity.current.account_id}:domain/${var.opensearch_domain_name}/*"
         ]
       },
       {

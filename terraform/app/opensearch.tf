@@ -72,8 +72,11 @@ resource "aws_opensearch_domain" "vectors" {
         Principal = {
           AWS = aws_iam_role.vector_generator_role.arn
         }
-        Action   = "es:*"
-        Resource = "arn:aws:es:${var.aws_region}:${data.aws_caller_identity.current.account_id}:domain/${var.opensearch_domain_name}/*"
+        Action   = ["es:*", "opensearch:*"]
+        Resource = [
+          "arn:aws:es:${var.aws_region}:${data.aws_caller_identity.current.account_id}:domain/${var.opensearch_domain_name}/*",
+          "arn:aws:opensearch:${var.aws_region}:${data.aws_caller_identity.current.account_id}:domain/${var.opensearch_domain_name}/*"
+        ]
       }
     ]
   })

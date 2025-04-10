@@ -4,7 +4,7 @@
   "description": "A demo repository with conventional commits and automatic versioning",
   "main": "index.js",
   "scripts": {
-    "test": "python -m pytest --cov-config=.coveragerc --cov --cov-report=term",
+    "test": "python3 -m pytest --cov-config=.coveragerc --cov --cov-report=term",
     "test:coverage": "pytest --cov=src --cov-report=xml:coverage-reports/python-coverage.xml --cov-report=term",
     "check:coverage": "node .husky/check-coverage.js",
     "lint": "flake8 src && black --check src tests",
