@@ -2,10 +2,8 @@ import json
 import boto3
 import logging
 import os
-import time
 from urllib.parse import unquote_plus
-from opensearchpy import OpenSearch, RequestsHttpConnection
-from requests_aws4auth import AWS4Auth
+from src.utils import opensearch_utils, bedrock_utils
 
 # Set up logging
 logger = logging.getLogger()
@@ -18,7 +16,6 @@ region = os.environ.get("AWS_REGION", "eu-west-2")
 
 # Initialize AWS clients
 s3_client = boto3.client("s3", region_name=region)
-bedrock_runtime = boto3.client("bedrock-runtime", region_name=region)
 
 # Get environment variables
 CHUNKED_TEXT_BUCKET = os.environ.get("CHUNKED_TEXT_BUCKET", "ee-ai-rag-mcp-demo-chunked-text")
@@ -32,177 +29,8 @@ MODEL_ID = os.environ.get("MODEL_ID", "amazon.titan-embed-text-v2:0")
 USE_IAM_AUTH = os.environ.get("USE_IAM_AUTH", "true").lower() == "true"
 USE_AOSS = os.environ.get("USE_AOSS", "false").lower() == "true"
 
-
-# Get OpenSearch credentials from AWS Secrets Manager
-def get_opensearch_credentials():
-    """
-    Retrieve OpenSearch credentials from AWS Secrets Manager.
-    Returns a tuple of (username, password) or (None, None) if not found.
-    """
-    try:
-        # Create a Secrets Manager client
-        secrets_client = boto3.client("secretsmanager", region_name=region)
-
-        # Get the secret value
-        secret_name = "ee-ai-rag-mcp-demo/opensearch-master-credentials-v2"
-        response = secrets_client.get_secret_value(SecretId=secret_name)
-
-        # Parse the secret JSON string
-        secret = json.loads(response["SecretString"])
-        return secret.get("username"), secret.get("password")
-
-    except Exception as e:
-        logger.warning(f"Could not retrieve OpenSearch credentials from Secrets Manager: {str(e)}")
-        logger.warning("Will attempt to use IAM authentication instead")
-        return None, None
-
-
-# Initialize OpenSearch client with AWS authentication
-def get_opensearch_client():
-    """
-    Create and return an OpenSearch client with proper AWS authentication.
-    This separated to make testing easier, as AWS credentials may not be
-    available in test environments.
-    """
-    try:
-        # Determine the host endpoint
-        if OPENSEARCH_ENDPOINT:
-            host = OPENSEARCH_ENDPOINT
-            logger.info(f"Using OpenSearch endpoint from environment: {host}")
-        else:
-            host = f"{OPENSEARCH_DOMAIN}.{region}.es.amazonaws.com"
-            logger.info(f"Using constructed OpenSearch endpoint: {host}")
-
-        # First try to get credentials from Secrets Manager
-        username, password = get_opensearch_credentials()
-
-        # If we have username/password from Secrets Manager, use basic auth
-        if username and password:
-            logger.info(f"Using Secrets Manager credentials for user: {username}")
-            try:
-                # Try with username/password first
-                client = OpenSearch(
-                    hosts=[{"host": host, "port": 443}],
-                    http_auth=(username, password),
-                    use_ssl=True,
-                    verify_certs=True,
-                    connection_class=RequestsHttpConnection,
-                    timeout=30,
-                )
-                # Test the connection
-                client.info()
-                logger.info("Successfully connected to OpenSearch with username/password")
-                return client
-            except Exception as auth_err:
-                logger.warning(f"Basic auth failed: {str(auth_err)}. Trying IAM authentication...")
-                # Fall through to IAM authentication if basic auth fails
-
-        # Use IAM authentication
-        credentials = boto3.Session().get_credentials()
-        if credentials:
-            logger.info("Using IAM authentication for OpenSearch")
-
-            # Try with "es" service name (older OpenSearch/Elasticsearch)
-            try:
-                awsauth = AWS4Auth(
-                    credentials.access_key,
-                    credentials.secret_key,
-                    region,
-                    "es",
-                    session_token=credentials.token,
-                )
-
-                client = OpenSearch(
-                    hosts=[{"host": host, "port": 443}],
-                    http_auth=awsauth,
-                    use_ssl=True,
-                    verify_certs=True,
-                    connection_class=RequestsHttpConnection,
-                    timeout=30,
-                )
-                # Test the connection
-                client.info()
-                logger.info(
-                    "Successfully connected to OpenSearch with IAM authentication (es service)"
-                )
-                return client
-            except Exception as es_err:
-                logger.warning(
-                    f"IAM auth with 'es' service failed: {str(es_err)}. Trying 'aoss' service..."
-                )
-
-            # Try with "aoss" service name (OpenSearch Serverless)
-            try:
-                awsauth = AWS4Auth(
-                    credentials.access_key,
-                    credentials.secret_key,
-                    region,
-                    "aoss",
-                    session_token=credentials.token,
-                )
-
-                client = OpenSearch(
-                    hosts=[{"host": host, "port": 443}],
-                    http_auth=awsauth,
-                    use_ssl=True,
-                    verify_certs=True,
-                    connection_class=RequestsHttpConnection,
-                    timeout=30,
-                )
-                # Test the connection
-                client.info()
-                logger.info(
-                    "Successfully connected to OpenSearch with IAM authentication (aoss service)"
-                )
-                return client
-            except Exception as aoss_err:
-                logger.warning(f"IAM auth with 'aoss' service failed: {str(aoss_err)}")
-
-            # As a last resort, try with "opensearch" service name
-            try:
-                awsauth = AWS4Auth(
-                    credentials.access_key,
-                    credentials.secret_key,
-                    region,
-                    "opensearch",
-                    session_token=credentials.token,
-                )
-
-                client = OpenSearch(
-                    hosts=[{"host": host, "port": 443}],
-                    http_auth=awsauth,
-                    use_ssl=True,
-                    verify_certs=True,
-                    connection_class=RequestsHttpConnection,
-                    timeout=30,
-                )
-                # Test the connection
-                client.info()
-                logger.info(
-                    "Successfully connected to OpenSearch with IAM auth (opensearch service)"
-                )
-                return client
-            except Exception as opensearch_err:
-                logger.error(
-                    f"All authentication methods failed. Last error: {str(opensearch_err)}"
-                )
-
-            logger.error("All authentication methods failed for OpenSearch")
-
-        else:
-            logger.warning("No credentials available for OpenSearch authentication")
-
-        # In test environments, we might want to return a mock client
-        return None
-
-    except Exception as e:
-        logger.error(f"Error creating OpenSearch client: {str(e)}")
-        # In a test environment, we might still want to continue
-        return None
-
-
 # Create the OpenSearch client
-opensearch_client = get_opensearch_client()
+opensearch_client = opensearch_utils.get_opensearch_client()
 
 
 def create_index_if_not_exists():
@@ -210,72 +38,7 @@ def create_index_if_not_exists():
     Create OpenSearch index with embedding mapping if it doesn't exist.
     The index is configured with the appropriate mapping for vector search.
     """
-    try:
-        # Check if OpenSearch client is available
-        if not opensearch_client:
-            logger.warning("OpenSearch client not available, skipping index creation")
-            return True
-
-        # Check if index exists
-        if not opensearch_client.indices.exists(index=OPENSEARCH_INDEX):
-            logger.info(f"Creating OpenSearch index: {OPENSEARCH_INDEX}")
-
-            # Define mappings for vector search
-            index_body = {
-                "settings": {
-                    "index": {
-                        "number_of_shards": 2,
-                        "number_of_replicas": 1,
-                        "knn": True,
-                        "knn.algo_param.ef_search": 100,
-                    }
-                },
-                "mappings": {
-                    "properties": {
-                        "embedding": {
-                            "type": "knn_vector",
-                            "dimension": 1536,  # Default dimension for Titan embeddings
-                            "method": {
-                                "name": "hnsw",
-                                "space_type": "cosine",
-                                "engine": "nmslib",
-                                "parameters": {"ef_construction": 128, "m": 16},
-                            },
-                        },
-                        "text": {"type": "text"},
-                        "metadata": {"type": "object"},
-                        "source_key": {"type": "keyword"},
-                        "embedding_model": {"type": "keyword"},
-                        "embedding_dimension": {"type": "integer"},
-                        "page_number": {"type": "integer"},
-                        "document_name": {"type": "keyword"},
-                    }
-                },
-            }
-
-            # Create the index
-            opensearch_client.indices.create(index=OPENSEARCH_INDEX, body=index_body)
-            logger.info(f"Created OpenSearch index: {OPENSEARCH_INDEX}")
-
-            # Wait a moment for the index to be fully created
-            time.sleep(2)
-
-        return True
-
-    except Exception as e:
-        logger.error(f"Error creating OpenSearch index: {str(e)}")
-        # Log more details about the error for debugging
-        if "403" in str(e) or "AuthorizationException" in str(e):
-            logger.error("Authorization failure. Check IAM permissions and OpenSearch policy.")
-            logger.error(f"Using endpoint: {OPENSEARCH_ENDPOINT}")
-            try:
-                # Try to get IAM role info for debugging
-                sts_client = boto3.client("sts")
-                identity = sts_client.get_caller_identity()
-                logger.error(f"Lambda execution identity: {identity.get('Arn')}")
-            except Exception as sts_error:
-                logger.error(f"Could not get caller identity: {str(sts_error)}")
-        raise e
+    return opensearch_utils.create_index_if_not_exists(opensearch_client, OPENSEARCH_INDEX)
 
 
 def generate_embedding(text):
@@ -288,22 +51,8 @@ def generate_embedding(text):
     Returns:
         list: The embedding vector
     """
-    try:
-        # Prepare request body for Titan embedding model
-        request_body = json.dumps({"inputText": text})
-
-        # Call Bedrock to generate embeddings
-        response = bedrock_runtime.invoke_model(modelId=MODEL_ID, body=request_body)
-
-        # Parse response
-        response_body = json.loads(response["body"].read())
-        embedding = response_body.get("embedding", [])
-
-        logger.info(f"Successfully generated embedding with dimension {len(embedding)}")
-        return embedding
-    except Exception as e:
-        logger.error(f"Error generating embedding: {str(e)}")
-        raise e
+    # Override the default model ID from the utility with our environment variable
+    return bedrock_utils.generate_embedding(text, model_id=MODEL_ID)
 
 
 def process_chunk_file(bucket_name, file_key):

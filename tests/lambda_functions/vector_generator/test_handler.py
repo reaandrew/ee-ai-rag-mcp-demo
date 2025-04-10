@@ -32,9 +32,19 @@ opensearch_mock.RequestsHttpConnection = MockRequestsHttpConnection
 requests_aws4auth_mock = MagicMock()
 requests_aws4auth_mock.AWS4Auth = MockAWS4Auth
 
+# Mock our utility modules
+opensearch_utils_mock = MagicMock()
+opensearch_utils_mock.get_opensearch_client.return_value = MockOpenSearch()
+opensearch_utils_mock.create_index_if_not_exists.return_value = True
+
+bedrock_utils_mock = MagicMock()
+bedrock_utils_mock.generate_embedding.return_value = [0.1, 0.2, 0.3, 0.4, 0.5]
+
 # Apply the mocks
 sys.modules["opensearchpy"] = opensearch_mock
 sys.modules["requests_aws4auth"] = requests_aws4auth_mock
+sys.modules["src.utils.opensearch_utils"] = opensearch_utils_mock
+sys.modules["src.utils.bedrock_utils"] = bedrock_utils_mock
 
 # Now we can import the handler module
 from src.lambda_functions.vector_generator.handler import (
@@ -42,7 +52,6 @@ from src.lambda_functions.vector_generator.handler import (
     generate_embedding,
     process_chunk_file,
     create_index_if_not_exists,
-    get_opensearch_credentials,
 )
 
 
@@ -109,42 +118,24 @@ class MockResponse:
         return self.body
 
 
-def test_get_opensearch_credentials():
-    """Test retrieving credentials from Secrets Manager."""
-    mock_response = {"SecretString": json.dumps({"username": "admin", "password": "test-password"})}
-
-    with patch("boto3.client") as mock_boto3:
-        mock_secrets_client = MagicMock()
-        mock_secrets_client.get_secret_value.return_value = mock_response
-        mock_boto3.return_value = mock_secrets_client
-
-        username, password = get_opensearch_credentials()
-
-        # Verify the result
-        assert username == "admin"
-        assert password == "test-password"
-
-        # Verify that boto3.client was called correctly
-        mock_boto3.assert_called_once_with("secretsmanager", region_name="eu-west-2")
-        mock_secrets_client.get_secret_value.assert_called_once_with(
-            SecretId="ee-ai-rag-mcp-demo/opensearch-master-credentials-v2"
-        )
-
-
 def test_create_index_if_not_exists(mock_environment):
     """Test the create_index_if_not_exists function."""
-    # Test index creation when it doesn't exist
-    with patch("src.lambda_functions.vector_generator.handler.opensearch_client", MockOpenSearch()):
+    # Test that the function calls the utility module correctly
+    with patch("src.utils.opensearch_utils.create_index_if_not_exists") as mock_create:
+        mock_create.return_value = True
+
         result = create_index_if_not_exists()
         assert result is True
+
+        # Verify that the utility function was called correctly
+        mock_create.assert_called_once()
 
 
 def test_generate_embedding():
     """Test the generate_embedding function."""
-    with patch("src.lambda_functions.vector_generator.handler.bedrock_runtime") as mock_bedrock:
-        # Mock the invoke_model response
-        mock_response = {"body": MockResponse(json.dumps({"embedding": SAMPLE_EMBEDDING}).encode())}
-        mock_bedrock.invoke_model.return_value = mock_response
+    # Test that the function calls the utility module correctly
+    with patch("src.utils.bedrock_utils.generate_embedding") as mock_generate:
+        mock_generate.return_value = SAMPLE_EMBEDDING
 
         # Call the function
         result = generate_embedding("This is a test text")
@@ -152,12 +143,11 @@ def test_generate_embedding():
         # Assert the result
         assert result == SAMPLE_EMBEDDING
 
-        # Verify that the bedrock client was called correctly
-        mock_bedrock.invoke_model.assert_called_once()
-        call_args = mock_bedrock.invoke_model.call_args[1]
-        # Don't check exact model ID as it varies by environment
-        assert "modelId" in call_args
-        assert "inputText" in json.loads(call_args["body"])
+        # Verify that the utility function was called correctly
+        mock_generate.assert_called_once()
+        # Should pass the text and model ID to the utility function
+        assert mock_generate.call_args[0][0] == "This is a test text"
+        assert "model_id" in mock_generate.call_args[1]
 
 
 def test_process_chunk_file(mock_environment):

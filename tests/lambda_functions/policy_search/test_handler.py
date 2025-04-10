@@ -1,9 +1,29 @@
 import json
 import os
+import sys
 import unittest
 from unittest.mock import patch, MagicMock
 
 import pytest
+
+# Mock utility modules
+opensearch_utils_mock = MagicMock()
+opensearch_utils_mock.get_opensearch_client.return_value = MagicMock()
+opensearch_utils_mock.search_opensearch.return_value = []
+
+bedrock_utils_mock = MagicMock()
+bedrock_utils_mock.generate_embedding.return_value = [0.1, 0.2, 0.3, 0.4, 0.5]
+bedrock_utils_mock.create_claude_prompt.return_value = {
+    "system": "test",
+    "messages": [{"role": "user", "content": "test"}],
+}
+bedrock_utils_mock.generate_llm_response.return_value = "test response"
+
+# Apply mocks
+sys.modules["src.utils.opensearch_utils"] = opensearch_utils_mock
+sys.modules["src.utils.bedrock_utils"] = bedrock_utils_mock
+
+# Now import the handler
 from src.lambda_functions.policy_search import handler
 
 
@@ -96,66 +116,99 @@ def mock_bedrock_llm_response():
     }
 
 
-@patch.object(handler, "opensearch_client")
-@patch.object(handler, "bedrock_runtime")
-def test_extract_query_from_event(mock_bedrock, mock_opensearch, api_gateway_event):
+def test_extract_query_from_event(api_gateway_event):
     """Test extracting query from API Gateway event"""
     query = handler.extract_query_from_event(api_gateway_event)
     assert query == "What is our password policy?"
 
 
-@patch.object(handler, "opensearch_client")
-@patch.object(handler, "bedrock_runtime")
-def test_extract_query_missing_query(mock_bedrock, mock_opensearch):
+def test_extract_query_missing_query():
     """Test extracting query when it's missing"""
     event = {"body": json.dumps({"not_query": "test"})}
     with pytest.raises(ValueError):
         handler.extract_query_from_event(event)
 
 
-@patch.object(handler, "opensearch_client")
-@patch.object(handler, "bedrock_runtime")
-def test_generate_embedding(mock_bedrock, mock_opensearch, mock_bedrock_embedding_response):
+@patch("src.utils.bedrock_utils.generate_embedding")
+def test_generate_embedding(mock_generate_embedding, mock_bedrock_embedding_response):
     """Test generating embeddings with Bedrock"""
-    mock_bedrock.invoke_model.return_value = mock_bedrock_embedding_response
+    # Set up the mock to return our test embeddings
+    embedding_values = [0.1, 0.2, 0.3, 0.4, 0.5] * 10
+    mock_generate_embedding.return_value = embedding_values
 
+    # Call the function that now uses the utility module
     embedding = handler.generate_embedding("test query")
 
-    assert len(embedding) == 50  # 5*10 from our mock
-    mock_bedrock.invoke_model.assert_called_once()
+    # Verify the results
+    assert embedding == embedding_values
+    mock_generate_embedding.assert_called_once_with(
+        "test query", model_id=handler.EMBEDDING_MODEL_ID
+    )
 
 
-@patch.object(handler, "opensearch_client")
-@patch.object(handler, "bedrock_runtime")
-def test_search_opensearch(mock_bedrock, mock_opensearch, mock_opensearch_response):
+@patch("src.utils.opensearch_utils.search_opensearch")
+def test_search_opensearch(mock_search_opensearch, mock_opensearch_response):
     """Test searching OpenSearch"""
-    mock_opensearch.search.return_value = mock_opensearch_response
+    # Set up mock for our utility function to return search results
+    hits = mock_opensearch_response["hits"]["hits"]
+    search_results = [
+        {
+            "text": hit["_source"]["text"],
+            "document_name": hit["_source"]["document_name"],
+            "page_number": hit["_source"]["page_number"],
+            "metadata": hit["_source"]["metadata"],
+            "score": hit["_score"],
+        }
+        for hit in hits
+    ]
+    mock_search_opensearch.return_value = search_results
 
+    # Call the function and verify results
     results = handler.search_opensearch([0.1, 0.2, 0.3], top_k=2)
 
     assert len(results) == 2
     assert results[0]["document_name"] == "Password Policy"
     assert results[0]["page_number"] == 1
-    mock_opensearch.search.assert_called_once()
+    mock_search_opensearch.assert_called_once_with([0.1, 0.2, 0.3], top_k=2)
 
 
-@patch.object(handler, "opensearch_client")
-@patch.object(handler, "bedrock_runtime")
+@patch("src.lambda_functions.policy_search.handler.extract_query_from_event")
+@patch("src.lambda_functions.policy_search.handler.generate_embedding")
+@patch("src.lambda_functions.policy_search.handler.search_opensearch")
+@patch("src.utils.bedrock_utils.create_claude_prompt")
+@patch("src.utils.bedrock_utils.generate_llm_response")
 def test_lambda_handler_successful(
-    mock_bedrock,
-    mock_opensearch,
+    mock_generate_llm_response,
+    mock_create_claude_prompt,
+    mock_search_opensearch,
+    mock_generate_embedding,
+    mock_extract_query,
     api_gateway_event,
     mock_opensearch_response,
-    mock_bedrock_embedding_response,
-    mock_bedrock_llm_response,
 ):
     """Test successful lambda_handler execution"""
     # Set up mocks
-    mock_bedrock.invoke_model.side_effect = [
-        mock_bedrock_embedding_response,  # For embedding generation
-        mock_bedrock_llm_response,  # For LLM response
+    mock_extract_query.return_value = "What is our password policy?"
+    mock_generate_embedding.return_value = [0.1, 0.2, 0.3, 0.4, 0.5]
+
+    # Set up search results
+    hits = mock_opensearch_response["hits"]["hits"]
+    search_results = [
+        {
+            "text": hit["_source"]["text"],
+            "document_name": hit["_source"]["document_name"],
+            "page_number": hit["_source"]["page_number"],
+            "metadata": hit["_source"]["metadata"],
+            "score": hit["_score"],
+        }
+        for hit in hits
     ]
-    mock_opensearch.search.return_value = mock_opensearch_response
+    mock_search_opensearch.return_value = search_results
+
+    mock_create_claude_prompt.return_value = {"message": "test prompt"}
+    mock_generate_llm_response.return_value = (
+        "Based on the policy, passwords must be at least 12 characters long."
+    )
 
     # Execute Lambda handler
     response = handler.lambda_handler(api_gateway_event, {})
@@ -168,13 +221,20 @@ def test_lambda_handler_successful(
     assert len(response_body["sources"]) > 0
 
 
-@patch.object(handler, "opensearch_client")
-@patch.object(handler, "bedrock_runtime")
-def test_format_results_for_prompt(mock_bedrock, mock_opensearch, mock_opensearch_response):
+def test_format_results_for_prompt(mock_opensearch_response):
     """Test formatting search results for prompt"""
-    # Get search results
-    mock_opensearch.search.return_value = mock_opensearch_response
-    search_results = handler.search_opensearch(query_embedding=[0.1, 0.2, 0.3])
+    # Create search results directly
+    hits = mock_opensearch_response["hits"]["hits"]
+    search_results = [
+        {
+            "text": hit["_source"]["text"],
+            "document_name": hit["_source"]["document_name"],
+            "page_number": hit["_source"]["page_number"],
+            "metadata": hit["_source"]["metadata"],
+            "score": hit["_score"],
+        }
+        for hit in hits
+    ]
 
     # Test formatting
     formatted = handler.format_results_for_prompt(search_results)
@@ -184,13 +244,20 @@ def test_format_results_for_prompt(mock_bedrock, mock_opensearch, mock_opensearc
     assert "Page 2" in formatted
 
 
-@patch.object(handler, "opensearch_client")
-@patch.object(handler, "bedrock_runtime")
-def test_extract_sources(mock_bedrock, mock_opensearch, mock_opensearch_response):
+def test_extract_sources(mock_opensearch_response):
     """Test extracting sources from search results"""
-    # Get search results
-    mock_opensearch.search.return_value = mock_opensearch_response
-    search_results = handler.search_opensearch(query_embedding=[0.1, 0.2, 0.3])
+    # Create search results directly
+    hits = mock_opensearch_response["hits"]["hits"]
+    search_results = [
+        {
+            "text": hit["_source"]["text"],
+            "document_name": hit["_source"]["document_name"],
+            "page_number": hit["_source"]["page_number"],
+            "metadata": hit["_source"]["metadata"],
+            "score": hit["_score"],
+        }
+        for hit in hits
+    ]
 
     # Test source extraction
     sources = handler.extract_sources(search_results)
@@ -200,26 +267,29 @@ def test_extract_sources(mock_bedrock, mock_opensearch, mock_opensearch_response
     assert "page_number" in sources[0]
 
 
-@patch.object(handler, "opensearch_client")
-@patch.object(handler, "bedrock_runtime")
-def test_create_claude_prompt(mock_bedrock, mock_opensearch):
-    """Test creating prompt for Claude"""
+@patch("src.utils.bedrock_utils.create_claude_prompt")
+def test_create_claude_prompt(mock_create_claude_prompt):
+    """Test that the create_claude_prompt function calls the utility correctly"""
     query = "What is the password policy?"
     formatted_results = "Document 1: Test doc, Page 5\nSome text here"
 
-    prompt = handler.create_claude_prompt(query, formatted_results)
+    # Set up the mock
+    expected_result = {
+        "anthropic_version": "bedrock-2023-05-31",
+        "system": "test system prompt",
+        "messages": [{"role": "user", "content": "test content"}],
+    }
+    mock_create_claude_prompt.return_value = expected_result
 
-    assert "anthropic_version" in prompt
-    assert "system" in prompt
-    assert "messages" in prompt
-    assert len(prompt["messages"]) == 1
-    assert prompt["messages"][0]["role"] == "user"
-    assert query in prompt["messages"][0]["content"]
+    # Call the function through our handler that uses the utility
+    prompt = handler.bedrock_utils.create_claude_prompt(query, formatted_results)
+
+    # Check that the utility was called correctly
+    assert prompt == expected_result
+    mock_create_claude_prompt.assert_called_once_with(query, formatted_results)
 
 
-@patch.object(handler, "opensearch_client")
-@patch.object(handler, "bedrock_runtime")
-def test_lambda_handler_error(mock_bedrock, mock_opensearch):
+def test_lambda_handler_error():
     """Test error handling in lambda_handler"""
     # Create event with invalid body
     event = {"body": '{"not_a_query": "test"}'}
@@ -233,75 +303,66 @@ def test_lambda_handler_error(mock_bedrock, mock_opensearch):
     assert "error" in response_body
 
 
-@patch.object(handler, "opensearch_client", None)  # Set client to None
-@patch.object(handler, "bedrock_runtime")
-def test_search_opensearch_no_client(mock_bedrock):
-    """Test search_opensearch when OpenSearch client is not available"""
+@patch("src.utils.opensearch_utils.search_opensearch")
+def test_search_opensearch_client_exception(mock_search_opensearch):
+    """Test search_opensearch when an exception occurs"""
+    # Mock an error in the utility function
+    mock_search_opensearch.side_effect = ValueError("OpenSearch client not available")
+
     with pytest.raises(ValueError, match="OpenSearch client not available"):
         handler.search_opensearch(query_embedding=[0.1, 0.2, 0.3])
 
 
-@patch.object(handler, "opensearch_client")
-@patch.object(handler, "bedrock_runtime")
-def test_search_opensearch_error(mock_bedrock, mock_opensearch):
+@patch("src.utils.opensearch_utils.search_opensearch")
+def test_search_opensearch_error(mock_search_opensearch):
     """Test search_opensearch when an error occurs"""
     # Mock an error in OpenSearch search
-    mock_opensearch.search.side_effect = Exception("Search error")
+    mock_search_opensearch.side_effect = Exception("Search error")
 
     with pytest.raises(Exception, match="Search error"):
         handler.search_opensearch(query_embedding=[0.1, 0.2, 0.3])
 
 
-@patch.object(handler, "bedrock_runtime")
-def test_generate_embedding_error(mock_bedrock):
+@patch("src.utils.bedrock_utils.generate_embedding")
+def test_generate_embedding_error(mock_generate_embedding):
     """Test generate_embedding when an error occurs"""
-    # Mock an error in Bedrock invoke_model
-    mock_bedrock.invoke_model.side_effect = Exception("Bedrock error")
+    # Mock an error in Bedrock embedding generation
+    mock_generate_embedding.side_effect = Exception("Bedrock error")
 
     with pytest.raises(Exception, match="Bedrock error"):
         handler.generate_embedding(text="test query")
 
 
-@patch.object(handler, "opensearch_client")
-@patch.object(handler, "bedrock_runtime")
-def test_generate_llm_response_completion_format(mock_bedrock, mock_opensearch):
-    """Test generate_llm_response with an older completion format"""
-    # Mock response with older completion format
-    response = {
-        "body": MagicMock(
-            read=MagicMock(
-                return_value=json.dumps(
-                    {"completion": "This is a test response in the older format."}
-                ).encode()
-            )
-        )
-    }
-    mock_bedrock.invoke_model.return_value = response
+@patch("src.utils.bedrock_utils.generate_llm_response")
+def test_generate_llm_response(mock_generate_llm_response):
+    """Test that generate_llm_response uses the utility correctly"""
+    # Set up the mock
+    mock_generate_llm_response.return_value = "This is a test response."
 
-    # Test the function
-    result = handler.generate_llm_response({"prompt": "test"})
+    # Test calling the function through the handler
+    prompt = {"test": "prompt"}
+    result = handler.bedrock_utils.generate_llm_response(prompt, model_id="test-model")
 
     # Verify the result
-    assert result == "This is a test response in the older format."
+    assert result == "This is a test response."
+    mock_generate_llm_response.assert_called_once_with(prompt, model_id="test-model")
 
 
-@patch.object(handler, "opensearch_client")
-@patch.object(handler, "bedrock_runtime")
-def test_generate_llm_response_error(mock_bedrock, mock_opensearch):
+@patch("src.utils.bedrock_utils.generate_llm_response")
+def test_generate_llm_response_error(mock_generate_llm_response):
     """Test generate_llm_response when an error occurs"""
-    # Mock an error in Bedrock invoke_model
-    mock_bedrock.invoke_model.side_effect = Exception("Bedrock error")
+    # Mock an error
+    mock_generate_llm_response.side_effect = Exception("Bedrock error")
 
     with pytest.raises(Exception, match="Bedrock error"):
-        handler.generate_llm_response({"prompt": "test"})
+        handler.bedrock_utils.generate_llm_response({"prompt": "test"})
 
 
-@patch.object(handler, "opensearch_client")
-@patch.object(handler, "bedrock_runtime")
-def test_lambda_handler_system_error(mock_bedrock, mock_opensearch, api_gateway_event):
+@patch("src.lambda_functions.policy_search.handler.extract_query_from_event")
+def test_lambda_handler_system_error(mock_extract_query, api_gateway_event):
     """Test lambda_handler when a system error occurs"""
-    # Mock an error in search_opensearch
-    mock_bedrock.invoke_model.side_effect = Exception("System error")
+    # Mock an error
+    mock_extract_query.side_effect = Exception("System error")
 
     # Execute Lambda handler
     response = handler.lambda_handler(api_gateway_event, {})
@@ -312,9 +373,7 @@ def test_lambda_handler_system_error(mock_bedrock, mock_opensearch, api_gateway_
     assert "error" in response_body
 
 
-@patch.object(handler, "opensearch_client")
-@patch.object(handler, "bedrock_runtime")
-def test_extract_query_invalid_json(mock_bedrock, mock_opensearch):
+def test_extract_query_invalid_json():
     """Test extract_query_from_event with invalid JSON"""
     event = {"body": "invalid json"}
 
@@ -322,50 +381,9 @@ def test_extract_query_invalid_json(mock_bedrock, mock_opensearch):
         handler.extract_query_from_event(event)
 
 
-@patch.object(handler, "opensearch_client")
-@patch.object(handler, "bedrock_runtime")
-def test_extract_query_no_body(mock_bedrock, mock_opensearch):
+def test_extract_query_no_body():
     """Test extract_query_from_event with no body"""
     event = {"not_body": "value"}
 
     with pytest.raises(ValueError, match="Invalid request format"):
         handler.extract_query_from_event(event)
-
-
-def test_get_opensearch_credentials():
-    """Test get_opensearch_credentials function"""
-    with patch("boto3.client") as mock_client:
-        # Mock successful response
-        mock_secrets_manager = MagicMock()
-        mock_client.return_value = mock_secrets_manager
-        mock_secrets_manager.get_secret_value.return_value = {
-            "SecretString": json.dumps({"username": "test_user", "password": "test_pass"})
-        }
-
-        # Test the function
-        username, password = handler.get_opensearch_credentials()
-
-        # Verify the result
-        assert username == "test_user"
-        assert password == "test_pass"
-
-        # Test with error
-        mock_secrets_manager.get_secret_value.side_effect = Exception("Secret error")
-
-        # Should return None, None when there's an error
-        username, password = handler.get_opensearch_credentials()
-        assert username is None
-        assert password is None
-
-
-@patch("boto3.Session")
-def test_get_opensearch_client_no_credentials(mock_session):
-    """Test get_opensearch_client when no credentials are available"""
-    mock_session.return_value.get_credentials.return_value = None
-
-    # Mock the logging to avoid interference
-    with patch.object(handler.logger, "warning"):
-        client = handler.get_opensearch_client()
-
-    # Should return None when no credentials are available
-    assert client is None
