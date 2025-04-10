@@ -108,6 +108,16 @@ resource "aws_iam_role_policy_attachment" "policy_search_attachment" {
   policy_arn = aws_iam_policy.policy_search_policy.arn
 }
 
+# Lambda layer for policy_search dependencies
+resource "aws_lambda_layer_version" "policy_search_layer" {
+  layer_name = "ee-ai-rag-mcp-demo-policy-search-layer"
+  filename   = "${path.module}/../../build/policy-search-layer.zip"
+  source_code_hash = filebase64sha256("${path.module}/../../build/policy-search-layer.zip")
+
+  compatible_runtimes = ["python3.9"]
+  description = "Layer containing dependencies for policy_search Lambda function"
+}
+
 # Package the policy_search Lambda function
 data "archive_file" "policy_search_zip" {
   type        = "zip"
@@ -127,8 +137,8 @@ resource "aws_lambda_function" "policy_search" {
   timeout          = 30   # 30 seconds timeout for handling queries
   memory_size      = 512  # 512MB for processing
 
-  # Use the same layer as vector_generator for common dependencies
-  layers           = [aws_lambda_layer_version.vector_generator_layer.arn]
+  # Use the policy_search layer for dependencies
+  layers           = [aws_lambda_layer_version.policy_search_layer.arn]
 
   environment {
     variables = {
