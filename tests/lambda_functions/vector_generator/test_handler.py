@@ -127,7 +127,7 @@ def test_get_opensearch_credentials():
         # Verify that boto3.client was called correctly
         mock_boto3.assert_called_once_with("secretsmanager", region_name="eu-west-2")
         mock_secrets_client.get_secret_value.assert_called_once_with(
-            SecretId="ee-ai-rag-mcp-demo/opensearch-master-credentials"
+            SecretId="ee-ai-rag-mcp-demo/opensearch-master-credentials-v2"
         )
 
 

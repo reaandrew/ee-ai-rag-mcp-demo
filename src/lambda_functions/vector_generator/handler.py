@@ -39,7 +39,7 @@ def get_opensearch_credentials():
         secrets_client = boto3.client("secretsmanager", region_name=region)
 
         # Get the secret value
-        secret_name = "ee-ai-rag-mcp-demo/opensearch-master-credentials"
+        secret_name = "ee-ai-rag-mcp-demo/opensearch-master-credentials-v2"
         response = secrets_client.get_secret_value(SecretId=secret_name)
 
         # Parse the secret JSON string
