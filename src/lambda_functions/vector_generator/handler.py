@@ -23,7 +23,7 @@ bedrock_runtime = boto3.client("bedrock-runtime", region_name=region)
 # Get environment variables
 CHUNKED_TEXT_BUCKET = os.environ.get("CHUNKED_TEXT_BUCKET", "ee-ai-rag-mcp-demo-chunked-text")
 OPENSEARCH_DOMAIN = os.environ.get("OPENSEARCH_DOMAIN", "ee-ai-rag-mcp-demo-vectors")
-OPENSEARCH_ENDPOINT = os.environ.get("OPENSEARCH_ENDPOINT", None)  # Will be populated from Terraform
+OPENSEARCH_ENDPOINT = os.environ.get("OPENSEARCH_ENDPOINT", None)  # From Terraform
 OPENSEARCH_INDEX = os.environ.get("OPENSEARCH_INDEX", "rag-vectors")
 VECTOR_PREFIX = os.environ.get("VECTOR_PREFIX", "ee-ai-rag-mcp-demo")
 MODEL_ID = os.environ.get("MODEL_ID", "amazon.titan-embed-text-v2:0")
@@ -74,7 +74,6 @@ def get_opensearch_client():
             else:
                 host = f"{OPENSEARCH_DOMAIN}.{region}.es.amazonaws.com"
                 logger.info(f"Using constructed OpenSearch endpoint: {host}")
-                
             return OpenSearch(
                 hosts=[{"host": host, "port": 443}],
                 http_auth=(username, password),
@@ -104,7 +103,6 @@ def get_opensearch_client():
             else:
                 host = f"{OPENSEARCH_DOMAIN}.{region}.es.amazonaws.com"
                 logger.info(f"Using constructed OpenSearch endpoint: {host}")
-            
             return OpenSearch(
                 hosts=[{"host": host, "port": 443}],
                 http_auth=awsauth,
