@@ -10,11 +10,12 @@ from urllib.parse import unquote_plus
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-# Initialize S3 and Textract clients with default region
-# AWS Lambda environment has region configuration, but for local testing we set a default
-default_region = "eu-west-2"  # Match the region in Terraform config
-s3_client = boto3.client("s3", region_name=default_region)
-textract_client = boto3.client("textract", region_name=default_region)
+# Initialize S3 and Textract clients with region from environment
+# AWS Lambda environment has AWS_REGION variable, but we provide a default for local testing
+region = os.environ.get("AWS_REGION", "eu-west-2")
+logger.info(f"Using AWS region: {region}")
+s3_client = boto3.client("s3", region_name=region)
+textract_client = boto3.client("textract", region_name=region)
 
 # Get environment variables
 EXTRACTED_TEXT_BUCKET = os.environ.get("EXTRACTED_TEXT_BUCKET", "ee-ai-rag-mcp-demo-extracted-text")
@@ -59,9 +60,32 @@ def extract_text_from_pdf(bucket_name, file_key):
         )
 
         # Delete the original PDF if configured to do so
+        original_deleted = False
         if DELETE_ORIGINAL_PDF:
-            logger.info(f"Deleting original PDF from {bucket_name}/{file_key}")
-            s3_client.delete_object(Bucket=bucket_name, Key=file_key)
+            try:
+                logger.info(f"Deleting original PDF from {bucket_name}/{file_key}")
+                delete_response = s3_client.delete_object(Bucket=bucket_name, Key=file_key)
+                logger.info(f"Delete API response: {delete_response}")
+
+                # Verify deletion by trying to head the object
+                try:
+                    s3_client.head_object(Bucket=bucket_name, Key=file_key)
+                    logger.warning(
+                        f"PDF file still exists after deletion attempt: {bucket_name}/{file_key}"
+                    )
+                    original_deleted = False
+                except Exception as head_error:
+                    if "Not Found" in str(head_error) or "404" in str(head_error):
+                        logger.info(
+                            f"Verified deletion - PDF no longer exists: {bucket_name}/{file_key}"
+                        )
+                        original_deleted = True
+                    else:
+                        logger.warning(f"Error checking if PDF was deleted: {str(head_error)}")
+                        original_deleted = False
+            except Exception as delete_error:
+                logger.error(f"Error deleting PDF {file_key}: {str(delete_error)}")
+                original_deleted = False
 
         extraction_result = {
             "source": {
@@ -80,7 +104,7 @@ def extract_text_from_pdf(bucket_name, file_key):
             "extracted_text": extracted_text,
             "page_count": page_count,
             "status": "success",
-            "original_deleted": DELETE_ORIGINAL_PDF,
+            "original_deleted": original_deleted,
         }
 
         logger.info(f"Successfully extracted text from {file_key}")
