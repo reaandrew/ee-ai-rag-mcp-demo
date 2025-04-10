@@ -4,6 +4,8 @@ include =
     src/lambda_functions/text_chunker/__init__.py
     src/lambda_functions/text_extractor/handler.py
     src/lambda_functions/text_extractor/__init__.py
+    src/lambda_functions/policy_search/handler.py
+    src/lambda_functions/policy_search/__init__.py
 
 [report]
 exclude_lines =

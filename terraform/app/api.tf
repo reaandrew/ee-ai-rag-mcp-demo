@@ -1,0 +1,212 @@
+# API Gateway and Lambda for policy search queries
+
+# Create IAM role for the policy_search Lambda function
+resource "aws_iam_role" "policy_search_role" {
+  name = "ee-ai-rag-mcp-demo-policy-search-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "lambda.amazonaws.com"
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Environment = var.environment
+    Version     = var.app_version
+  }
+}
+
+# Create IAM policy for the policy_search Lambda function
+resource "aws_iam_policy" "policy_search_policy" {
+  name        = "ee-ai-rag-mcp-demo-policy-search-policy"
+  description = "IAM policy for the policy search Lambda function"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ]
+        Effect   = "Allow"
+        Resource = "arn:aws:logs:*:*:*"
+      },
+      {
+        Action = [
+          "bedrock:InvokeModel"  # Permission to invoke Bedrock models for embeddings and LLM
+        ]
+        Effect   = "Allow"
+        Resource = "*"
+      },
+      {
+        Action = [
+          "es:ESHttpGet",
+          "es:ESHttpPost",
+          "es:ESHttpPut",
+          "es:ESHttpDelete",
+          "es:ESHttpHead",
+          "es:DescribeDomain",
+          "es:ListDomainNames",
+          "opensearch:ESHttpGet",
+          "opensearch:ESHttpPost",
+          "opensearch:ESHttpPut",
+          "opensearch:ESHttpDelete",
+          "opensearch:ESHttpHead",
+          "opensearch:DescribeDomain",
+          "opensearch:ListDomainNames"
+        ]
+        Effect = "Allow"
+        Resource = [
+          "arn:aws:es:${var.aws_region}:${data.aws_caller_identity.current.account_id}:domain/${var.opensearch_domain_name}/*",
+          "arn:aws:opensearch:${var.aws_region}:${data.aws_caller_identity.current.account_id}:domain/${var.opensearch_domain_name}/*"
+        ]
+      },
+      {
+        Action = [
+          "aoss:APIAccessAll",
+          "aoss:CreateIndex",
+          "aoss:DeleteIndex",
+          "aoss:UpdateIndex",
+          "aoss:CreateCollection",
+          "aoss:BatchGetCollection",
+          "aoss:ListCollections",
+          "aoss:BatchGetVpcEndpoint",
+          "aoss:ListAccessPolicies",
+          "aoss:ListSecurityConfigs",
+          "aoss:ListSecurityPolicies",
+          "aoss:ListVpcEndpoints"
+        ]
+        Effect = "Allow"
+        Resource = "*"
+      },
+      {
+        Action = [
+          "secretsmanager:GetSecretValue",
+          "secretsmanager:DescribeSecret"
+        ]
+        Effect = "Allow"
+        Resource = [
+          "arn:aws:secretsmanager:${var.aws_region}:${data.aws_caller_identity.current.account_id}:secret:ee-ai-rag-mcp-demo/opensearch-master-credentials*"
+        ]
+      }
+    ]
+  })
+}
+
+# Attach the IAM policy to the policy_search Lambda function role
+resource "aws_iam_role_policy_attachment" "policy_search_attachment" {
+  role       = aws_iam_role.policy_search_role.name
+  policy_arn = aws_iam_policy.policy_search_policy.arn
+}
+
+# Package the policy_search Lambda function
+data "archive_file" "policy_search_zip" {
+  type        = "zip"
+  source_dir  = "${path.module}/../../src/lambda_functions/policy_search"
+  output_path = "${path.module}/../../build/policy-search.zip"
+}
+
+# Create the policy_search Lambda function
+resource "aws_lambda_function" "policy_search" {
+  function_name    = "ee-ai-rag-mcp-demo-policy-search"
+  description      = "Searches policies using natural language queries"
+  role             = aws_iam_role.policy_search_role.arn
+  filename         = data.archive_file.policy_search_zip.output_path
+  source_code_hash = data.archive_file.policy_search_zip.output_base64sha256
+  handler          = "handler.lambda_handler"
+  runtime          = "python3.9"
+  timeout          = 30   # 30 seconds timeout for handling queries
+  memory_size      = 512  # 512MB for processing
+
+  # Use the same layer as vector_generator for common dependencies
+  layers           = [aws_lambda_layer_version.vector_generator_layer.arn]
+
+  environment {
+    variables = {
+      ENVIRONMENT = var.environment,
+      OPENSEARCH_DOMAIN = var.opensearch_domain_name,
+      OPENSEARCH_ENDPOINT = aws_opensearch_domain.vectors.endpoint,
+      OPENSEARCH_INDEX = "rag-vectors",
+      EMBEDDING_MODEL_ID = var.bedrock_model_id,
+      LLM_MODEL_ID = "anthropic.claude-3-sonnet-20240229-v1:0",
+      USE_IAM_AUTH = "true",
+      USE_AOSS = "false"
+    }
+  }
+
+  tags = {
+    Environment = var.environment
+    Version     = var.app_version
+  }
+}
+
+# Create CloudWatch Log Group for the policy_search Lambda function
+resource "aws_cloudwatch_log_group" "policy_search_logs" {
+  name              = "/aws/lambda/${aws_lambda_function.policy_search.function_name}"
+  retention_in_days = 14
+
+  tags = {
+    Environment = var.environment
+    Version     = var.app_version
+  }
+}
+
+# Create API Gateway for the policy search endpoint
+resource "aws_apigatewayv2_api" "policy_search_api" {
+  name          = "ee-ai-rag-mcp-demo-policy-search-api"
+  protocol_type = "HTTP"
+  
+  cors_configuration {
+    allow_origins = ["*"]
+    allow_methods = ["POST"]
+    allow_headers = ["content-type"]
+    max_age       = 300
+  }
+}
+
+# Create API Gateway stage
+resource "aws_apigatewayv2_stage" "policy_search_stage" {
+  api_id      = aws_apigatewayv2_api.policy_search_api.id
+  name        = "$default"
+  auto_deploy = true
+}
+
+# Create API Gateway integration with Lambda
+resource "aws_apigatewayv2_integration" "policy_search_integration" {
+  api_id                 = aws_apigatewayv2_api.policy_search_api.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.policy_search.invoke_arn
+  integration_method     = "POST"
+  payload_format_version = "2.0"
+}
+
+# Create API Gateway route
+resource "aws_apigatewayv2_route" "policy_search_route" {
+  api_id    = aws_apigatewayv2_api.policy_search_api.id
+  route_key = "POST /search"
+  target    = "integrations/${aws_apigatewayv2_integration.policy_search_integration.id}"
+}
+
+# Grant API Gateway permission to invoke the Lambda function
+resource "aws_lambda_permission" "api_gateway_policy_search" {
+  statement_id  = "AllowExecutionFromAPIGateway"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.policy_search.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.policy_search_api.execution_arn}/*/*/search"
+}
+
+# Output the API Gateway URL
+output "policy_search_api_url" {
+  value = "${aws_apigatewayv2_stage.policy_search_stage.invoke_url}/search"
+  description = "The URL of the policy search API endpoint"
+}
