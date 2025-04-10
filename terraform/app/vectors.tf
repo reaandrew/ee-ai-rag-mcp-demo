@@ -143,21 +143,22 @@ resource "aws_iam_policy" "vector_generator_policy" {
       },
       {
         Action = [
-          "s3:PutObject",    # Permission to write to vector bucket
-          "s3:ListBucket"
-        ]
-        Effect = "Allow"
-        Resource = [
-          aws_s3_bucket.vectors.arn,
-          "${aws_s3_bucket.vectors.arn}/*"
-        ]
-      },
-      {
-        Action = [
           "bedrock:InvokeModel"  # Permission to invoke Bedrock models
         ]
         Effect   = "Allow"
         Resource = "*"
+      },
+      {
+        Action = [
+          "es:ESHttpGet",
+          "es:ESHttpPost",
+          "es:ESHttpPut",
+          "es:ESHttpDelete"
+        ]
+        Effect = "Allow"
+        Resource = [
+          "arn:aws:es:${var.aws_region}:${data.aws_caller_identity.current.account_id}:domain/${var.opensearch_domain_name}/*"
+        ]
       }
     ]
   })
@@ -192,9 +193,11 @@ resource "aws_lambda_function" "vector_generator" {
     variables = {
       ENVIRONMENT = var.environment,
       CHUNKED_TEXT_BUCKET = var.chunked_text_bucket_name,
-      VECTOR_BUCKET = var.vector_bucket_name,
+      OPENSEARCH_DOMAIN = var.opensearch_domain_name,
+      OPENSEARCH_INDEX = "rag-vectors",
       VECTOR_PREFIX = var.vector_prefix,
-      MODEL_ID = var.bedrock_model_id
+      MODEL_ID = var.bedrock_model_id,
+      AWS_REGION = var.aws_region
     }
   }
 

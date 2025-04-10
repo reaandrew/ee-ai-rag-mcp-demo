@@ -47,3 +47,13 @@ output "vector_generator_lambda_name" {
   value       = aws_lambda_function.vector_generator.function_name
   description = "The name of the vector generator Lambda function"
 }
+
+output "opensearch_domain_endpoint" {
+  value       = aws_opensearch_domain.vectors.endpoint
+  description = "The endpoint of the OpenSearch domain for vector embeddings"
+}
+
+output "opensearch_dashboard_endpoint" {
+  value       = aws_opensearch_domain.vectors.dashboard_endpoint
+  description = "The dashboard endpoint of the OpenSearch domain for vector embeddings"
+}

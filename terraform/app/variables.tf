@@ -68,3 +68,21 @@ variable "bedrock_model_id" {
   type        = string
   default     = "amazon.titan-embed-text-v2:0"
 }
+
+variable "opensearch_domain_name" {
+  description = "Name of the OpenSearch domain for vector storage"
+  type        = string
+  default     = "ee-ai-rag-mcp-demo-vectors"
+}
+
+variable "opensearch_master_user" {
+  description = "Master username for OpenSearch domain"
+  type        = string
+  default     = "admin"
+}
+
+variable "opensearch_master_password" {
+  description = "Master password for OpenSearch domain"
+  type        = string
+  sensitive   = true
+}

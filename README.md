@@ -1,6 +1,6 @@
 # ee-ai-rag-mcp-demo
 
-A repository with conventional commit enforcement, automatic versioning, and SonarQube code quality checks.
+A repository with conventional commit enforcement, automatic versioning, and SonarQube code quality checks. This project implements a RAG (Retrieval Augmented Generation) pattern using AWS Services including Lambda, OpenSearch, and Amazon Bedrock.
 
 ## Quality Gates with SonarQube
 
@@ -73,3 +73,45 @@ Run the following to set up the commit hooks locally:
 ```bash
 npm install
 ```
+
+## Architecture Overview
+
+This project implements a RAG (Retrieval Augmented Generation) pipeline with the following components:
+
+1. **Document Ingestion**:
+   - PDF documents are uploaded to an S3 bucket
+   - A Lambda function extracts text from the PDFs using AWS Textract
+
+2. **Text Processing**:
+   - Extracted text is chunked into smaller segments by another Lambda function
+   - Each chunk is stored in a dedicated S3 bucket
+
+3. **Vector Generation and Storage**:
+   - The vector_generator Lambda processes each text chunk
+   - Vector embeddings are generated using Amazon Bedrock's Titan model
+   - Embeddings are stored in Amazon OpenSearch for efficient vector search
+
+4. **Search and Retrieval**:
+   - OpenSearch provides vector similarity search capabilities
+   - The stored vectors can be queried to find semantically similar content
+
+### Infrastructure
+
+The infrastructure is deployed using Terraform and includes:
+
+- S3 buckets for document storage at various processing stages
+- Lambda functions for text extraction, chunking, and vector generation
+- OpenSearch domain for vector storage and similarity search
+- IAM roles and policies for secure service interactions
+- CloudWatch logging for monitoring and debugging
+
+### Using with RAG Applications
+
+To integrate with your RAG applications:
+
+1. Upload PDF documents to the raw PDFs S3 bucket
+2. The system automatically processes documents and generates vector embeddings
+3. Query the OpenSearch domain to perform semantic searches
+4. Retrieve relevant text chunks to provide context to your LLM
+
+For details on the OpenSearch configuration and how to query the vectors, refer to the AWS OpenSearch documentation.

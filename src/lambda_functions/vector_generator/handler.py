@@ -2,23 +2,137 @@ import json
 import boto3
 import logging
 import os
+import time
 from urllib.parse import unquote_plus
+from opensearchpy import OpenSearch, RequestsHttpConnection
+from requests_aws4auth import AWS4Auth
 
 # Set up logging
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-# Initialize S3 client with default region
-# AWS Lambda environment has region configuration, but for local testing we set a default
-default_region = "eu-west-2"  # Match the region in Terraform config
-s3_client = boto3.client("s3", region_name=default_region)
-bedrock_runtime = boto3.client("bedrock-runtime", region_name=default_region)
+# Get AWS region from environment or default to eu-west-2
+region = os.environ.get("AWS_REGION", "eu-west-2")  # Match the region in Terraform config
+
+# Initialize AWS clients
+s3_client = boto3.client("s3", region_name=region)
+bedrock_runtime = boto3.client("bedrock-runtime", region_name=region)
 
 # Get environment variables
 CHUNKED_TEXT_BUCKET = os.environ.get("CHUNKED_TEXT_BUCKET", "ee-ai-rag-mcp-demo-chunked-text")
-VECTOR_BUCKET = os.environ.get("VECTOR_BUCKET", "ee-ai-rag-mcp-demo-vectors")
+OPENSEARCH_DOMAIN = os.environ.get("OPENSEARCH_DOMAIN", "ee-ai-rag-mcp-demo-vectors")
+OPENSEARCH_INDEX = os.environ.get("OPENSEARCH_INDEX", "rag-vectors")
 VECTOR_PREFIX = os.environ.get("VECTOR_PREFIX", "ee-ai-rag-mcp-demo")
-MODEL_ID = os.environ.get("MODEL_ID", "amazon.titan-embed-text-v1")
+MODEL_ID = os.environ.get("MODEL_ID", "amazon.titan-embed-text-v2:0")
+
+
+# Initialize OpenSearch client with AWS authentication
+def get_opensearch_client():
+    """
+    Create and return an OpenSearch client with proper AWS authentication.
+    This is separated to make testing easier, as AWS credentials may not be
+    available in test environments.
+    """
+    try:
+        # Get AWS credentials for OpenSearch authentication
+        credentials = boto3.Session().get_credentials()
+        if credentials:
+            awsauth = AWS4Auth(
+                credentials.access_key,
+                credentials.secret_key,
+                region,
+                "es",
+                session_token=credentials.token,
+            )
+
+            # Create OpenSearch client with AWS authentication
+            return OpenSearch(
+                hosts=[{"host": f"{OPENSEARCH_DOMAIN}.{region}.es.amazonaws.com", "port": 443}],
+                http_auth=awsauth,
+                use_ssl=True,
+                verify_certs=True,
+                connection_class=RequestsHttpConnection,
+                timeout=30,
+            )
+        else:
+            logger.warning("No AWS credentials found, creating client without authentication")
+            return OpenSearch(
+                hosts=[{"host": f"{OPENSEARCH_DOMAIN}.{region}.es.amazonaws.com", "port": 443}],
+                use_ssl=True,
+                verify_certs=True,
+                connection_class=RequestsHttpConnection,
+                timeout=30,
+            )
+    except Exception as e:
+        logger.error(f"Error creating OpenSearch client: {str(e)}")
+        # In a test environment, we might still want to continue
+        return None
+
+
+# Create the OpenSearch client
+opensearch_client = get_opensearch_client()
+
+
+def create_index_if_not_exists():
+    """
+    Create OpenSearch index with embedding mapping if it doesn't exist.
+    The index is configured with the appropriate mapping for vector search.
+    """
+    try:
+        # Check if OpenSearch client is available
+        if not opensearch_client:
+            logger.warning("OpenSearch client not available, skipping index creation")
+            return True
+
+        # Check if index exists
+        if not opensearch_client.indices.exists(index=OPENSEARCH_INDEX):
+            logger.info(f"Creating OpenSearch index: {OPENSEARCH_INDEX}")
+
+            # Define mappings for vector search
+            index_body = {
+                "settings": {
+                    "index": {
+                        "number_of_shards": 2,
+                        "number_of_replicas": 1,
+                        "knn": True,
+                        "knn.algo_param.ef_search": 100,
+                    }
+                },
+                "mappings": {
+                    "properties": {
+                        "embedding": {
+                            "type": "knn_vector",
+                            "dimension": 1536,  # Default dimension for Titan embeddings
+                            "method": {
+                                "name": "hnsw",
+                                "space_type": "cosine",
+                                "engine": "nmslib",
+                                "parameters": {"ef_construction": 128, "m": 16},
+                            },
+                        },
+                        "text": {"type": "text"},
+                        "metadata": {"type": "object"},
+                        "source_key": {"type": "keyword"},
+                        "embedding_model": {"type": "keyword"},
+                        "embedding_dimension": {"type": "integer"},
+                        "page_number": {"type": "integer"},
+                        "document_name": {"type": "keyword"},
+                    }
+                },
+            }
+
+            # Create the index
+            opensearch_client.indices.create(index=OPENSEARCH_INDEX, body=index_body)
+            logger.info(f"Created OpenSearch index: {OPENSEARCH_INDEX}")
+
+            # Wait a moment for the index to be fully created
+            time.sleep(2)
+
+        return True
+
+    except Exception as e:
+        logger.error(f"Error creating OpenSearch index: {str(e)}")
+        raise e
 
 
 def generate_embedding(text):
@@ -51,7 +165,7 @@ def generate_embedding(text):
 
 def process_chunk_file(bucket_name, file_key):
     """
-    Process a chunk file from S3, generate vector embeddings, and save to the destination bucket.
+    Process a chunk file from S3, generate vector embeddings, and store in OpenSearch.
 
     Args:
         bucket_name (str): Name of the S3 bucket containing the chunk file
@@ -63,7 +177,10 @@ def process_chunk_file(bucket_name, file_key):
     logger.info(f"Processing chunk file: {file_key} in bucket {bucket_name}")
 
     try:
-        # Get the object
+        # Ensure OpenSearch index exists
+        create_index_if_not_exists()
+
+        # Get the object from S3
         response = s3_client.get_object(Bucket=bucket_name, Key=file_key)
         chunk_data = json.loads(response["Body"].read().decode("utf-8"))
 
@@ -75,36 +192,32 @@ def process_chunk_file(bucket_name, file_key):
         # Generate embedding for the text
         embedding = generate_embedding(text)
 
-        # Add the embedding to the chunk data
-        chunk_data["embedding"] = embedding
-        chunk_data["embedding_model"] = MODEL_ID
-        chunk_data["embedding_dimension"] = len(embedding)
+        # Create OpenSearch document from chunk data
+        document = {
+            "text": text,
+            "embedding": embedding,
+            "embedding_model": MODEL_ID,
+            "embedding_dimension": len(embedding),
+            "source_key": file_key,
+            "document_name": chunk_data.get("document_name", ""),
+            "page_number": chunk_data.get("page_number", 0),
+            "metadata": chunk_data.get("metadata", {}),
+        }
 
-        # Create vector file key from chunk file key
-        # Replace chunked_text prefix with vector prefix if needed
-        vector_key = file_key.replace(".json", "_vector.json")
+        # Generate a document ID from the file key (make it deterministic)
+        doc_id = file_key.replace("/", "_").replace(".", "_")
 
-        # Ensure the correct prefix is used
-        if VECTOR_PREFIX and not vector_key.startswith(VECTOR_PREFIX):
-            # Extract filename from the chunk path (after the last slash)
-            filename = file_key.split("/")[-1]
-            # Get the path from the chunk (document name)
-            doc_path = "/".join(file_key.split("/")[1:-1]) if "/" in file_key else ""
-
-            if doc_path:
-                vector_key = (
-                    f"{VECTOR_PREFIX}/{doc_path}/{filename.replace('.json', '_vector.json')}"
-                )
-            else:
-                vector_key = f"{VECTOR_PREFIX}/{filename.replace('.json', '_vector.json')}"
-
-        # Save the vector data to S3
-        s3_client.put_object(
-            Bucket=VECTOR_BUCKET,
-            Key=vector_key,
-            Body=json.dumps(chunk_data, ensure_ascii=False),
-            ContentType="application/json",
-        )
+        # Index the document in OpenSearch if the client is available
+        if opensearch_client:
+            opensearch_response = opensearch_client.index(
+                index=OPENSEARCH_INDEX,
+                id=doc_id,
+                body=document,
+                refresh=True,  # Ensure document is searchable immediately
+            )
+            logger.info(f"Indexed document in OpenSearch: {opensearch_response}")
+        else:
+            logger.warning("OpenSearch client not available, skipping indexing")
 
         # Return information about the vectorization
         return {
@@ -113,8 +226,9 @@ def process_chunk_file(bucket_name, file_key):
                 "file_key": file_key,
             },
             "output": {
-                "bucket": VECTOR_BUCKET,
-                "vector_key": vector_key,
+                "opensearch_domain": OPENSEARCH_DOMAIN,
+                "opensearch_index": OPENSEARCH_INDEX,
+                "document_id": doc_id,
                 "embedding_dimension": len(embedding),
                 "model_id": MODEL_ID,
             },
