@@ -170,6 +170,98 @@ resource "aws_cloudwatch_log_group" "policy_search_logs" {
   }
 }
 
+# Create IAM role for the auth_authorizer Lambda function
+resource "aws_iam_role" "auth_authorizer_role" {
+  name = "ee-ai-rag-mcp-demo-auth-authorizer-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "lambda.amazonaws.com"
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Environment = var.environment
+    Version     = var.app_version
+  }
+}
+
+# Create IAM policy for the auth_authorizer Lambda function
+resource "aws_iam_policy" "auth_authorizer_policy" {
+  name        = "ee-ai-rag-mcp-demo-auth-authorizer-policy"
+  description = "IAM policy for the API Gateway authorizer Lambda function"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ]
+        Effect   = "Allow"
+        Resource = "arn:aws:logs:*:*:*"
+      }
+    ]
+  })
+}
+
+# Attach the IAM policy to the auth_authorizer role
+resource "aws_iam_role_policy_attachment" "auth_authorizer_attachment" {
+  role       = aws_iam_role.auth_authorizer_role.name
+  policy_arn = aws_iam_policy.auth_authorizer_policy.arn
+}
+
+# Package the auth_authorizer Lambda function
+data "archive_file" "auth_authorizer_zip" {
+  type        = "zip"
+  source_dir  = "${path.module}/../../src/lambda_functions/auth_authorizer"
+  output_path = "${path.module}/../../build/auth-authorizer.zip"
+}
+
+# Create the auth_authorizer Lambda function
+resource "aws_lambda_function" "auth_authorizer" {
+  function_name    = "ee-ai-rag-mcp-demo-auth-authorizer"
+  description      = "Lambda authorizer for API Gateway"
+  role             = aws_iam_role.auth_authorizer_role.arn
+  filename         = data.archive_file.auth_authorizer_zip.output_path
+  source_code_hash = data.archive_file.auth_authorizer_zip.output_base64sha256
+  handler          = "handler.lambda_handler"
+  runtime          = "python3.9"
+  timeout          = 10   # 10 seconds timeout for authorizer
+  memory_size      = 128  # 128MB is sufficient for an authorizer
+
+  environment {
+    variables = {
+      ENVIRONMENT = var.environment
+    }
+  }
+
+  tags = {
+    Environment = var.environment
+    Version     = var.app_version
+  }
+}
+
+# Create CloudWatch Log Group for the auth_authorizer Lambda function
+resource "aws_cloudwatch_log_group" "auth_authorizer_logs" {
+  name              = "/aws/lambda/${aws_lambda_function.auth_authorizer.function_name}"
+  retention_in_days = 14
+
+  tags = {
+    Environment = var.environment
+    Version     = var.app_version
+  }
+}
+
 # Create API Gateway for the policy search endpoint
 resource "aws_apigatewayv2_api" "policy_search_api" {
   name          = "ee-ai-rag-mcp-demo-policy-search-api"
@@ -178,7 +270,7 @@ resource "aws_apigatewayv2_api" "policy_search_api" {
   cors_configuration {
     allow_origins = ["*"]
     allow_methods = ["POST"]
-    allow_headers = ["content-type"]
+    allow_headers = ["content-type", "authorization"]
     max_age       = 300
   }
 }
@@ -190,6 +282,17 @@ resource "aws_apigatewayv2_stage" "policy_search_stage" {
   auto_deploy = true
 }
 
+# Create Lambda authorizer for API Gateway
+resource "aws_apigatewayv2_authorizer" "lambda_authorizer" {
+  api_id           = aws_apigatewayv2_api.policy_search_api.id
+  authorizer_type  = "REQUEST"
+  authorizer_uri   = aws_lambda_function.auth_authorizer.invoke_arn
+  identity_sources = ["$request.header.Authorization"]
+  name             = "lambda-authorizer"
+  authorizer_payload_format_version = "2.0"
+  enable_simple_responses = true
+}
+
 # Create API Gateway integration with Lambda
 resource "aws_apigatewayv2_integration" "policy_search_integration" {
   api_id                 = aws_apigatewayv2_api.policy_search_api.id
@@ -199,20 +302,31 @@ resource "aws_apigatewayv2_integration" "policy_search_integration" {
   payload_format_version = "2.0"
 }
 
-# Create API Gateway route
+# Create API Gateway route with authorizer
 resource "aws_apigatewayv2_route" "policy_search_route" {
-  api_id    = aws_apigatewayv2_api.policy_search_api.id
-  route_key = "POST /search"
-  target    = "integrations/${aws_apigatewayv2_integration.policy_search_integration.id}"
+  api_id             = aws_apigatewayv2_api.policy_search_api.id
+  route_key          = "POST /search"
+  target             = "integrations/${aws_apigatewayv2_integration.policy_search_integration.id}"
+  authorizer_id      = aws_apigatewayv2_authorizer.lambda_authorizer.id
+  authorization_type = "CUSTOM"
 }
 
-# Grant API Gateway permission to invoke the Lambda function
+# Grant API Gateway permission to invoke the policy_search Lambda function
 resource "aws_lambda_permission" "api_gateway_policy_search" {
   statement_id  = "AllowExecutionFromAPIGateway"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.policy_search.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.policy_search_api.execution_arn}/*/*/search"
+}
+
+# Grant API Gateway permission to invoke the auth_authorizer Lambda function
+resource "aws_lambda_permission" "api_gateway_auth_authorizer" {
+  statement_id  = "AllowExecutionFromAPIGateway"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.auth_authorizer.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.policy_search_api.execution_arn}/authorizers/*"
 }
 
 # Output the API Gateway URL

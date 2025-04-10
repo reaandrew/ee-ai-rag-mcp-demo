@@ -44,5 +44,6 @@ build_lambda_package "text_extractor"
 build_lambda_package "text_chunker"
 build_lambda_package "vector_generator"
 build_lambda_package "policy_search"
+build_lambda_package "auth_authorizer"
 
 echo "All Lambda packages built successfully"
