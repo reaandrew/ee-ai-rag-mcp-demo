@@ -155,17 +155,39 @@ resource "aws_iam_policy" "vector_generator_policy" {
           "es:ESHttpPut",
           "es:ESHttpDelete",
           "es:ESHttpHead",
+          "es:DescribeDomain",
+          "es:ListDomainNames",
           "opensearch:ESHttpGet",
           "opensearch:ESHttpPost",
           "opensearch:ESHttpPut",
           "opensearch:ESHttpDelete",
-          "opensearch:ESHttpHead"
+          "opensearch:ESHttpHead",
+          "opensearch:DescribeDomain",
+          "opensearch:ListDomainNames"
         ]
         Effect = "Allow"
         Resource = [
           "arn:aws:es:${var.aws_region}:${data.aws_caller_identity.current.account_id}:domain/${var.opensearch_domain_name}/*",
           "arn:aws:opensearch:${var.aws_region}:${data.aws_caller_identity.current.account_id}:domain/${var.opensearch_domain_name}/*"
         ]
+      },
+      {
+        Action = [
+          "aoss:APIAccessAll",
+          "aoss:CreateIndex",
+          "aoss:DeleteIndex",
+          "aoss:UpdateIndex",
+          "aoss:CreateCollection",
+          "aoss:BatchGetCollection",
+          "aoss:ListCollections",
+          "aoss:BatchGetVpcEndpoint",
+          "aoss:ListAccessPolicies",
+          "aoss:ListSecurityConfigs",
+          "aoss:ListSecurityPolicies",
+          "aoss:ListVpcEndpoints"
+        ]
+        Effect = "Allow"
+        Resource = "*"
       },
       {
         Action = [
@@ -225,7 +247,9 @@ resource "aws_lambda_function" "vector_generator" {
       OPENSEARCH_ENDPOINT = aws_opensearch_domain.vectors.endpoint,
       OPENSEARCH_INDEX = "rag-vectors",
       VECTOR_PREFIX = var.vector_prefix,
-      MODEL_ID = var.bedrock_model_id
+      MODEL_ID = var.bedrock_model_id,
+      USE_IAM_AUTH = "true",
+      USE_AOSS = "false"  # Set to "true" if using OpenSearch Serverless
     }
   }
 
