@@ -111,3 +111,81 @@ output "api_curl_script_path" {
   value       = local_file.api_curl_script.filename
   description = "Path to the generated API curl script"
 }
+
+# Ensure Bruno directories exist
+resource "null_resource" "ensure_bruno_dirs" {
+  provisioner "local-exec" {
+    command = "mkdir -p ${path.module}/../../build/bruno/RAG-Policy-Search"
+  }
+}
+
+# Generate Bruno API collection for testing
+resource "local_file" "bruno_collection" {
+  depends_on = [null_resource.ensure_bruno_dirs]
+  filename = "${path.module}/../../build/bruno/RAG-Policy-Search/bruno.json"
+  content  = <<-EOT
+{
+  "version": "1",
+  "name": "RAG-Policy-Search",
+  "type": "collection",
+  "schema": "https://schema.getbruno.io/collection/v1.json",
+  "environment": {
+    "value": "{{environments.default}}",
+    "vars": {}
+  },
+  "environments": {
+    "default": {
+      "API_URL": "${aws_apigatewayv2_stage.policy_search_stage.invoke_url}/search",
+      "AUTH_TOKEN": "test-token"
+    }
+  }
+}
+EOT
+}
+
+resource "local_file" "bruno_search_request" {
+  depends_on = [null_resource.ensure_bruno_dirs]
+  filename = "${path.module}/../../build/bruno/RAG-Policy-Search/Search Policy.bru"
+  content  = <<-EOT
+meta {
+  name: Search Policy
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{API_URL}}
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  Authorization: Bearer {{AUTH_TOKEN}}
+}
+
+body:json {
+  {
+    "query": "What is our password policy?"
+  }
+}
+
+docs {
+  # RAG Policy Search
+
+  This request searches all indexed policy documents using natural language.
+  
+  The system will:
+  1. Convert your query to vector embeddings
+  2. Find the most relevant policy chunks in OpenSearch
+  3. Use Claude 3 Sonnet to generate a comprehensive answer
+  4. Return both the answer and source citations
+}
+EOT
+}
+
+# Output path to the Bruno collection
+output "bruno_collection_path" {
+  value       = local_file.bruno_collection.filename
+  description = "Path to the generated Bruno collection"
+}

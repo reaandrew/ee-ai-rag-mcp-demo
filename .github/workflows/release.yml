@@ -157,3 +157,11 @@ jobs:
           path: build/query_api.sh
           retention-days: 30
           if-no-files-found: warn
+          
+      - name: Upload Bruno Collection Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: bruno-collection
+          path: build/bruno/
+          retention-days: 30
+          if-no-files-found: warn

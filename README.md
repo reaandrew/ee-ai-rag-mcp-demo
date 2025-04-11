@@ -138,6 +138,18 @@ The system will:
 
 You can download the ready-to-use API script from the latest successful GitHub Actions workflow as an artifact named `api-query-script`.
 
+#### Using Bruno for API Testing
+
+[Bruno](https://www.usebruno.com/) is an open-source API client that makes testing APIs simple. This project includes a Bruno collection that's automatically generated with your API endpoint.
+
+To use it:
+1. Install Bruno from [usebruno.com](https://www.usebruno.com/)
+2. Download the `bruno-collection` artifact from the latest GitHub Actions workflow
+3. Open Bruno and import the collection from the downloaded artifact
+4. Run the "Search Policy" request to test the API
+
+The collection includes the correct endpoint URL and is pre-configured with sample queries.
+
 For details on the OpenSearch configuration and how to query the vectors, refer to the AWS OpenSearch documentation.
 
 ## Future Improvements
