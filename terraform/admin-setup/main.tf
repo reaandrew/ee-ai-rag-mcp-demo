@@ -294,7 +294,7 @@ resource "aws_iam_policy" "app_specific_policy" {
     Version = "2012-10-17"
     Statement = [
       {
-        # CloudWatch Logs permissions - expanded to include CreateLogDelivery for API Gateway logging
+        # CloudWatch Logs permissions for specific log groups
         Action = [
           "logs:CreateLogGroup",
           "logs:CreateLogStream",
@@ -307,17 +307,29 @@ resource "aws_iam_policy" "app_specific_policy" {
           "logs:UntagResource",
           "logs:ListTagsLogGroup",
           "logs:ListTagsForResource",
-          "logs:PutRetentionPolicy",
-          "logs:CreateLogDelivery",
-          "logs:DeleteLogDelivery",
-          "logs:DescribeLogDeliveries",
-          "logs:DescribeResourcePolicies",
-          "logs:PutResourcePolicy",
-          "logs:GetLogDelivery",
-          "logs:ListLogDeliveries"
+          "logs:PutRetentionPolicy"
         ]
         Effect   = "Allow"
-        Resource = "*"  # These log delivery actions require * resource level permission
+        Resource = [
+          "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:log-group:/aws/lambda/ee-ai-rag-mcp-demo-*",
+          "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:log-group:/aws/lambda/ee-ai-rag-mcp-demo-*:*", 
+          "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:log-group:/aws/apigateway/ee-ai-rag-mcp-demo-*",
+          "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:log-group:/aws/apigateway/ee-ai-rag-mcp-demo-*:*"
+        ]
+      },
+      {
+        # CloudWatch Log Delivery permissions for API Gateway - specifically scoped
+        Action = [
+          "logs:CreateLogDelivery",
+          "logs:DeleteLogDelivery",
+          "logs:GetLogDelivery",
+          "logs:ListLogDeliveries",
+          "logs:DescribeLogDeliveries", 
+          "logs:DescribeResourcePolicies",
+          "logs:PutResourcePolicy"
+        ]
+        Effect   = "Allow" 
+        Resource = "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:*"
       },
       {
         # IAM service role permissions - expanded for CI role
