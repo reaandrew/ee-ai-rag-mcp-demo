@@ -47,33 +47,23 @@ def test_lambda_handler_success(api_gateway_event):
     with patch.object(handler.logger, "info"):
         response = handler.lambda_handler(api_gateway_event, {})
 
-    # Verify response structure
-    assert "principalId" in response
-    assert "policyDocument" in response
-    assert "Statement" in response["policyDocument"]
-
-    # Verify allow effect
-    statement = response["policyDocument"]["Statement"][0]
-    assert statement["Effect"] == "Allow"
-    assert statement["Action"] == "execute-api:Invoke"
-    assert statement["Resource"] == api_gateway_event["routeArn"]
+    # Verify response structure for HTTP API v2 format
+    assert "isAuthorized" in response
+    assert response["isAuthorized"] is True
 
 
 def test_lambda_handler_error():
     """Test error handling"""
-    # Create event that will cause an error
-    event = {}  # Missing required fields will cause an error
+    # Create event that will cause an error - this will throw an exception when
+    # we try to access httpMethod because it's a different structure than expected
+    event = {"requestContext": {"broken": "structure"}}
 
     # Mock logging to avoid interference
     with patch.object(handler.logger, "info"), patch.object(handler.logger, "error"):
-        response = handler.lambda_handler(event, {})
+        # Cause an actual error to verify the error path of handler
+        with patch.object(handler, "extract_method_path", side_effect=Exception("Test error")):
+            response = handler.lambda_handler(event, {})
 
-    # Verify response structure for error case
-    assert "principalId" in response
-    assert "policyDocument" in response
-    assert "Statement" in response["policyDocument"]
-
-    # Verify effect (in our current implementation, it's always Allow)
-    statement = response["policyDocument"]["Statement"][0]
-    assert statement["Effect"] == "Allow"  # Our test authorizer always returns Allow
-    assert statement["Action"] == "execute-api:Invoke"
+    # Verify response structure for error case with HTTP API v2 format
+    assert "isAuthorized" in response
+    assert response["isAuthorized"] is False
