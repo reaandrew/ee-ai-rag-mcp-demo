@@ -2,8 +2,6 @@ import json
 import boto3
 import logging
 import os
-
-# import sys - removed to fix linting
 from urllib.parse import unquote_plus
 
 # Try to import from different locations depending on the context
@@ -15,7 +13,8 @@ except ImportError:
         # When running locally or in tests
         from src.utils import opensearch_utils, bedrock_utils
     except ImportError:
-        logging.error("Could not import utils modules")
+        # Direct import for local development without src prefix
+        logging.error("Could not import utils modules from standard locations")
         raise
 
 # Set up logging

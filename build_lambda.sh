@@ -22,6 +22,11 @@ build_lambda_package() {
         echo "Copying utils module for $lambda_name..."
         mkdir -p "$build_dir/utils"
         cp -R "src/utils"/* "$build_dir/utils/"
+        # Ensure __init__.py exists
+        touch "$build_dir/utils/__init__.py"
+        # Log the structure for debugging
+        echo "Utils module structure:"
+        find "$build_dir/utils" -type f | sort
     fi
     
     # Install dependencies if requirements.txt exists

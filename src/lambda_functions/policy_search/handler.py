@@ -3,8 +3,6 @@ import logging
 import os
 import traceback
 
-# import sys - removed to fix linting
-
 # Try to import from different locations depending on the context
 try:
     # When running in the Lambda environment
@@ -14,7 +12,8 @@ except ImportError:
         # When running locally or in tests
         from src.utils import opensearch_utils, bedrock_utils
     except ImportError:
-        logging.error("Could not import utils modules")
+        # Direct import for local development without src prefix
+        logging.error("Could not import utils modules from standard locations")
         raise
 
 # Set up logging
