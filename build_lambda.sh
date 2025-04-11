@@ -24,6 +24,11 @@ build_lambda_package() {
         cp -R "src/utils"/* "$build_dir/utils/"
         # Ensure __init__.py exists
         touch "$build_dir/utils/__init__.py"
+        
+        # Fix import paths in handlers for Lambda environment
+        echo "Fixing imports in handler.py for $lambda_name..."
+        sed -i 's/from src\.utils/from utils/g' "$build_dir/handler.py"
+        
         # Log the structure for debugging
         echo "Utils module structure:"
         find "$build_dir/utils" -type f | sort

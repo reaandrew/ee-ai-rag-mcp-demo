@@ -6,16 +6,21 @@ from urllib.parse import unquote_plus
 
 # Try to import from different locations depending on the context
 try:
-    # When running in the Lambda environment
+    # When running in the Lambda environment with utils copied locally
     from utils import opensearch_utils, bedrock_utils
 except ImportError:
     try:
-        # When running locally or in tests
+        # When running locally or in tests with src structure
         from src.utils import opensearch_utils, bedrock_utils
     except ImportError:
-        # Direct import for local development without src prefix
-        logging.error("Could not import utils modules from standard locations")
-        raise
+        try:
+            # Absolute import (sometimes needed in Lambda)
+            import utils.opensearch_utils as opensearch_utils
+            import utils.bedrock_utils as bedrock_utils
+        except ImportError:
+            # All imports failed
+            logging.error("Could not import utils modules from standard locations")
+            raise
 
 # Set up logging
 logger = logging.getLogger()
