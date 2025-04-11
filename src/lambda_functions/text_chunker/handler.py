@@ -154,6 +154,8 @@ def chunk_text(text, metadata=None):
             "text": chunk,
             "chunk_size": len(chunk),
             "pages": chunk_pages,
+            "page_number": chunk_pages[0] if chunk_pages else 1,  # Use start_page as page_number
+            "document_name": metadata.get("filename", "") if metadata else "",  # Add document_name
             "start_page": chunk_pages[0] if chunk_pages else 1,
             "end_page": chunk_pages[-1] if chunk_pages else 1,
         }
@@ -174,6 +176,8 @@ def chunk_text(text, metadata=None):
             ] = metadata.copy()  # Create a copy to avoid modifying the original
             # Add page info to metadata for easier access
             chunk_info["metadata"]["pages"] = chunk_pages
+            chunk_info["metadata"]["page_number"] = chunk_pages[0] if chunk_pages else 1
+            chunk_info["metadata"]["document_name"] = metadata.get("filename", "")
             chunk_info["metadata"]["start_page"] = chunk_pages[0] if chunk_pages else 1
             chunk_info["metadata"]["end_page"] = chunk_pages[-1] if chunk_pages else 1
 
