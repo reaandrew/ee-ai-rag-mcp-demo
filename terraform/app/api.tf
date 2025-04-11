@@ -275,11 +275,46 @@ resource "aws_apigatewayv2_api" "policy_search_api" {
   }
 }
 
-# Create API Gateway stage
+# Create CloudWatch log group for API Gateway
+resource "aws_cloudwatch_log_group" "api_gateway_logs" {
+  name              = "/aws/apigateway/ee-ai-rag-mcp-demo-policy-search-api"
+  retention_in_days = 7
+  
+  tags = {
+    Environment = var.environment
+    Version     = var.app_version
+  }
+}
+
+# Create API Gateway stage with logging enabled
 resource "aws_apigatewayv2_stage" "policy_search_stage" {
   api_id      = aws_apigatewayv2_api.policy_search_api.id
   name        = "$default"
   auto_deploy = true
+  
+  access_log_settings {
+    destination_arn = aws_cloudwatch_log_group.api_gateway_logs.arn
+    format = jsonencode({
+      requestId      = "$context.requestId"
+      ip             = "$context.identity.sourceIp"
+      requestTime    = "$context.requestTime"
+      httpMethod     = "$context.httpMethod"
+      routeKey       = "$context.routeKey"
+      status         = "$context.status"
+      protocol       = "$context.protocol"
+      responseLength = "$context.responseLength"
+      integrationError = "$context.integrationErrorMessage"
+      error          = "$context.error.message"
+      errorResponseType = "$context.error.responseType"
+      path           = "$context.path"
+    })
+  }
+  
+  default_route_settings {
+    detailed_metrics_enabled = true
+    throttling_burst_limit   = 100
+    throttling_rate_limit    = 50
+  }
 }
 
 # Create Lambda authorizer for API Gateway

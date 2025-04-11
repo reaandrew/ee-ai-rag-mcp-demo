@@ -8,6 +8,11 @@ from src.utils import opensearch_utils, bedrock_utils
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
+# Configure more detailed logging format
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+)
+
 # Use the Lambda runtime's AWS_REGION environment variable
 region = os.environ.get("AWS_REGION", "eu-west-2")
 
@@ -147,6 +152,18 @@ def lambda_handler(event, context):
     """
     try:
         logger.info(f"Received event: {json.dumps(event)}")
+
+        # Log context info if available (may be empty in tests)
+        if hasattr(context, "function_name"):
+            logger.info(
+                f"Lambda context: {context.function_name}, "
+                f"{context.function_version}, {context.aws_request_id}"
+            )
+
+        logger.info(
+            f"Environment variables: OPENSEARCH_ENDPOINT={OPENSEARCH_ENDPOINT}, "
+            f"USE_IAM_AUTH={USE_IAM_AUTH}, OPENSEARCH_INDEX={OPENSEARCH_INDEX}"
+        )
 
         # 1. Extract the query from the event
         query = extract_query_from_event(event)
