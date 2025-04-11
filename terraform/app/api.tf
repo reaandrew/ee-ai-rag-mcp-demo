@@ -162,7 +162,7 @@ resource "aws_lambda_function" "policy_search" {
 # Create CloudWatch Log Group for the policy_search Lambda function
 resource "aws_cloudwatch_log_group" "policy_search_logs" {
   name              = "/aws/lambda/${aws_lambda_function.policy_search.function_name}"
-  retention_in_days = 14
+  retention_in_days = 30  # 30 days retention for security compliance
 
   tags = {
     Environment = var.environment
@@ -254,7 +254,7 @@ resource "aws_lambda_function" "auth_authorizer" {
 # Create CloudWatch Log Group for the auth_authorizer Lambda function
 resource "aws_cloudwatch_log_group" "auth_authorizer_logs" {
   name              = "/aws/lambda/${aws_lambda_function.auth_authorizer.function_name}"
-  retention_in_days = 14
+  retention_in_days = 30  # 30 days retention for security compliance
 
   tags = {
     Environment = var.environment
@@ -278,7 +278,7 @@ resource "aws_apigatewayv2_api" "policy_search_api" {
 # Create CloudWatch log group for API Gateway
 resource "aws_cloudwatch_log_group" "api_gateway_logs" {
   name              = "/aws/apigateway/ee-ai-rag-mcp-demo-policy-search-api"
-  retention_in_days = 7
+  retention_in_days = 30  # 30 days retention for security compliance
   
   tags = {
     Environment = var.environment

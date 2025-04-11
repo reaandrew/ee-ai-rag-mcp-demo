@@ -262,7 +262,7 @@ resource "aws_lambda_function" "vector_generator" {
 # Create CloudWatch Log Group for the vector_generator Lambda function
 resource "aws_cloudwatch_log_group" "vector_generator_logs" {
   name              = "/aws/lambda/ee-ai-rag-mcp-demo-vector-generator"
-  retention_in_days = 14
+  retention_in_days = 30  # 30 days retention for security compliance
 
   tags = {
     Environment = var.environment

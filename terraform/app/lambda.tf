@@ -209,7 +209,7 @@ resource "aws_lambda_function" "text_extractor" {
 # Create CloudWatch Log Group for the Lambda function
 resource "aws_cloudwatch_log_group" "text_extractor_logs" {
   name              = "/aws/lambda/ee-ai-rag-mcp-demo-text-extractor"
-  retention_in_days = 14
+  retention_in_days = 30  # 30 days retention for security compliance
 
   tags = {
     Environment = var.environment
@@ -272,7 +272,7 @@ resource "aws_lambda_function" "text_chunker" {
 # Create CloudWatch Log Group for the text_chunker Lambda function
 resource "aws_cloudwatch_log_group" "text_chunker_logs" {
   name              = "/aws/lambda/ee-ai-rag-mcp-demo-text-chunker"
-  retention_in_days = 14
+  retention_in_days = 30  # 30 days retention for security compliance
 
   tags = {
     Environment = var.environment
