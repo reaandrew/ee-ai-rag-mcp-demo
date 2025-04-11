@@ -10,8 +10,7 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 # Initialize S3 client with default region
-# AWS Lambda environment has region configuration, but for local testing we set a default
-default_region = "eu-west-2"  # Match the region in Terraform config
+default_region = "eu-west-2"  # Match your region in Terraform config or AWS
 s3_client = boto3.client("s3", region_name=default_region)
 
 # Get environment variables
@@ -23,105 +22,100 @@ CHUNK_OVERLAP = int(os.environ.get("CHUNK_OVERLAP", "200"))
 
 def parse_page_info(text):
     """
-    Parse text with page delimiters to extract page numbers for each section.
-
-    Args:
-        text (str): The text containing page delimiters
+    Parse text with page delimiters to extract page numbers, build a 'cleaned' text,
+    and record where each new page begins in that cleaned text.
 
     Returns:
-        tuple: (text without delimiters, dict mapping text positions to page numbers)
+        (cleaned_text, page_map) where page_map is a dict of {offset_in_cleaned_text: page_number}.
     """
     import re
 
-    # Pattern to match page delimiters
     page_pattern = re.compile(r"\n--- PAGE (\d+) ---\n")
-
-    # Find all page markers
     page_markers = list(page_pattern.finditer(text))
 
     if not page_markers:
-        # No page markers found, return original text with default page 1
+        # No page markers found; treat entire text as page 1
         return text, {0: 1}
 
     # Create a mapping from character position to page number
     page_map = {}
     cleaned_text = ""
 
-    # Process each page section
     for i, marker in enumerate(page_markers):
         page_num = int(marker.group(1))
 
-        # Get the start position after the marker
+        # Start position after the marker
         start_pos = marker.end()
 
-        # Get the end position (either next marker or end of text)
+        # End position (next marker or end of text)
         if i < len(page_markers) - 1:
             end_pos = page_markers[i + 1].start()
         else:
             end_pos = len(text)
 
-        # Get the text for this page
+        # Extract the text for this page
         page_text = text[start_pos:end_pos]
 
-        # Record the start position in the cleaned text
+        # Record current offset in the cleaned text -> page_num
         page_map[len(cleaned_text)] = page_num
 
-        # Add the page text to the cleaned text
+        # Append the page's text (excluding the marker) into cleaned_text
         cleaned_text += page_text
 
     return cleaned_text, page_map
 
 
-def find_page_for_chunk(chunk_start, chunk_end, page_map):
+def build_page_ranges(cleaned_text, page_map):
     """
-    Find the page number(s) for a chunk based on its position in the text.
-
-    Args:
-        chunk_start (int): Start position of the chunk in the text
-        chunk_end (int): End position of the chunk in the text
-        page_map (dict): Mapping from text positions to page numbers
-
-    Returns:
-        list: The page numbers covered by this chunk
+    Convert the page_map (which marks where each page starts) into a list of
+    (start_offset, end_offset, page_number). Each tuple describes the exact
+    byte range of a page in the cleaned text.
     """
-    # Sort page positions
+    page_ranges = []
     positions = sorted(page_map.keys())
+    for i in range(len(positions)):
+        start_offset = positions[i]
+        page_num = page_map[start_offset]
+        if i < len(positions) - 1:
+            end_offset = positions[i + 1]
+        else:
+            end_offset = len(cleaned_text)
+        page_ranges.append((start_offset, end_offset, page_num))
+    return page_ranges
 
-    # Find pages that overlap with the chunk
-    chunk_pages = set()
 
-    for pos in positions:
-        if pos <= chunk_end:
-            # This page starts before or at the chunk end
-            if pos + 100 >= chunk_start:  # Assuming average chunk size, may need adjustment
-                # This page likely overlaps with the chunk
-                chunk_pages.add(page_map[pos])
+def find_page_for_chunk(chunk_start, chunk_end, page_ranges):
+    """
+    Given a chunk's [chunk_start, chunk_end) offsets in the cleaned text,
+    return a list of page numbers that overlap with that chunk range.
+    """
+    chunk_pages = []
+    for page_start, page_end, page_num in page_ranges:
+        # If the page range is entirely before this chunk, skip
+        if page_end <= chunk_start:
+            continue
+        # If the page range is entirely after this chunk, we can stop
+        if page_start >= chunk_end:
+            break
+        # Otherwise, it overlaps
+        chunk_pages.append(page_num)
 
-    # If no pages found, use the last page before chunk_start
-    if not chunk_pages:
-        last_pos = max([p for p in positions if p <= chunk_start], default=0)
-        chunk_pages.add(page_map[last_pos])
-
-    return sorted(list(chunk_pages))
+    # If we found no pages for some reason, default to page 1
+    return chunk_pages if chunk_pages else [1]
 
 
 def chunk_text(text, metadata=None):
     """
     Split text into chunks using RecursiveCharacterTextSplitter.
-
-    Args:
-        text (str): The text to chunk
-        metadata (dict, optional): Additional metadata to include with chunks
-
-    Returns:
-        list: A list of dictionaries containing chunks and metadata
+    Store page numbers by checking each chunk's text range against the page_ranges.
     """
     logger.info(f"Chunking text of length {len(text)} characters")
 
-    # Parse page information from text
+    # 1) Parse out page info
     cleaned_text, page_map = parse_page_info(text)
+    page_ranges = build_page_ranges(cleaned_text, page_map)
 
-    # Create a text splitter with the specified configuration
+    # 2) Create a text splitter with the specified config
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=CHUNK_SIZE,
         chunk_overlap=CHUNK_OVERLAP,
@@ -129,57 +123,54 @@ def chunk_text(text, metadata=None):
         separators=["\n\n", "\n", " ", ""],
     )
 
-    # Split the text into chunks
+    # 3) Split into chunks
     chunks = text_splitter.split_text(cleaned_text)
     logger.info(f"Created {len(chunks)} chunks")
 
-    # Prepare the result with metadata
     result = []
-
-    # Track position in original text for page mapping
-    pos = 0
+    pos = 0  # Keep track of where we are in cleaned_text
 
     for i, chunk in enumerate(chunks):
-        # Calculate this chunk's position in the original text
         chunk_start = pos
         chunk_end = pos + len(chunk)
 
-        # Find which pages this chunk belongs to
-        chunk_pages = find_page_for_chunk(chunk_start, chunk_end, page_map)
+        # Determine which pages this chunk spans
+        chunk_pages = find_page_for_chunk(chunk_start, chunk_end, page_ranges)
 
-        # Create chunk info
+        # The first page in chunk_pages is "start_page"; last is "end_page"
+        start_page = chunk_pages[0]
+        end_page = chunk_pages[-1]
+
         chunk_info = {
             "chunk_id": i,
             "total_chunks": len(chunks),
             "text": chunk,
             "chunk_size": len(chunk),
             "pages": chunk_pages,
-            "page_number": chunk_pages[0] if chunk_pages else 1,  # Use start_page as page_number
-            "document_name": metadata.get("filename", "") if metadata else "",  # Add document_name
-            "start_page": chunk_pages[0] if chunk_pages else 1,
-            "end_page": chunk_pages[-1] if chunk_pages else 1,
+            "page_number": start_page,  # For backwards-compat if you only want a single page
+            "document_name": metadata.get("filename", "") if metadata else "",
+            "start_page": start_page,
+            "end_page": end_page,
         }
 
-        # Update position for next chunk, with adjustment for overlaps
+        # For next iteration, account for overlap
         if i < len(chunks) - 1:
-            # For overlapping chunks, we need to adjust position
-            next_chunk = chunks[i + 1]
-            overlap = len(chunk) - (len(cleaned_text) - pos - len(next_chunk))
-            pos = chunk_end - overlap
+            # The next chunk will “slide back” by CHUNK_OVERLAP
+            # So effectively we move pos only by (len(chunk) - CHUNK_OVERLAP)
+            pos = chunk_end - CHUNK_OVERLAP
         else:
             pos = chunk_end
 
-        # Add the provided metadata if available
+        # Optional: attach entire metadata
         if metadata:
-            chunk_info[
-                "metadata"
-            ] = metadata.copy()  # Create a copy to avoid modifying the original
-            # Add page info to metadata for easier access
-            chunk_info["metadata"]["pages"] = chunk_pages
-            chunk_info["metadata"]["page_number"] = chunk_pages[0] if chunk_pages else 1
-            chunk_info["metadata"]["document_name"] = metadata.get("filename", "")
-            chunk_info["metadata"]["start_page"] = chunk_pages[0] if chunk_pages else 1
-            chunk_info["metadata"]["end_page"] = chunk_pages[-1] if chunk_pages else 1
+            # copy for safety
+            meta_copy = metadata.copy()
+            meta_copy["pages"] = chunk_pages
+            meta_copy["page_number"] = start_page
+            meta_copy["start_page"] = start_page
+            meta_copy["end_page"] = end_page
+            meta_copy["document_name"] = metadata.get("filename", "")
+            chunk_info["metadata"] = meta_copy
 
         result.append(chunk_info)
 
@@ -189,13 +180,6 @@ def chunk_text(text, metadata=None):
 def process_text_file(bucket_name, file_key):
     """
     Process a text file from S3, chunk it, and save chunks to the destination bucket.
-
-    Args:
-        bucket_name (str): Name of the S3 bucket containing the text file
-        file_key (str): Key of the text file in S3
-
-    Returns:
-        dict: Information about the chunking operation
     """
     logger.info(f"Processing text file: {file_key} in bucket {bucket_name}")
 
@@ -207,7 +191,7 @@ def process_text_file(bucket_name, file_key):
         response = s3_client.get_object(Bucket=bucket_name, Key=file_key)
         text_content = response["Body"].read().decode("utf-8")
 
-        # Extract filename without extension for use in output
+        # Extract filename without extension
         filename = os.path.basename(file_key)
         filename_without_ext = os.path.splitext(filename)[0]
 
@@ -221,16 +205,15 @@ def process_text_file(bucket_name, file_key):
             "size_bytes": metadata.get("ContentLength", 0),
         }
 
-        # Chunk the text
+        # 1) Chunk the text
         chunks = chunk_text(text_content, file_metadata)
 
-        # Save each chunk to S3
+        # 2) Save each chunk to S3
         saved_chunks = []
         for chunk in chunks:
             chunk_id = chunk["chunk_id"]
             chunk_key = f"{CHUNKED_TEXT_PREFIX}/{filename_without_ext}/chunk_{chunk_id}.json"
 
-            # Save the chunk as JSON
             s3_client.put_object(
                 Bucket=CHUNKED_TEXT_BUCKET,
                 Key=chunk_key,
@@ -246,7 +229,7 @@ def process_text_file(bucket_name, file_key):
                 }
             )
 
-        # Create a manifest file with summary information
+        # 3) Create and save a manifest
         manifest = {
             "source": file_metadata,
             "chunking": {
@@ -261,7 +244,6 @@ def process_text_file(bucket_name, file_key):
             },
         }
 
-        # Save the manifest
         manifest_key = f"{CHUNKED_TEXT_PREFIX}/{filename_without_ext}/manifest.json"
         s3_client.put_object(
             Bucket=CHUNKED_TEXT_BUCKET,
@@ -292,29 +274,20 @@ def process_text_file(bucket_name, file_key):
 def lambda_handler(event, context):
     """
     Lambda function handler that processes S3 object creation events.
-
-    Args:
-        event (dict): Event data from S3
-        context (LambdaContext): Lambda context
-
-    Returns:
-        dict: Response with chunking results
     """
     try:
         logger.info(f"Received event: {json.dumps(event)}")
 
-        # Process each record in the S3 event
         results = []
         for record in event.get("Records", []):
-            # Check if this is an S3 event
+            # Check if it's an S3 event
             if record.get("eventSource") != "aws:s3":
                 continue
 
-            # Get S3 bucket and file information
             bucket_name = record.get("s3", {}).get("bucket", {}).get("name")
             file_key = unquote_plus(record.get("s3", {}).get("object", {}).get("key"))
 
-            # Only process text files
+            # Only process .txt files
             if not file_key.lower().endswith(".txt"):
                 logger.info(f"Skipping non-text file: {file_key}")
                 continue
@@ -323,7 +296,6 @@ def lambda_handler(event, context):
             result = process_text_file(bucket_name, file_key)
             results.append(result)
 
-        # Return the results
         response = {
             "statusCode": 200,
             "body": {
@@ -331,7 +303,6 @@ def lambda_handler(event, context):
                 "results": results,
             },
         }
-
         return response
 
     except Exception as e:
