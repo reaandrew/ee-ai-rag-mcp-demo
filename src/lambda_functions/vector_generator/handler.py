@@ -2,8 +2,21 @@ import json
 import boto3
 import logging
 import os
+
+# import sys - removed to fix linting
 from urllib.parse import unquote_plus
-from src.utils import opensearch_utils, bedrock_utils
+
+# Try to import from different locations depending on the context
+try:
+    # When running in the Lambda environment
+    from utils import opensearch_utils, bedrock_utils
+except ImportError:
+    try:
+        # When running locally or in tests
+        from src.utils import opensearch_utils, bedrock_utils
+    except ImportError:
+        logging.error("Could not import utils modules")
+        raise
 
 # Set up logging
 logger = logging.getLogger()

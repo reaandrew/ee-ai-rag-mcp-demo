@@ -92,22 +92,28 @@ jobs:
         with:
           terraform_version: "1.5.7"
           
-      - name: Build Lambda Layers
+      - name: Build Lambda Packages
         run: |
           # Install pip dependencies
           python -m pip install --upgrade pip
           
-          # Make the script executable
+          # Ensure build scripts are executable
           chmod +x ./install_lambda_deps.sh
+          chmod +x ./build_lambda.sh
           
           # Build the Lambda layers - using simplified approach with minimal dependencies
           ./install_lambda_deps.sh
           
-          # Verify the layer was created
+          # Build Lambda packages with utility modules
+          ./build_lambda.sh
+          
+          # Verify the packages were created
           ls -la build/
           
-          # Show the size of the layer
+          # Show the sizes of key packages
           du -h build/text-chunker-layer.zip
+          du -h build/policy-search.zip
+          du -h build/vector-generator.zip
           
       # Set environment variables for Terraform backend and variables
       - name: Set Terraform Environment Variables

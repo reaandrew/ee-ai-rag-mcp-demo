@@ -2,7 +2,20 @@ import json
 import logging
 import os
 import traceback
-from src.utils import opensearch_utils, bedrock_utils
+
+# import sys - removed to fix linting
+
+# Try to import from different locations depending on the context
+try:
+    # When running in the Lambda environment
+    from utils import opensearch_utils, bedrock_utils
+except ImportError:
+    try:
+        # When running locally or in tests
+        from src.utils import opensearch_utils, bedrock_utils
+    except ImportError:
+        logging.error("Could not import utils modules")
+        raise
 
 # Set up logging
 logger = logging.getLogger()

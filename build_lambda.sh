@@ -17,6 +17,13 @@ build_lambda_package() {
     # Copy Lambda source files
     cp -R "$source_dir"/* "$build_dir"/
     
+    # Copy utils module for lambda functions that need it
+    if [[ "$lambda_name" == "policy_search" || "$lambda_name" == "vector_generator" ]]; then
+        echo "Copying utils module for $lambda_name..."
+        mkdir -p "$build_dir/utils"
+        cp -R "src/utils"/* "$build_dir/utils/"
+    fi
+    
     # Install dependencies if requirements.txt exists
     if [ -f "$build_dir/requirements.txt" ]; then
         echo "Installing dependencies for $lambda_name..."
