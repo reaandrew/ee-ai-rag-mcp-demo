@@ -294,13 +294,12 @@ resource "aws_iam_policy" "app_specific_policy" {
     Version = "2012-10-17"
     Statement = [
       {
-        # CloudWatch Logs permissions for specific log groups
+        # CloudWatch Logs permissions for operations on specific log groups
         Action = [
           "logs:CreateLogGroup",
           "logs:CreateLogStream",
           "logs:DeleteLogGroup",
           "logs:DeleteLogStream",
-          "logs:DescribeLogGroups",
           "logs:DescribeLogStreams",
           "logs:PutLogEvents",
           "logs:TagResource",
@@ -316,6 +315,14 @@ resource "aws_iam_policy" "app_specific_policy" {
           "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:log-group:/aws/apigateway/ee-ai-rag-mcp-demo-*",
           "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:log-group:/aws/apigateway/ee-ai-rag-mcp-demo-*:*"
         ]
+      },
+      {
+        # CloudWatch Logs global operations that require account-level permissions
+        Action = [
+          "logs:DescribeLogGroups"
+        ]
+        Effect   = "Allow"
+        Resource = "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:*"
       },
       {
         # CloudWatch Log Delivery permissions for API Gateway - specifically scoped
