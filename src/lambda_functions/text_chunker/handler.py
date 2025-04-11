@@ -90,28 +90,17 @@ def find_page_for_chunk(chunk_start, chunk_end, page_map):
     # Find pages that overlap with the chunk
     chunk_pages = set()
 
-    # First, find the primary page for this chunk
-    # This is the page where the chunk starts
-    primary_page_pos = None
-    for pos in sorted(positions, reverse=True):
-        if pos <= chunk_start:
-            primary_page_pos = pos
-            break
+    for pos in positions:
+        if pos <= chunk_end:
+            # This page starts before or at the chunk end
+            if pos + 100 >= chunk_start:  # Assuming average chunk size, may need adjustment
+                # This page likely overlaps with the chunk
+                chunk_pages.add(page_map[pos])
 
-    if primary_page_pos is not None:
-        chunk_pages.add(page_map[primary_page_pos])
-
-    # Then check for any additional pages this chunk might span
-    next_page_index = positions.index(primary_page_pos) + 1 if primary_page_pos in positions else 0
-
-    # Check if the chunk extends to additional pages
-    while next_page_index < len(positions) and positions[next_page_index] < chunk_end:
-        chunk_pages.add(page_map[positions[next_page_index]])
-        next_page_index += 1
-
-    # If no pages found (extremely rare), fall back to page 1
+    # If no pages found, use the last page before chunk_start
     if not chunk_pages:
-        chunk_pages.add(1)  # Default to first page
+        last_pos = max([p for p in positions if p <= chunk_start], default=0)
+        chunk_pages.add(page_map[last_pos])
 
     return sorted(list(chunk_pages))
 

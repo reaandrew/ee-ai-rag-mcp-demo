@@ -89,27 +89,10 @@ def format_results_for_prompt(search_results):
 
     for i, result in enumerate(search_results, 1):
         doc_name = result.get("document_name", "Unknown Document")
-        # Get page number, extracting from metadata if available
         page_num = result.get("page_number", 0)
-        # Get the full list of pages if this chunk spans multiple pages
-        pages = result.get("pages", [page_num])
         text = result.get("text", "").strip()
 
-        # Include page range if the chunk spans multiple pages
-        page_info = f"Page {page_num}"
-        if len(pages) > 1:
-            page_info = f"Pages {pages[0]}-{pages[-1]}"
-
-        # Extract any section references from the text for the citation
-        section_ref = ""
-        import re
-
-        # Look for common section patterns like "Section 4.3.5" or just "4.3.5"
-        section_matches = re.findall(r"(?:Section\s+)?(\d+(?:\.\d+)+)", text[:200])
-        if section_matches:
-            section_ref = f" (Section {section_matches[0]})"
-
-        formatted_text += f"[{doc_name}, {page_info}{section_ref}]\n{text}\n\n"
+        formatted_text += f"[Document {i}: {doc_name}, Page {page_num}]\n{text}\n\n"
 
     return formatted_text
 
@@ -159,49 +142,15 @@ def extract_sources(search_results):
         list: List of source information dictionaries
     """
     sources = []
-    import re
 
     for result in search_results:
-        doc_name = result.get("document_name", "Unknown Document")
-        page_num = result.get("page_number", 0)
-        # Get the full list of pages if this chunk spans multiple pages
-        pages = result.get("pages", [page_num])
-        text = result.get("text", "").strip()
-
-        # Extract any section references from the text
-        section_ref = None
-        # Look for common section patterns like "Section 4.3.5" or just "4.3.5"
-        section_matches = re.findall(r"(?:Section\s+)?(\d+(?:\.\d+)+)", text[:200])
-        if section_matches:
-            section_ref = section_matches[0]
-
         source = {
-            "document_name": doc_name,
-            "page_number": page_num,
+            "document_name": result.get("document_name", "Unknown Document"),
+            "page_number": result.get("page_number", 0),
         }
 
-        # Add page range information if the chunk spans multiple pages
-        if len(pages) > 1:
-            source["start_page"] = pages[0]
-            source["end_page"] = pages[-1]
-            source["page_range"] = f"{pages[0]}-{pages[-1]}"
-
-        # Add section reference if found
-        if section_ref:
-            source["section"] = section_ref
-
-        # Create a unique key for deduplication
-        source_key = f"{doc_name}_{page_num}"
-        if section_ref:
-            source_key += f"_{section_ref}"
-
-        # Only add if not already in sources list (using custom key check)
-        if not any(
-            s.get("document_name") == doc_name
-            and s.get("page_number") == page_num
-            and s.get("section") == section_ref
-            for s in sources
-        ):
+        # Only add if not already in sources list
+        if source not in sources:
             sources.append(source)
 
     return sources

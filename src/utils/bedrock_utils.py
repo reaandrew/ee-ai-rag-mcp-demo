@@ -106,14 +106,7 @@ def create_claude_prompt(query, formatted_results):
     system_prompt = """You are a policy assistant that helps users find policy information.
 Your job is to provide accurate answers based ONLY on the policy information provided.
 If the information isn't in the excerpts, politely say you don't have it.
-
-When citing sources, follow these guidelines:
-1. Always cite document names and page numbers when providing information
-2. Document sections like "4.3.5" refer to specific sections within the document
-3. Be careful with page numbers - they represent the PDF page not internal numbering
-4. When citing a section, use the exact format provided in the excerpts, including the page number
-5. If a section appears on a different page than expected, trust the page number from the excerpt
-
+Always cite document names and page numbers when providing information.
 Be concise but comprehensive in your answers."""
 
     human_message = f"""I have a question about company policies: {query}
@@ -122,8 +115,7 @@ Here are the most relevant policy excerpts:
 
 {formatted_results}
 
-Based on these excerpts only, please answer with document and page citations.
-IMPORTANT: Use the exact page numbers shown in the excerpts, even if they seem off."""
+Based on these excerpts only, please answer with document and page citations."""
 
     # Format prompt for Claude 3
     prompt = {
