@@ -286,11 +286,38 @@ resource "aws_cloudwatch_log_group" "api_gateway_logs" {
   }
 }
 
+# Create CloudWatch logs resource policy for API Gateway
+resource "aws_cloudwatch_log_resource_policy" "api_gateway_log_policy" {
+  policy_name     = "ee-ai-rag-mcp-demo-api-gateway-log-policy"
+  policy_document = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect    = "Allow"
+        Principal = {
+          Service = "apigateway.amazonaws.com"
+        }
+        Action    = [
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ]
+        Resource  = "${aws_cloudwatch_log_group.api_gateway_logs.arn}:*"
+      }
+    ]
+  })
+}
+
 # Create API Gateway stage with logging enabled
 resource "aws_apigatewayv2_stage" "policy_search_stage" {
   api_id      = aws_apigatewayv2_api.policy_search_api.id
   name        = "$default"
   auto_deploy = true
+  
+  # Ensure log group and policy are created first
+  depends_on = [
+    aws_cloudwatch_log_group.api_gateway_logs,
+    aws_cloudwatch_log_resource_policy.api_gateway_log_policy
+  ]
   
   access_log_settings {
     destination_arn = aws_cloudwatch_log_group.api_gateway_logs.arn

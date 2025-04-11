@@ -294,7 +294,7 @@ resource "aws_iam_policy" "app_specific_policy" {
     Version = "2012-10-17"
     Statement = [
       {
-        # CloudWatch Logs permissions - expanded to include TagResource, ListTagsForResource and PutRetentionPolicy
+        # CloudWatch Logs permissions - expanded to include CreateLogDelivery for API Gateway logging
         Action = [
           "logs:CreateLogGroup",
           "logs:CreateLogStream",
@@ -307,10 +307,17 @@ resource "aws_iam_policy" "app_specific_policy" {
           "logs:UntagResource",
           "logs:ListTagsLogGroup",
           "logs:ListTagsForResource",
-          "logs:PutRetentionPolicy"
+          "logs:PutRetentionPolicy",
+          "logs:CreateLogDelivery",
+          "logs:DeleteLogDelivery",
+          "logs:DescribeLogDeliveries",
+          "logs:DescribeResourcePolicies",
+          "logs:PutResourcePolicy",
+          "logs:GetLogDelivery",
+          "logs:ListLogDeliveries"
         ]
         Effect   = "Allow"
-        Resource = "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:*"
+        Resource = "*"  # These log delivery actions require * resource level permission
       },
       {
         # IAM service role permissions - expanded for CI role
@@ -395,7 +402,8 @@ resource "aws_iam_policy" "app_specific_policy" {
           "apigateway:PATCH",
           "apigateway:DELETE",
           "apigateway:TagResource",
-          "apigateway:UntagResource"
+          "apigateway:UntagResource",
+          "apigateway:UpdateStage"
         ]
         Effect   = "Allow"
         Resource = [
@@ -404,7 +412,8 @@ resource "aws_iam_policy" "app_specific_policy" {
           "arn:aws:apigateway:${var.aws_region}::/tags/*",
           "arn:aws:apigateway:${var.aws_region}::/v2/apis/*",
           "arn:aws:apigateway:${var.aws_region}::/restapis",
-          "arn:aws:apigateway:${var.aws_region}::/restapis/*"
+          "arn:aws:apigateway:${var.aws_region}::/restapis/*",
+          "arn:aws:apigateway:${var.aws_region}::/account"
         ]
       },
       {
