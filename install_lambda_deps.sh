@@ -19,6 +19,12 @@ find package -type f -name "*.md" -delete 2>/dev/null || true
 find package -type f -name "*.rst" -delete 2>/dev/null || true
 find package -type f -name "LICENSE*" -delete 2>/dev/null || true
 
+# Copy utils module to the lambda layer
+echo "Copying utils module to Lambda layer..."
+mkdir -p package/python/utils
+cp -R src/utils/* package/python/utils/
+touch package/python/utils/__init__.py
+
 # Create the zip files
 mkdir -p build
 cd package

@@ -17,21 +17,10 @@ build_lambda_package() {
     # Copy Lambda source files
     cp -R "$source_dir"/* "$build_dir"/
     
-    # Copy utils module for lambda functions that need it
+    # The utils module is now included in the Lambda layer
+    # So we don't need to copy it to each Lambda function package
     if [[ "$lambda_name" == "policy_search" || "$lambda_name" == "vector_generator" ]]; then
-        echo "Copying utils module for $lambda_name..."
-        mkdir -p "$build_dir/utils"
-        cp -R "src/utils"/* "$build_dir/utils/"
-        # Ensure __init__.py exists
-        touch "$build_dir/utils/__init__.py"
-        
-        # Fix import paths in handlers for Lambda environment
-        echo "Fixing imports in handler.py for $lambda_name..."
-        sed -i 's/from src\.utils/from utils/g' "$build_dir/handler.py"
-        
-        # Log the structure for debugging
-        echo "Utils module structure:"
-        find "$build_dir/utils" -type f | sort
+        echo "Using utils module from Lambda layer for $lambda_name..."
     fi
     
     # Install dependencies if requirements.txt exists
