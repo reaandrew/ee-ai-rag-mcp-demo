@@ -151,7 +151,7 @@ jobs:
           echo "API Script: $(terraform output -raw api_curl_script_path)"
           
       - name: Upload API Query Script Artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: api-query-script
           path: build/query_api.sh
@@ -159,7 +159,7 @@ jobs:
           if-no-files-found: warn
           
       - name: Upload Bruno Collection Artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: bruno-collection
           path: build/bruno/
