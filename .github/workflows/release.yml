@@ -150,6 +150,13 @@ jobs:
           echo "API URL: $(terraform output -raw policy_search_api_url)"
           echo "API Script: $(terraform output -raw api_curl_script_path)"
           
+          # Debug Bruno collection for verification
+          echo "Bruno collection URL inclusion check:"
+          cat "$(terraform output -raw bruno_collection_path)" | grep -A 2 "API_URL"
+          
+          # Verify Bruno README contains API URL
+          cat "${GITHUB_WORKSPACE}/build/bruno/README.md" | grep -A 1 "API URL"
+          
       - name: Upload API Query Script Artifact
         uses: actions/upload-artifact@v4
         with:
