@@ -191,7 +191,7 @@ jobs:
 # Fallback query script created during CI process
 # Original script not found, using extracted API URL
 
-API_URL="${API_URL}"
+API_URL="API_PLACEHOLDER"
 AUTH_TOKEN="YOUR_AUTH_TOKEN"  # Replace with actual token
 
 # Function to make API call
@@ -225,7 +225,7 @@ query_api "$1"
 EOFSCRIPT
 
             # Replace API_URL placeholder with actual value
-            sed -i "s|\${API_URL}|${API_URL}|g" build/query_api.sh
+            sed -i "s|API_PLACEHOLDER|${API_URL}|g" build/query_api.sh
             chmod +x build/query_api.sh
             echo "Created fallback query script with API URL: ${API_URL}"
           fi
