@@ -331,6 +331,6 @@ resource "aws_lambda_permission" "api_gateway_auth_authorizer" {
 
 # Output the API Gateway URL
 output "policy_search_api_url" {
-  value = "${aws_apigatewayv2_stage.policy_search_stage.invoke_url}/search"
+  value = "${aws_apigatewayv2_stage.policy_search_stage.invoke_url}search"
   description = "The URL of the policy search API endpoint"
 }
