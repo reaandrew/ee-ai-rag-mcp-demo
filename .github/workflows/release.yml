@@ -147,3 +147,13 @@ jobs:
           echo "Bucket Name: $(terraform output -raw raw_pdfs_bucket_name)"
           echo "Bucket ARN: $(terraform output -raw raw_pdfs_bucket_arn)"
           echo "Deployed Version: $(terraform output -raw deployed_version)"
+          echo "API URL: $(terraform output -raw policy_search_api_url)"
+          echo "API Script: $(terraform output -raw api_curl_script_path)"
+          
+      - name: Upload API Query Script Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: api-query-script
+          path: build/query_api.sh
+          retention-days: 30
+          if-no-files-found: warn

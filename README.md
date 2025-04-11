@@ -114,6 +114,30 @@ To integrate with your RAG applications:
 3. Query the OpenSearch domain to perform semantic searches
 4. Retrieve relevant text chunks to provide context to your LLM
 
+#### API Access
+
+This project includes a REST API endpoint to directly query the RAG system:
+
+```bash
+# Using the provided API script (available as a GitHub Actions artifact)
+./query_api.sh "What is our password policy?"
+
+# Manually using curl
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -d '{"query": "What is our password policy?"}' \
+  https://YOUR_API_GATEWAY_ID.execute-api.YOUR_REGION.amazonaws.com/search
+```
+
+The system will:
+1. Convert your query to embeddings
+2. Find the most relevant policy chunks
+3. Use Claude 3 Sonnet to generate a comprehensive answer
+4. Return the answer with source citations
+
+You can download the ready-to-use API script from the latest successful GitHub Actions workflow as an artifact named `api-query-script`.
+
 For details on the OpenSearch configuration and how to query the vectors, refer to the AWS OpenSearch documentation.
 
 ## Future Improvements
