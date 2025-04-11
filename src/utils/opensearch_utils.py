@@ -199,10 +199,10 @@ def create_index_if_not_exists(client, index_name=None):
                     "properties": {
                         "embedding": {
                             "type": "knn_vector",
-                            "dimension": 1536,  # Default dimension for Titan embeddings
+                            "dimension": 1024,  # Dimension for Titan embeddings
                             "method": {
                                 "name": "hnsw",
-                                "space_type": "cosine",
+                                "space_type": "cosinesimil",  # Correct value for cosine similarity
                                 "engine": "nmslib",
                                 "parameters": {"ef_construction": 128, "m": 16},
                             },
