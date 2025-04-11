@@ -23,6 +23,31 @@ EXTRACTED_TEXT_PREFIX = os.environ.get("EXTRACTED_TEXT_PREFIX", "ee-ai-rag-mcp-d
 DELETE_ORIGINAL_PDF = os.environ.get("DELETE_ORIGINAL_PDF", "true").lower() == "true"
 
 
+def check_for_existing_extraction(file_key):
+    """
+    Check if we already have an extracted text file for this PDF.
+
+    Args:
+        file_key (str): Key of the PDF file in S3
+
+    Returns:
+        tuple: (exists, txt_key) - Boolean if file exists and its key
+    """
+    # Create the expected target key for the extracted text
+    filename = os.path.basename(file_key)
+    txt_filename = re.sub(r"\.pdf$", ".txt", filename, flags=re.IGNORECASE)
+    target_key = f"{EXTRACTED_TEXT_PREFIX}/{txt_filename}"
+
+    try:
+        # Check if the file exists
+        s3_client.head_object(Bucket=EXTRACTED_TEXT_BUCKET, Key=target_key)
+        logger.info(f"Found existing extracted text at {EXTRACTED_TEXT_BUCKET}/{target_key}")
+        return True, target_key
+    except Exception:
+        # File doesn't exist
+        return False, target_key
+
+
 def extract_text_from_pdf(bucket_name, file_key):
     """
     Extract text from a PDF file in S3 using AWS Textract.
@@ -37,6 +62,34 @@ def extract_text_from_pdf(bucket_name, file_key):
     logger.info(f"Extracting text from PDF: {file_key} in bucket {bucket_name}")
 
     try:
+        # Check if we already have this file extracted
+        text_exists, target_key = check_for_existing_extraction(file_key)
+        if text_exists:
+            logger.info(f"Skipping extraction for {file_key} - already processed")
+            # Get metadata and return info about existing file
+            obj = s3_client.get_object(Bucket=EXTRACTED_TEXT_BUCKET, Key=target_key)
+            extracted_text = obj["Body"].read().decode("utf-8")
+
+            # Count pages based on page markers in the text
+            page_count = extracted_text.count("--- PAGE")
+
+            return {
+                "source": {
+                    "bucket": bucket_name,
+                    "file_key": file_key,
+                },
+                "output": {
+                    "bucket": EXTRACTED_TEXT_BUCKET,
+                    "file_key": target_key,
+                    "size_bytes": len(extracted_text),
+                    "content_type": "text/plain",
+                },
+                "extracted_text": extracted_text,
+                "page_count": page_count,
+                "status": "success (cached)",
+                "original_deleted": False,
+            }
+
         # Get the object metadata
         metadata = s3_client.head_object(Bucket=bucket_name, Key=file_key)
 
@@ -137,7 +190,7 @@ def process_document_async(bucket_name, file_key):
 
     # Wait for the job to complete
     status = "IN_PROGRESS"
-    max_tries = 30  # Allow up to 2.5 minutes polling time (30 * 5 = 150 seconds)
+    max_tries = 60  # Allow up to 5 minutes polling time (60 * 5 = 300 seconds)
     wait_seconds = 5
     total_tries = 0
 
@@ -151,9 +204,15 @@ def process_document_async(bucket_name, file_key):
                 break
 
             if status == "FAILED":
-                raise Exception(f"Textract job failed for {file_key}")
+                error_message = "No error details available"
+                if "StatusMessage" in response:
+                    error_message = response["StatusMessage"]
+                raise Exception(f"Textract job failed for {file_key}: {error_message}")
 
-            logger.info(f"Textract job {job_id} is {status}. Waiting {wait_seconds} seconds...")
+            logger.info(
+                f"Textract job {job_id} is {status}. "
+                f"Try {total_tries}/{max_tries}. Waiting {wait_seconds} seconds..."
+            )
             time.sleep(wait_seconds)
 
         except Exception as e:
@@ -163,8 +222,17 @@ def process_document_async(bucket_name, file_key):
     if total_tries >= max_tries and status == "IN_PROGRESS":
         seconds_waited = total_tries * wait_seconds
         error_msg = f"Textract job timed out after {seconds_waited} seconds "
-        error_msg += "(max timeout: 150 seconds)"
-        raise Exception(error_msg)
+        error_msg += f"(max timeout: {max_tries * wait_seconds} seconds)"
+        job_msg = f" for job {job_id}. Job may still complete but Lambda timeout reached."
+        logger.warning(error_msg + job_msg)
+        # Instead of raising an exception, we'll store the job ID for future retrieval
+        # Create an empty text file with the job ID to process later
+        empty_text = (
+            f"INCOMPLETE_TEXTRACT_JOB: {job_id}\n"
+            f"File: {file_key}\n"
+            f"Timeout after {seconds_waited} seconds"
+        )
+        return empty_text, 0
 
     # Get the results
     extracted_text = ""
