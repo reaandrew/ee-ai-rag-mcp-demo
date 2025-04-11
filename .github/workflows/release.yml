@@ -186,45 +186,46 @@ jobs:
             # Create a fallback script with the API URL as a backup
             mkdir -p build
             API_URL=$(cd terraform/app && terraform output -raw policy_search_api_url)
+            cat > build/query_api.sh << 'EOFSCRIPT'
+            #!/bin/bash
+            # Fallback query script created during CI process
+            # Original script not found, using extracted API URL
+
+            API_URL="API_PLACEHOLDER"
+            AUTH_TOKEN="YOUR_AUTH_TOKEN"  # Replace with actual token
+
+            # Function to make API call
+            query_api() {
+              local query="$1"
+              
+              # Create temporary file for request body
+              TMPFILE=$(mktemp)
+              echo "{\"query\": \"$query\"}" > $TMPFILE
+              
+              # Make the API call
+              curl -X POST \
+                -H "Content-Type: application/json" \
+                -H "Authorization: Bearer $AUTH_TOKEN" \
+                --data @$TMPFILE \
+                "$API_URL"
+                
+              # Clean up temp file
+              rm $TMPFILE
+            }
             
-            # Create script with proper indentation in the heredoc
-            cat > build/query_api.sh << EOF
-#!/bin/bash
-# Fallback query script created during CI process
-# Original script not found, using extracted API URL
+            # Check if query was provided as argument
+            if [ $# -eq 0 ]; then
+              echo "Usage: $0 \"your policy question here\""
+              echo "Example: $0 \"What is our password policy?\""
+              exit 1
+            fi
+            
+            # Execute query
+            query_api "$1"
+            EOFSCRIPT
 
-API_URL="$API_URL"
-AUTH_TOKEN="YOUR_AUTH_TOKEN"  # Replace with actual token
-
-# Function to make API call
-query_api() {
-  local query="\$1"
-  
-  # Create temporary file for request body
-  TMPFILE=\$(mktemp)
-  echo "{\\"query\\": \\"\$query\\"}" > \$TMPFILE
-  
-  # Make the API call
-  curl -X POST \\
-    -H "Content-Type: application/json" \\
-    -H "Authorization: Bearer \$AUTH_TOKEN" \\
-    --data @\$TMPFILE \\
-    "\$API_URL"
-    
-  # Clean up temp file
-  rm \$TMPFILE
-}
-
-# Check if query was provided as argument
-if [ \$# -eq 0 ]; then
-  echo "Usage: \$0 \\"your policy question here\\""
-  echo "Example: \$0 \\"What is our password policy?\\""
-  exit 1
-fi
-
-# Execute query
-query_api "\$1"
-EOF
+            # Replace API_URL placeholder with actual value
+            sed -i "s|API_PLACEHOLDER|${API_URL}|g" build/query_api.sh
             chmod +x build/query_api.sh
             echo "Created fallback query script with API URL: ${API_URL}"
           fi
@@ -246,124 +247,122 @@ EOF
             # Create minimal bruno.json if missing
             if [ ! -f "build/bruno/RAG-Policy-Search/bruno.json" ]; then
               API_URL=$(cd terraform/app && terraform output -raw policy_search_api_url)
-              
-              # Create Bruno JSON file with proper indentation
-              cat > build/bruno/RAG-Policy-Search/bruno.json << EOF
-{
-  "version": "1",
-  "name": "RAG-Policy-Search",
-  "type": "collection",
-  "schema": "https://schema.getbruno.io/collection/v1.json",
-  "environment": {
-    "value": "{{environments.default}}",
-    "vars": {}
-  },
-  "environments": {
-    "default": {
-      "API_URL": "$API_URL", 
-      "AUTH_TOKEN": "test-token"
-    },
-    "production": {
-      "API_URL": "$API_URL",
-      "AUTH_TOKEN": "YOUR_TOKEN_HERE"
-    }
-  }
-}
-EOF
+              cat > build/bruno/RAG-Policy-Search/bruno.json << 'EOFJSON'
+              {
+                "version": "1",
+                "name": "RAG-Policy-Search",
+                "type": "collection",
+                "schema": "https://schema.getbruno.io/collection/v1.json",
+                "environment": {
+                  "value": "{{environments.default}}",
+                  "vars": {}
+                },
+                "environments": {
+                  "default": {
+                    "API_URL": "API_URL_PLACEHOLDER", 
+                    "AUTH_TOKEN": "test-token"
+                  },
+                  "production": {
+                    "API_URL": "API_URL_PLACEHOLDER",
+                    "AUTH_TOKEN": "YOUR_TOKEN_HERE"
+                  }
+                }
+              }
+              EOFJSON
+              # Replace API_URL placeholder
+              sed -i "s|API_URL_PLACEHOLDER|${API_URL}|g" build/bruno/RAG-Policy-Search/bruno.json
               echo "Created minimal bruno.json with API URL: ${API_URL}"
             fi
             
             # Create minimal request file if missing
             if [ ! -f "build/bruno/RAG-Policy-Search/Search Policy.bru" ]; then
+              cat > "build/bruno/RAG-Policy-Search/Search Policy.bru" << 'EOFBRU'
+              meta {
+                name: Search Policy
+                type: http
+                seq: 1
+              }
               
-              # Create Bruno request file
-              cat > "build/bruno/RAG-Policy-Search/Search Policy.bru" << 'EOF'
-meta {
-  name: Search Policy
-  type: http
-  seq: 1
-}
-
-post {
-  url: {{API_URL}}
-  body: json
-  auth: none
-}
-
-headers {
-  Content-Type: application/json
-  Authorization: Bearer {{AUTH_TOKEN}}
-}
-
-body:json {
-  {
-    "query": "What is our password policy?"
-  }
-}
-
-docs {
-  # RAG Policy Search
-
-  This request searches all indexed policy documents using natural language.
-  
-  The system will:
-  1. Convert your query to vector embeddings
-  2. Find the most relevant policy chunks in OpenSearch
-  3. Use Claude 3 Sonnet to generate a comprehensive answer
-  4. Return both the answer and source citations
-}
-EOF
+              post {
+                url: {{API_URL}}
+                body: json
+                auth: none
+              }
+              
+              headers {
+                Content-Type: application/json
+                Authorization: Bearer {{AUTH_TOKEN}}
+              }
+              
+              body:json {
+                {
+                  "query": "What is our password policy?"
+                }
+              }
+              
+              docs {
+                # RAG Policy Search
+              
+                This request searches all indexed policy documents using natural language.
+                
+                The system will:
+                1. Convert your query to vector embeddings
+                2. Find the most relevant policy chunks in OpenSearch
+                3. Use Claude 3 Sonnet to generate a comprehensive answer
+                4. Return both the answer and source citations
+              }
+              EOFBRU
               echo "Created minimal Search Policy.bru file"
             fi
             
             # Create README if missing
             if [ ! -f "build/bruno/README.md" ]; then
               API_URL=$(cd terraform/app && terraform output -raw policy_search_api_url)
+              cat > build/bruno/README.md << 'EOFREADME'
+              # RAG Policy Search API Bruno Collection
               
-              # Create README file
-              cat > build/bruno/README.md << EOF
-# RAG Policy Search API Bruno Collection
-
-This Bruno collection is automatically generated by Terraform with the correct API URL for your deployment.
-
-## API Details
-
-- **API URL**: \`$API_URL\`
-- **Content Type**: application/json
-- **Authentication**: Bearer token (placeholder in collection)
-
-## Usage Instructions
-
-1. Open Bruno app
-2. Import this collection folder
-3. Select the environment (default or production)
-4. Use the "Search Policy" request to query the RAG system
-
-## Request Format
-
-\`\`\`json
-{
-  "query": "What is our password policy?"
-}
-\`\`\`
-
-## Response Format
-
-\`\`\`json
-{
-  "query": "What is our password policy?",
-  "answer": "Based on the policy excerpts...",
-  "sources": [
-    {
-      "document_name": "Acceptable Encryption Policy",
-      "page_number": 3
-    }
-  ]
-}
-\`\`\`
-
-Generated during CI: $(date)
-EOF
+              This Bruno collection is automatically generated by Terraform with the correct API URL for your deployment.
+              
+              ## API Details
+              
+              - **API URL**: `API_URL_PLACEHOLDER`
+              - **Content Type**: application/json
+              - **Authentication**: Bearer token (placeholder in collection)
+              
+              ## Usage Instructions
+              
+              1. Open Bruno app
+              2. Import this collection folder
+              3. Select the environment (default or production)
+              4. Use the "Search Policy" request to query the RAG system
+              
+              ## Request Format
+              
+              ```json
+              {
+                "query": "What is our password policy?"
+              }
+              ```
+              
+              ## Response Format
+              
+              ```json
+              {
+                "query": "What is our password policy?",
+                "answer": "Based on the policy excerpts...",
+                "sources": [
+                  {
+                    "document_name": "Acceptable Encryption Policy",
+                    "page_number": 3
+                  }
+                ]
+              }
+              ```
+              
+              Generated during CI: $(date)
+              EOFREADME
+              # Replace API_URL placeholder
+              sed -i "s|API_URL_PLACEHOLDER|${API_URL}|g" build/bruno/README.md
               echo "Created README.md with API URL: ${API_URL}"
             fi
           fi
