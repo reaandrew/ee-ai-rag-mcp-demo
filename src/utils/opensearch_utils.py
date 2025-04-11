@@ -48,7 +48,7 @@ def get_opensearch_credentials():
 
 def get_opensearch_client():
     """
-    Create and return an OpenSearch client with proper AWS authentication.
+    Create and return an OpenSearch client with IAM authentication.
     This is separated to make testing easier, as AWS credentials may not be
     available in test environments.
     """
@@ -61,118 +61,42 @@ def get_opensearch_client():
             host = f"{OPENSEARCH_DOMAIN}.{region}.es.amazonaws.com"
             logger.info(f"Using constructed OpenSearch endpoint: {host}")
 
-        # First try to get credentials from Secrets Manager
-        username, password = get_opensearch_credentials()
-
-        # If we have username/password from Secrets Manager, use basic auth
-        if username and password:
-            logger.info(f"Using Secrets Manager credentials for user: {username}")
-            try:
-                # Try with username/password first
-                client = OpenSearch(
-                    hosts=[{"host": host, "port": 443}],
-                    http_auth=(username, password),
-                    use_ssl=True,
-                    verify_certs=True,
-                    connection_class=RequestsHttpConnection,
-                    timeout=30,
-                )
-                # Test the connection
-                client.info()
-                logger.info("Successfully connected to OpenSearch with username/password")
-                return client
-            except Exception as auth_err:
-                logger.warning(f"Basic auth failed: {str(auth_err)}. Trying IAM authentication...")
-                # Fall through to IAM authentication if basic auth fails
-
-        # Use IAM authentication
+        # Use IAM authentication (FGAC is disabled, so this is the most direct method)
         credentials = boto3.Session().get_credentials()
         if credentials:
             logger.info("Using IAM authentication for OpenSearch")
+            # Create AWS4Auth object for the 'es' service
+            awsauth = AWS4Auth(
+                credentials.access_key,
+                credentials.secret_key,
+                region,
+                "es",
+                session_token=credentials.token,
+            )
 
-            # Try with "es" service name (older OpenSearch/Elasticsearch)
+            # Create OpenSearch client with IAM auth
+            client = OpenSearch(
+                hosts=[{"host": host, "port": 443}],
+                http_auth=awsauth,
+                use_ssl=True,
+                verify_certs=True,
+                connection_class=RequestsHttpConnection,
+                timeout=30,
+            )
+            # Test the connection
             try:
-                awsauth = AWS4Auth(
-                    credentials.access_key,
-                    credentials.secret_key,
-                    region,
-                    "es",
-                    session_token=credentials.token,
-                )
-
-                client = OpenSearch(
-                    hosts=[{"host": host, "port": 443}],
-                    http_auth=awsauth,
-                    use_ssl=True,
-                    verify_certs=True,
-                    connection_class=RequestsHttpConnection,
-                    timeout=30,
-                )
-                # Test the connection
                 client.info()
-                logger.info("Successfully connected to OpenSearch with IAM auth (es service)")
+                logger.info("Successfully connected to OpenSearch with IAM auth")
                 return client
-            except Exception as es_err:
-                logger.warning(
-                    f"IAM auth with 'es' service failed: {str(es_err)}. Trying 'aoss' service..."
-                )
-
-            # Try with "aoss" service name (OpenSearch Serverless)
-            try:
-                awsauth = AWS4Auth(
-                    credentials.access_key,
-                    credentials.secret_key,
-                    region,
-                    "aoss",
-                    session_token=credentials.token,
-                )
-
-                client = OpenSearch(
-                    hosts=[{"host": host, "port": 443}],
-                    http_auth=awsauth,
-                    use_ssl=True,
-                    verify_certs=True,
-                    connection_class=RequestsHttpConnection,
-                    timeout=30,
-                )
-                # Test the connection
-                client.info()
-                logger.info("Successfully connected to OpenSearch with IAM auth (aoss service)")
-                return client
-            except Exception as aoss_err:
-                logger.warning(f"IAM auth with 'aoss' service failed: {str(aoss_err)}")
-
-            # As a last resort, try with "opensearch" service name
-            try:
-                awsauth = AWS4Auth(
-                    credentials.access_key,
-                    credentials.secret_key,
-                    region,
-                    "opensearch",
-                    session_token=credentials.token,
-                )
-
-                client = OpenSearch(
-                    hosts=[{"host": host, "port": 443}],
-                    http_auth=awsauth,
-                    use_ssl=True,
-                    verify_certs=True,
-                    connection_class=RequestsHttpConnection,
-                    timeout=30,
-                )
-                # Test the connection
-                client.info()
-                logger.info(
-                    "Successfully connected to OpenSearch with IAM auth (opensearch service)"
-                )
-                return client
-            except Exception as opensearch_err:
-                logger.error(
-                    f"All authentication methods failed. Last error: {str(opensearch_err)}"
-                )
-
-            logger.error("All authentication methods failed for OpenSearch")
-
+            except Exception as e:
+                logger.error(f"OpenSearch connection failed: {str(e)}")
+                # Log more detailed error information
+                if "403" in str(e):
+                    logger.error("Access denied (403). Check IAM role permissions.")
+                elif "404" in str(e):
+                    logger.error("Endpoint not found (404). Check domain name.")
+                else:
+                    logger.error(f"Connection error details: {type(e).__name__}")
         else:
             logger.warning("No credentials available for OpenSearch authentication")
 

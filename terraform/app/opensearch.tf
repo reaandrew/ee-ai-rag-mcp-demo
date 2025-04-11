@@ -55,14 +55,9 @@ resource "aws_opensearch_domain" "vectors" {
   }
 
   advanced_security_options {
-    enabled                        = true
-    internal_user_database_enabled = true
-    master_user_options {
-      master_user_name     = var.opensearch_master_user
-      master_user_password = random_password.opensearch_master_password.result
-    }
-    # Enable fine-grained access control
-    anonymous_auth_enabled         = false
+    enabled                        = false
+    internal_user_database_enabled = false
+    # No master_user_options needed when FGAC is disabled
   }
   
   # Additional advanced options
@@ -77,13 +72,13 @@ resource "aws_opensearch_domain" "vectors" {
       {
         Effect = "Allow"
         Principal = {
-          AWS = aws_iam_role.vector_generator_role.arn
+          AWS = [
+            aws_iam_role.vector_generator_role.arn,
+            aws_iam_role.policy_search_role.arn
+          ]
         }
         Action   = ["es:*", "opensearch:*"]
-        Resource = [
-          "arn:aws:es:${var.aws_region}:${data.aws_caller_identity.current.account_id}:domain/${var.opensearch_domain_name}/*",
-          "arn:aws:opensearch:${var.aws_region}:${data.aws_caller_identity.current.account_id}:domain/${var.opensearch_domain_name}/*"
-        ]
+        Resource = "arn:aws:es:${var.aws_region}:${data.aws_caller_identity.current.account_id}:domain/${var.opensearch_domain_name}/*"
       }
     ]
   })
