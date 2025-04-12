@@ -9,6 +9,11 @@ from botocore.exceptions import ClientError
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
+# Set a default region for testing environments
+if not os.environ.get("AWS_REGION") and not os.environ.get("AWS_DEFAULT_REGION"):
+    os.environ["AWS_DEFAULT_REGION"] = "us-east-1"
+    logger.info("No AWS region found, defaulting to us-east-1 for testing")
+
 # Get the KMS key ID from environment variables
 KMS_KEY_ID = os.environ.get("API_TOKEN_KMS_KEY_ID")
 
