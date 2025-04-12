@@ -320,9 +320,17 @@ resource "aws_iam_policy" "app_specific_policy" {
         # KMS permissions for API token management
         Action = [
           "kms:Sign",
-          "kms:Verify",
+          "kms:Verify", 
           "kms:GetPublicKey",
-          "kms:DescribeKey"
+          "kms:DescribeKey",
+          "kms:CreateKey",
+          "kms:TagResource",
+          "kms:EnableKeyRotation",
+          "kms:ScheduleKeyDeletion",
+          "kms:DeleteAlias",
+          "kms:CreateAlias",
+          "kms:UpdateAlias",
+          "kms:GenerateDataKey"
         ]
         Effect   = "Allow"
         Resource = [
@@ -334,7 +342,8 @@ resource "aws_iam_policy" "app_specific_policy" {
         # KMS list operations (needed without specific resources)
         Action = [
           "kms:ListAliases",
-          "kms:ListKeys"
+          "kms:ListKeys",
+          "kms:ListResourceTags"
         ]
         Effect   = "Allow"
         Resource = "*"
@@ -348,7 +357,7 @@ resource "aws_iam_policy" "app_specific_policy" {
         Resource = "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:*"
       },
       {
-        # CloudWatch Log Delivery permissions for API Gateway - specifically scoped
+        # CloudWatch Log Delivery permissions for API Gateway
         Action = [
           "logs:CreateLogDelivery",
           "logs:DeleteLogDelivery",
@@ -356,10 +365,11 @@ resource "aws_iam_policy" "app_specific_policy" {
           "logs:ListLogDeliveries",
           "logs:DescribeLogDeliveries", 
           "logs:DescribeResourcePolicies",
-          "logs:PutResourcePolicy"
+          "logs:PutResourcePolicy",
+          "logs:UpdateLogDelivery"
         ]
         Effect   = "Allow" 
-        Resource = "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:*"
+        Resource = "*"  # This permission requires * as it's a global service permission
       },
       {
         # IAM service role permissions - expanded for CI role
@@ -564,10 +574,22 @@ resource "aws_iam_policy" "opensearch_secretsmanager_policy" {
           "secretsmanager:GetResourcePolicy",
           "secretsmanager:PutResourcePolicy",
           "secretsmanager:DeleteResourcePolicy",
-          "secretsmanager:RestoreSecret"
+          "secretsmanager:RestoreSecret",
+          "secretsmanager:ReplicateSecretToRegions",
+          "secretsmanager:RemoveRegionsFromReplication",
+          "secretsmanager:StopReplicationToReplica",
+          "secretsmanager:CancelRotateSecret"
         ]
         Effect   = "Allow"
         Resource = "arn:aws:secretsmanager:${var.aws_region}:${var.aws_account_id}:secret:ee-ai-rag-mcp-demo*"
+      },
+      {
+        # Secrets Manager list operations
+        Action = [
+          "secretsmanager:ListSecrets"
+        ]
+        Effect   = "Allow"
+        Resource = "*"
       }
     ]
   })
