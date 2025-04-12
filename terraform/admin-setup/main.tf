@@ -337,6 +337,7 @@ resource "aws_iam_policy" "app_specific_policy" {
           "kms:DescribeKey",
           "kms:TagResource",
           "kms:EnableKeyRotation",
+          "kms:GetKeyRotationStatus",
           "kms:ScheduleKeyDeletion",
           "kms:GenerateDataKey"
         ]
