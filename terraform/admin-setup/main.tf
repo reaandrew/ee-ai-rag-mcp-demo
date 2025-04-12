@@ -341,13 +341,16 @@ resource "aws_iam_policy" "app_specific_policy" {
           "kms:GetKeyPolicy",
           "kms:PutKeyPolicy",
           "kms:ScheduleKeyDeletion",
-          "kms:GenerateDataKey"
+          "kms:GenerateDataKey",
+          "kms:CreateAlias",
+          "kms:DeleteAlias", 
+          "kms:UpdateAlias"
         ]
         Effect   = "Allow"
         Resource = "arn:aws:kms:${var.aws_region}:${var.aws_account_id}:key/*"
       },
       {
-        # KMS alias permissions
+        # KMS alias resource permissions
         Action = [
           "kms:CreateAlias",
           "kms:DeleteAlias", 
