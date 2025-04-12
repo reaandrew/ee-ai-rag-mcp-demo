@@ -317,6 +317,29 @@ resource "aws_iam_policy" "app_specific_policy" {
         ]
       },
       {
+        # KMS permissions for API token management
+        Action = [
+          "kms:Sign",
+          "kms:Verify",
+          "kms:GetPublicKey",
+          "kms:DescribeKey"
+        ]
+        Effect   = "Allow"
+        Resource = [
+          "arn:aws:kms:${var.aws_region}:${var.aws_account_id}:key/*",
+          "arn:aws:kms:${var.aws_region}:${var.aws_account_id}:alias/ee-ai-rag-mcp-demo-api-token"
+        ]
+      },
+      {
+        # KMS list operations (needed without specific resources)
+        Action = [
+          "kms:ListAliases",
+          "kms:ListKeys"
+        ]
+        Effect   = "Allow"
+        Resource = "*"
+      },
+      {
         # CloudWatch Logs global operations that require account-level permissions
         Action = [
           "logs:DescribeLogGroups"
