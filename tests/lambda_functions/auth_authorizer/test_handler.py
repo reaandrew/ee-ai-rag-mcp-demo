@@ -1,9 +1,28 @@
 import json
 import unittest
+import os
 from unittest.mock import patch, MagicMock
 
 import pytest
+import boto3
 from src.lambda_functions.auth_authorizer import handler
+
+
+@pytest.fixture(autouse=True)
+def mock_boto3_and_env():
+    """Mock boto3 client and environment variables for all tests"""
+    # Mock KMS client
+    mock_kms = MagicMock()
+    mock_kms.verify.return_value = {"SignatureValid": True}
+
+    with patch("boto3.client") as mock_client:
+        mock_client.return_value = mock_kms
+
+        # Mock environment variables
+        with patch.dict(
+            os.environ, {"API_TOKEN_KMS_KEY_ID": "test-key-id", "AWS_DEFAULT_REGION": "us-east-1"}
+        ):
+            yield
 
 
 @pytest.fixture
@@ -43,9 +62,11 @@ def api_gateway_event():
 
 def test_lambda_handler_success(api_gateway_event):
     """Test successful authorization"""
-    # Mock logging to avoid interference
-    with patch.object(handler.logger, "info"):
-        response = handler.lambda_handler(api_gateway_event, {})
+    # Mock the verify_token function to return True
+    with patch.object(handler, "verify_token", return_value=True):
+        # Mock logging to avoid interference
+        with patch.object(handler.logger, "info"):
+            response = handler.lambda_handler(api_gateway_event, {})
 
     # Verify response structure for HTTP API v2 format
     assert "isAuthorized" in response
