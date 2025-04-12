@@ -193,6 +193,24 @@ resource "aws_iam_role" "auth_authorizer_role" {
   }
 }
 
+# Create KMS key for API token signing and verification
+resource "aws_kms_key" "api_token_key" {
+  description             = "KMS key for signing and verifying API tokens"
+  deletion_window_in_days = 30
+  enable_key_rotation     = true
+  
+  tags = {
+    Environment = var.environment
+    Version     = var.app_version
+  }
+}
+
+# Create a KMS alias for the key
+resource "aws_kms_alias" "api_token_key_alias" {
+  name          = "alias/ee-ai-rag-mcp-demo-api-token"
+  target_key_id = aws_kms_key.api_token_key.key_id
+}
+
 # Create IAM policy for the auth_authorizer Lambda function
 resource "aws_iam_policy" "auth_authorizer_policy" {
   name        = "ee-ai-rag-mcp-demo-auth-authorizer-policy"
@@ -209,6 +227,14 @@ resource "aws_iam_policy" "auth_authorizer_policy" {
         ]
         Effect   = "Allow"
         Resource = "arn:aws:logs:*:*:*"
+      },
+      {
+        Action = [
+          "kms:Verify",
+          "kms:DescribeKey"
+        ]
+        Effect   = "Allow"
+        Resource = aws_kms_key.api_token_key.arn
       }
     ]
   })
@@ -241,7 +267,8 @@ resource "aws_lambda_function" "auth_authorizer" {
 
   environment {
     variables = {
-      ENVIRONMENT = var.environment
+      ENVIRONMENT = var.environment,
+      API_TOKEN_KMS_KEY_ID = aws_kms_key.api_token_key.key_id
     }
   }
 
