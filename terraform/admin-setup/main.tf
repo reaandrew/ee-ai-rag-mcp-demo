@@ -216,6 +216,7 @@ resource "aws_dynamodb_table" "terraform_lock" {
   }
 }
 
+
 # Create IAM role for CI/CD
 resource "aws_iam_role" "ci_role" {
   name = var.ci_role_name
@@ -317,36 +318,40 @@ resource "aws_iam_policy" "app_specific_policy" {
         ]
       },
       {
-        # KMS permissions for API token management
+        # KMS permissions requiring * resource (CreateKey cannot be scoped to a resource ARN)
         Action = [
-          "kms:Sign",
-          "kms:Verify", 
-          "kms:GetPublicKey",
-          "kms:DescribeKey",
           "kms:CreateKey",
-          "kms:TagResource",
-          "kms:EnableKeyRotation",
-          "kms:ScheduleKeyDeletion",
-          "kms:DeleteAlias",
-          "kms:CreateAlias",
-          "kms:UpdateAlias",
-          "kms:GenerateDataKey"
-        ]
-        Effect   = "Allow"
-        Resource = [
-          "arn:aws:kms:${var.aws_region}:${var.aws_account_id}:key/*",
-          "arn:aws:kms:${var.aws_region}:${var.aws_account_id}:alias/ee-ai-rag-mcp-demo-api-token"
-        ]
-      },
-      {
-        # KMS list operations (needed without specific resources)
-        Action = [
           "kms:ListAliases",
           "kms:ListKeys",
           "kms:ListResourceTags"
         ]
         Effect   = "Allow"
         Resource = "*"
+      },
+      {
+        # KMS permissions for specific keys
+        Action = [
+          "kms:Sign",
+          "kms:Verify", 
+          "kms:GetPublicKey",
+          "kms:DescribeKey",
+          "kms:TagResource",
+          "kms:EnableKeyRotation",
+          "kms:ScheduleKeyDeletion",
+          "kms:GenerateDataKey"
+        ]
+        Effect   = "Allow"
+        Resource = "arn:aws:kms:${var.aws_region}:${var.aws_account_id}:key/*"
+      },
+      {
+        # KMS alias permissions
+        Action = [
+          "kms:CreateAlias",
+          "kms:DeleteAlias", 
+          "kms:UpdateAlias"
+        ]
+        Effect   = "Allow"
+        Resource = "arn:aws:kms:${var.aws_region}:${var.aws_account_id}:alias/ee-ai-rag-mcp-demo*"
       },
       {
         # CloudWatch Logs global operations that require account-level permissions
@@ -632,3 +637,4 @@ output "terraform_lock_table" {
   value       = aws_dynamodb_table.terraform_lock.name
   description = "Name of the DynamoDB table for Terraform state locking"
 }
+

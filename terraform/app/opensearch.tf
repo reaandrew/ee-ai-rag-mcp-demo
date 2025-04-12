@@ -7,7 +7,7 @@ resource "random_password" "opensearch_master_password" {
 
 # Store the OpenSearch master credentials in AWS Secrets Manager
 resource "aws_secretsmanager_secret" "opensearch_master_credentials" {
-  name                    = "ee-ai-rag-mcp-demo/opensearch-master-credentials-v2"
+  name                    = "ee-ai-rag-mcp-demo/opensearch-master-credentials-v3"
   description             = "Master credentials for the OpenSearch domain"
   recovery_window_in_days = 0  # Force deletion without waiting for recovery window
   force_overwrite_replica_secret = true
