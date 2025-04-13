@@ -1,4 +1,3 @@
-import React from 'react';
 
 const SourceCitation = ({ source }) => {
   const { document_name, page_number } = source;

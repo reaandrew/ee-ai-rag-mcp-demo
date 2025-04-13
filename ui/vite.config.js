@@ -7,7 +7,7 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      '@': path.resolve(path.dirname(''), './src'),
     },
   },
   css: {
@@ -23,15 +23,15 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:3000',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, ''),
-        configure: (proxy, _options) => {
-          proxy.on('error', (err, _req, _res) => {
+        rewrite: (pathStr) => pathStr.replace(/^\/api/, ''),
+        configure: (proxy) => {
+          proxy.on('error', (err) => {
             console.log('proxy error', err);
           });
-          proxy.on('proxyReq', (proxyReq, req, _res) => {
+          proxy.on('proxyReq', (proxyReq, req) => {
             console.log('Sending Request:', req.method, req.url);
           });
-          proxy.on('proxyRes', (proxyRes, req, _res) => {
+          proxy.on('proxyRes', (proxyRes, req) => {
             console.log('Received Response:', proxyRes.statusCode, req.url);
           });
         },
@@ -40,8 +40,8 @@ export default defineConfig({
       '/aws-api': {
         target: '',
         changeOrigin: true,
-        configure: (proxy, _options) => {
-          proxy.on('proxyReq', (proxyReq, req, _res) => {
+        configure: (proxy) => {
+          proxy.on('proxyReq', (proxyReq, req) => {
             // Get the target URL from the request query parameters
             const targetUrl = req.url.split('?target=')[1];
             if (targetUrl) {
@@ -51,9 +51,9 @@ export default defineConfig({
             }
           });
         },
-        rewrite: (path) => {
+        rewrite: (pathStr) => {
           // Remove the /aws-api prefix and any query parameters
-          return path.replace(/^\/aws-api/, '').split('?')[0];
+          return pathStr.replace(/^\/aws-api/, '').split('?')[0];
         },
       },
     },
