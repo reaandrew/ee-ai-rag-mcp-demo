@@ -257,6 +257,16 @@ data "archive_file" "auth_authorizer_zip" {
   output_path = "${path.module}/../../build/auth-authorizer.zip"
 }
 
+# Lambda layer for auth_authorizer dependencies
+resource "aws_lambda_layer_version" "auth_authorizer_layer" {
+  layer_name = "ee-ai-rag-mcp-demo-auth-authorizer-layer"
+  filename   = "${path.module}/../../build/auth-authorizer-layer.zip"
+  source_code_hash = filebase64sha256("${path.module}/../../build/auth-authorizer-layer.zip")
+
+  compatible_runtimes = ["python3.9"]
+  description = "Layer containing dependencies for auth_authorizer Lambda function"
+}
+
 # Create the auth_authorizer Lambda function
 resource "aws_lambda_function" "auth_authorizer" {
   function_name    = "ee-ai-rag-mcp-demo-auth-authorizer"
@@ -268,6 +278,9 @@ resource "aws_lambda_function" "auth_authorizer" {
   runtime          = "python3.9"
   timeout          = 10   # 10 seconds timeout for authorizer
   memory_size      = 128  # 128MB is sufficient for an authorizer
+  
+  # Add the layer with JWT dependencies
+  layers           = [aws_lambda_layer_version.auth_authorizer_layer.arn]
 
   environment {
     variables = {
