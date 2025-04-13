@@ -18,7 +18,7 @@ import jwt  # pip install pyjwt
 
 # Constants
 ISSUER = "ee-ai-rag-mcp-demo"
-KMS_KEY_ALIAS = "alias/ee-ai-rag-mcp-demo-api-token-sign"
+KMS_KEY_ALIAS = "alias/ee-ai-rag-mcp-demo-api-token-symmetric"
 
 
 def create_jwt_payload(expiry_seconds=86400):
