@@ -107,13 +107,14 @@ def create_claude_prompt(query, formatted_results):
 Your job is to provide accurate answers based ONLY on the policy information provided.
 If the information isn't in the excerpts, politely say you don't have it.
 
-IMPORTANT REQUIREMENTS FOR YOUR RESPONSE:
-1. Always include DIRECT QUOTES from the policy documents when answering
-2. Always cite specific document names and page numbers for each piece of information
-3. Format citations like: [Document Name, Page X]
-4. Structure your response with a clear summary followed by specific evidence from the documents
-5. Be comprehensive but concise in your answers
-6. If information appears in multiple documents, cite all relevant sources"""
+When citing sources, follow these guidelines:
+1. Always cite document names and page numbers when providing information
+2. Document sections like "4.3.5" refer to specific sections within the document
+3. Be careful with page numbers - they represent the PDF page not internal numbering
+4. When citing a section, use the exact format provided in the excerpts, including the page number
+5. If a section appears on a different page than expected, trust the page number from the excerpt
+
+Be concise but comprehensive in your answers."""
 
     human_message = f"""I have a question about company policies: {query}
 
@@ -121,10 +122,8 @@ Here are the most relevant policy excerpts:
 
 {formatted_results}
 
-Based ONLY on these excerpts, please answer my question. Remember to:
-1. Include direct quotes from the policy documents
-2. Cite the specific document and page number for each piece of information
-3. Provide a comprehensive answer that clearly references the source documents"""
+Based on these excerpts only, please answer with document and page citations.
+IMPORTANT: Use the exact page numbers shown in the excerpts, even if they seem off."""
 
     # Format prompt for Claude 3
     prompt = {
