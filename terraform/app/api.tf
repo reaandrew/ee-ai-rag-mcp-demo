@@ -198,6 +198,8 @@ resource "aws_kms_key" "api_token_key" {
   description             = "KMS key for signing and verifying API tokens"
   deletion_window_in_days = 30
   enable_key_rotation     = true
+  key_usage               = "SIGN_VERIFY"  # This is crucial for signing operations
+  customer_master_key_spec = "RSA_2048"    # For asymmetric signing
   
   tags = {
     Environment = var.environment
