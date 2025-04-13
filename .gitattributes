@@ -1,0 +1,9 @@
+# Mark scripts as vendored to exclude from language statistics and code coverage
+scripts/** linguist-vendored=true
+scripts/admin/** linguist-vendored=true
+scripts/admin/generate_api_token.py linguist-vendored=true
+
+# Exclude from code coverage
+scripts/** -coverage
+scripts/admin/** -coverage
+scripts/admin/generate_api_token.py -coverage

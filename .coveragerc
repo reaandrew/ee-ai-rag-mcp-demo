@@ -15,6 +15,10 @@ omit =
     src/utils/opensearch_utils.py
     scripts/*
     scripts/admin/*
+    */scripts/*
+    */scripts/admin/*
+    scripts/admin/generate_api_token.py
+    */generate_api_token.py
 
 [report]
 exclude_lines =

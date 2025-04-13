@@ -1,0 +1,6 @@
+# Exclude scripts from SonarQube analysis and coverage
+scripts/**
+**/scripts/**
+scripts/admin/**
+**/scripts/admin/**
+scripts/admin/generate_api_token.py

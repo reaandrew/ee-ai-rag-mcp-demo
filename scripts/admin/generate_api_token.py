@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
+# pragma: no cover
 """
 Simple JWT token generator for ee-ai-rag-mcp-demo
 Using AWS KMS for signing
 Also provides a ready-to-use curl command for the API
 """
+# IMPORTANT: This script is an admin utility and is not part of the application code.
+# It is excluded from test coverage requirements and SonarQube analysis.
 
 import argparse
 import json
