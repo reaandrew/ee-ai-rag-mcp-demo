@@ -58,29 +58,63 @@ def verify_token(token):
             logger.warning("Empty token provided")
             return False
 
+        # Enhanced debugging
+        logger.info(f"Verifying token with KMS key ID: {KMS_KEY_ID}")
+
         # Split the token into parts (token_id:signature)
         try:
-            decoded = base64.b64decode(token).decode("utf-8")
+            # Add padding if needed for base64 decoding
+            padded_token = token
+            padding = len(padded_token) % 4
+            if padding:
+                padded_token += "=" * (4 - padding)
+
+            logger.info(f"Padded token length: {len(padded_token)}")
+
+            # Decode the base64 token
+            decoded_bytes = base64.b64decode(padded_token)
+            decoded = decoded_bytes.decode("utf-8")
+
+            logger.info(f"Decoded token length: {len(decoded)}")
+
+            # Split the parts
             parts = decoded.split(":")
 
             if len(parts) != 2:
-                logger.warning("Invalid token format")
+                logger.warning(f"Invalid token format: expected 2 parts, got {len(parts)}")
                 return False
 
             token_id, signature = parts
+            logger.info(f"Token ID length: {len(token_id)}, Signature length: {len(signature)}")
+
+            # Add padding to signature if needed
+            padded_signature = signature
+            sig_padding = len(padded_signature) % 4
+            if sig_padding:
+                padded_signature += "=" * (4 - sig_padding)
 
             # Base64 decode the signature
-            binary_signature = base64.b64decode(signature)
+            binary_signature = base64.b64decode(padded_signature)
+            logger.info(f"Binary signature length: {len(binary_signature)} bytes")
 
             # Verify the signature with KMS
-            response = kms_client.verify(
-                KeyId=KMS_KEY_ID,
-                Message=token_id.encode("utf-8"),
-                Signature=binary_signature,
-                SigningAlgorithm="RSASSA_PKCS1_V1_5_SHA_256",
-            )
+            try:
+                response = kms_client.verify(
+                    KeyId=KMS_KEY_ID,
+                    Message=token_id.encode("utf-8"),
+                    Signature=binary_signature,
+                    SigningAlgorithm="RSASSA_PKCS1_V1_5_SHA_256",
+                )
+                is_valid = response.get("SignatureValid", False)
+                logger.info(f"KMS verification result: {is_valid}")
+                return is_valid
 
-            return response.get("SignatureValid", False)
+            except ClientError as kms_err:
+                logger.error(f"KMS verification error: {str(kms_err)}")
+                # Check if we can get more details
+                if hasattr(kms_err, "response"):
+                    logger.error(f"KMS error response: {kms_err.response}")
+                return False
 
         except Exception as e:
             logger.error(f"Error parsing token: {str(e)}")

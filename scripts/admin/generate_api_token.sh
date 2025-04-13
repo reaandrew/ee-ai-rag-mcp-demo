@@ -34,14 +34,39 @@ SIGNATURE=$(aws kms sign \
     --output text \
     --query Signature)
 
-# Base64 encode the signature
-B64_SIGNATURE=$(echo -n "$SIGNATURE" | base64)
+# Debug info
+echo "Raw signature length: $(echo -n "$SIGNATURE" | wc -c) bytes"
+
+# Base64 encode the signature without line wrapping
+B64_SIGNATURE=$(echo -n "$SIGNATURE" | base64 -w 0)
+echo "Base64 signature length: ${#B64_SIGNATURE} characters"
 
 # Create the combined token
 COMBINED="$TOKEN_ID:$B64_SIGNATURE"
+echo "Combined token length: ${#COMBINED} characters"
 
-# Base64 encode the entire token
-API_TOKEN=$(echo -n "$COMBINED" | base64)
+# Base64 encode the entire token without line wrapping
+API_TOKEN=$(echo -n "$COMBINED" | base64 -w 0)
+echo "Final token length: ${#API_TOKEN} characters"
+
+# Let's verify the signature to make sure it works
+echo "Verifying signature locally..."
+echo "Decoding token for verification..."
+VERIFY_COMBINED=$(echo -n "$API_TOKEN" | base64 -d)
+VERIFY_PARTS=(${VERIFY_COMBINED//:/ })
+if [ ${#VERIFY_PARTS[@]} -eq 2 ]; then
+    VERIFY_TOKEN_ID=${VERIFY_PARTS[0]}
+    VERIFY_B64_SIG=${VERIFY_PARTS[1]}
+    echo "Extracted token ID: $VERIFY_TOKEN_ID"
+    echo "Extracted signature length: ${#VERIFY_B64_SIG} characters"
+    if [ "$VERIFY_TOKEN_ID" = "$TOKEN_ID" ]; then
+        echo "Token ID verification successful"
+    else
+        echo "WARNING: Token ID verification failed!"
+    fi
+else
+    echo "WARNING: Could not properly split the combined token!"
+fi
 
 echo "API Token successfully generated"
 echo "-------------------------------"
