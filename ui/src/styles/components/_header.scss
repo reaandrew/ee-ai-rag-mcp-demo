@@ -1,0 +1,29 @@
+// Custom header styles
+.govuk-header {
+  &__navigation-item {
+    button.govuk-header__link {
+      color: #ffffff;
+      font-size: 16px;
+      font-weight: 700;
+      line-height: 1.25;
+      text-decoration: none;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+      
+      &:hover {
+        text-decoration: underline;
+        text-decoration-thickness: 3px;
+      }
+      
+      &:focus {
+        outline: 3px solid transparent;
+        color: #0b0c0c;
+        background-color: #ffdd00;
+        box-shadow: 0 -2px #ffdd00, 0 4px #0b0c0c;
+        text-decoration: none;
+      }
+    }
+  }
+}

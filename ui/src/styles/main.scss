@@ -1,0 +1,28 @@
+// Import GDS styles
+@import "govuk-frontend/dist/govuk/all";
+
+// Import custom variables
+@import "variables";
+
+// Import component styles
+@import "components/chat";
+@import "components/header";
+
+// General layout styles
+.govuk-template__body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.govuk-main-wrapper {
+  flex: 1;
+  padding-top: 40px;
+  padding-bottom: 60px;
+}
+
+// Custom styles
+.chat-page {
+  max-width: 800px;
+  margin: 0 auto;
+}

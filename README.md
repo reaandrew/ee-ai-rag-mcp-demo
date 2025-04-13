@@ -74,9 +74,34 @@ Run the following to set up the commit hooks locally:
 npm install
 ```
 
-## Architecture Overview
+## Project Components
 
-This project implements a RAG (Retrieval Augmented Generation) pipeline with the following components:
+This project consists of two main components:
+
+1. **Backend RAG Pipeline**: A serverless RAG (Retrieval Augmented Generation) system built on AWS
+2. **Frontend UI**: A React-based chat interface for interacting with the RAG system
+
+### UI Application
+
+The project includes a React-based user interface in the `ui/` directory with the following features:
+- Single Page Application built with React and Vite
+- JWT authentication for secure API access
+- Chat interface for querying policies
+- Storybook for component development
+- GOV.UK Design System styling
+
+To run the UI locally:
+```bash
+cd ui
+npm install
+npm run dev
+```
+
+For more details, see the [UI README](ui/README.md).
+
+## Backend Architecture
+
+The backend implements a RAG (Retrieval Augmented Generation) pipeline with the following components:
 
 1. **Document Ingestion**:
    - PDF documents are uploaded to an S3 bucket

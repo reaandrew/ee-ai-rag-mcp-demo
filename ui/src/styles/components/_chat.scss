@@ -1,0 +1,159 @@
+// Chat container styles
+.chat-container {
+  display: flex;
+  flex-direction: column;
+  height: calc(80vh - 150px);
+  min-height: 400px;
+  border: 1px solid $govuk-border-colour;
+  border-radius: $chat-border-radius;
+  overflow: hidden;
+  
+  &__history {
+    flex: 1;
+    overflow-y: auto;
+    padding: $chat-spacing;
+  }
+  
+  &__input {
+    border-top: 1px solid $govuk-border-colour;
+    padding: $chat-spacing;
+    background-color: govuk-colour("light-grey");
+  }
+}
+
+// Chat message styles
+.chat-message {
+  display: flex;
+  margin-bottom: $chat-spacing;
+  
+  &--user {
+    flex-direction: row-reverse;
+    
+    .chat-message__bubble {
+      background-color: $user-message-bg;
+      border-radius: $chat-border-radius 0 $chat-border-radius $chat-border-radius;
+      margin-left: auto;
+    }
+  }
+  
+  &--assistant {
+    .chat-message__bubble {
+      background-color: $assistant-message-bg;
+      color: $assistant-message-text;
+      border-radius: 0 $chat-border-radius $chat-border-radius $chat-border-radius;
+    }
+    
+    .chat-message__sources {
+      margin-top: 8px;
+      font-size: 14px;
+    }
+  }
+  
+  &__avatar {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    flex-shrink: 0;
+  }
+  
+  &__content {
+    max-width: 70%;
+    margin: 0 $chat-spacing/2;
+  }
+  
+  &__bubble {
+    padding: $chat-spacing;
+    border-radius: $chat-border-radius;
+  }
+  
+  &__text {
+    word-wrap: break-word;
+  }
+  
+  &__typing-indicator {
+    display: flex;
+    align-items: center;
+    
+    span {
+      height: 8px;
+      width: 8px;
+      border-radius: 50%;
+      background-color: $assistant-message-text;
+      margin-right: 4px;
+      opacity: 0.6;
+      animation: typing-animation 1s infinite ease-in-out;
+      
+      &:nth-child(1) {
+        animation-delay: 0s;
+      }
+      
+      &:nth-child(2) {
+        animation-delay: 0.2s;
+      }
+      
+      &:nth-child(3) {
+        animation-delay: 0.4s;
+        margin-right: 0;
+      }
+    }
+  }
+}
+
+// Source citation styles
+.source-citation {
+  display: inline-block;
+  
+  &__document {
+    font-weight: bold;
+  }
+}
+
+// Chat input styles
+.chat-input {
+  &__container {
+    display: flex;
+    align-items: flex-start;
+  }
+  
+  &__textarea {
+    flex: 1;
+    resize: none;
+    border-radius: $chat-border-radius 0 0 $chat-border-radius;
+    border-right: none;
+    margin-bottom: 0;
+  }
+  
+  &__button {
+    margin-left: 0;
+    margin-bottom: 0;
+    border-radius: 0 $chat-border-radius $chat-border-radius 0;
+  }
+}
+
+// Empty state
+.chat-history {
+  &__empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: $govuk-secondary-text-colour;
+  }
+}
+
+// Animation for typing indicator
+@keyframes typing-animation {
+  0% {
+    transform: translateY(0px);
+    opacity: 0.6;
+  }
+  50% {
+    transform: translateY(-5px);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0px);
+    opacity: 0.6;
+  }
+}

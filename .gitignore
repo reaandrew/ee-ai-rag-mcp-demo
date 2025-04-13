@@ -1,5 +1,6 @@
 # Dependencies
 node_modules/
+ui/node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -26,6 +27,8 @@ yarn.lock
 /out
 /.next
 /.nuxt
+ui/dist/
+ui/storybook-static/
 
 # Lambda dependencies
 src/lambda_functions/*/dependencies/
@@ -36,6 +39,8 @@ package/
 # Coverage
 /coverage
 coverage-reports/
+ui/coverage-reports/
+ui/coverage/
 .coverage
 
 # Python

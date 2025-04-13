@@ -22,20 +22,42 @@ jobs:
         with:
           node-version: '16'
           
-      - name: Install dependencies
+      - name: Install backend dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -e .
           pip install -r requirements-dev.txt
           npm install
           
-      - name: Run lint checks
+      - name: Run backend lint checks
         run: |
           npm run lint
           
-      - name: Run tests
+      - name: Run backend tests
         run: |
           npm run test:coverage
+          
+      - name: Install UI dependencies
+        working-directory: ui
+        run: |
+          npm install
+          
+      - name: Run UI lint checks
+        working-directory: ui
+        run: |
+          npm run lint
+          
+      - name: Run UI tests
+        working-directory: ui
+        run: |
+          npm run test:coverage
+          
+      - name: Prepare coverage directories
+        run: |
+          mkdir -p coverage-reports/ui
+          if [ -d "ui/coverage-reports" ]; then
+            cp -r ui/coverage-reports/* coverage-reports/ui/
+          fi
           
       - name: Upload coverage reports
         uses: actions/upload-artifact@v4
@@ -89,3 +111,4 @@ jobs:
             -Dsonar.qualitygate.wait=true
             -Dsonar.qualitygate.timeout=300
             -Dsonar.python.coverage.reportPaths=coverage-reports/python-coverage.xml
+            -Dsonar.javascript.lcov.reportPaths=coverage-reports/ui/lcov.info
