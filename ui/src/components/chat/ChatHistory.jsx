@@ -16,7 +16,7 @@ const ChatHistory = ({ messages, isLoading }) => {
       {messages.length === 0 ? (
         <div className="chat-history__empty">
           <h2 className="govuk-heading-m">Welcome to the Policy Search Assistant!</h2>
-          <p className="govuk-body">Ask any question about company policies and I'll help you find the answers.</p>
+          <p className="govuk-body">Enter your API details above, then ask any question about company policies.</p>
         </div>
       ) : (
         messages.map((message, index) => (

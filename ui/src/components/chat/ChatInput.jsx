@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 
-const ChatInput = ({ onSendMessage, isLoading }) => {
+const ChatInput = ({ onSendMessage, isLoading, isDisabled }) => {
   const [message, setMessage] = useState('');
 
   const handleSubmit = (e) => {
     e.preventDefault();
     
-    if (message.trim() && !isLoading) {
+    if (message.trim() && !isLoading && !isDisabled) {
       onSendMessage(message);
       setMessage('');
     }
@@ -28,17 +28,22 @@ const ChatInput = ({ onSendMessage, isLoading }) => {
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               placeholder="Type your question about company policies..."
-              disabled={isLoading}
+              disabled={isLoading || isDisabled}
             />
             <button
               type="submit"
               className="govuk-button chat-input__button"
               data-module="govuk-button"
-              disabled={isLoading || !message.trim()}
+              disabled={isLoading || !message.trim() || isDisabled}
             >
               {isLoading ? 'Sending...' : 'Send'}
             </button>
           </div>
+          {isDisabled && (
+            <p className="govuk-error-message">
+              Please enter both API URL and JWT Token to start chatting
+            </p>
+          )}
         </div>
       </form>
     </div>

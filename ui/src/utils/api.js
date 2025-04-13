@@ -1,46 +1,45 @@
 import axios from 'axios';
 
-// Create an axios instance with default config
-const api = axios.create({
-  baseURL: '/api',
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
+// Create API client with CORS handling
+const createCorsProxy = (baseUrl, jwtToken, useCorsProxy = false) => {
+  // Use local proxy URL if CORS proxy is enabled
+  const effectiveUrl = useCorsProxy 
+    ? `/aws-api/search?target=${encodeURIComponent(baseUrl)}`
+    : baseUrl;
 
-// Add a request interceptor to add the auth token to requests
-api.interceptors.request.use(
-  (config) => {
-    // Get the token from localStorage
-    const token = localStorage.getItem('auth_token');
-    
-    // If token exists, add to Authorization header
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+  const instance = axios.create({
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${jwtToken}`
     }
-    
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
+  });
 
-// Add a response interceptor to handle common error scenarios
-api.interceptors.response.use(
-  (response) => {
-    return response;
-  },
-  (error) => {
-    // Handle unauthorized responses (expired tokens, etc.)
-    if (error.response && error.response.status === 401) {
-      // Clear token and redirect to login
-      localStorage.removeItem('auth_token');
-      window.location.href = '/login';
+  // Add response interceptor to handle CORS errors with a friendly message
+  instance.interceptors.response.use(
+    (response) => response,
+    (error) => {
+      if (error.message.includes('Network Error') || 
+          (error.response && error.response.status === 0)) {
+        console.error('CORS Error:', error);
+        return Promise.reject({
+          ...error,
+          message: 'CORS Error: The API server is blocking requests from this origin. Try enabling the CORS proxy option.'
+        });
+      }
+      return Promise.reject(error);
     }
-    
-    return Promise.reject(error);
-  }
-);
+  );
 
-export default api;
+  return {
+    search: async (query) => {
+      try {
+        return await instance.post(effectiveUrl, { query });
+      } catch (error) {
+        console.error('Error in search request:', error);
+        throw error;
+      }
+    }
+  };
+};
+
+export default createCorsProxy;

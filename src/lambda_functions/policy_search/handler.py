@@ -117,6 +117,19 @@ def lambda_handler(event, context):
     """
     Lambda function handler that processes natural language policy queries.
     """
+    # Add OPTIONS method support for CORS preflight requests
+    if event.get("httpMethod") == "OPTIONS":
+        return {
+            "statusCode": 200,
+            "headers": {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Headers": "Content-Type,Authorization",
+                "Access-Control-Allow-Methods": "OPTIONS,POST",
+                "Access-Control-Max-Age": "3600",
+            },
+            "body": "",
+        }
+
     try:
         logger.info(f"Received event: {json.dumps(event)}")
 
@@ -157,7 +170,9 @@ def lambda_handler(event, context):
             "statusCode": 200,
             "headers": {
                 "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "*",  # For CORS
+                "Access-Control-Allow-Origin": "*",  # Allow any origin
+                "Access-Control-Allow-Headers": "Content-Type,Authorization",
+                "Access-Control-Allow-Methods": "OPTIONS,POST",
             },
             "body": json.dumps({"query": query, "answer": response_text, "sources": sources}),
         }
@@ -166,7 +181,12 @@ def lambda_handler(event, context):
         logger.error(f"Validation error: {str(ve)}")
         return {
             "statusCode": 400,
-            "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"},
+            "headers": {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Headers": "Content-Type,Authorization",
+                "Access-Control-Allow-Methods": "OPTIONS,POST",
+            },
             "body": json.dumps({"error": str(ve)}),
         }
     except Exception as e:
@@ -174,6 +194,11 @@ def lambda_handler(event, context):
         logger.error(traceback.format_exc())
         return {
             "statusCode": 500,
-            "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"},
+            "headers": {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Headers": "Content-Type,Authorization",
+                "Access-Control-Allow-Methods": "OPTIONS,POST",
+            },
             "body": json.dumps({"error": "An error occurred while processing your query"}),
         }
