@@ -69,7 +69,7 @@ def parse_page_info(text):
 def build_page_ranges(cleaned_text, page_map):
     """
     Convert the page_map into a list of (start_offset, end_offset, page_number).
-    Each tuple describes the exact byte range of a page in the cleaned text.
+    Each tuple describes the exact range of a page in the cleaned text.
     """
     page_ranges = []
     positions = sorted(page_map.keys())
@@ -142,9 +142,15 @@ def chunk_text(text, metadata=None):
         # Determine which pages this chunk spans
         chunk_pages = find_page_for_chunk(chunk_start, chunk_end, page_ranges)
 
-        # The first page in chunk_pages is "start_page"; last is "end_page"
+        # The first page in chunk_pages is start_page; last is end_page
         start_page = chunk_pages[0]
         end_page = chunk_pages[-1]
+
+        # Modify page_number to represent the full range if applicable
+        if start_page == end_page:
+            page_number_display = str(start_page)
+        else:
+            page_number_display = f"{start_page}-{end_page}"
 
         chunk_info = {
             "chunk_id": i,
@@ -152,7 +158,7 @@ def chunk_text(text, metadata=None):
             "text": chunk,
             "chunk_size": len(chunk),
             "pages": chunk_pages,
-            "page_number": start_page,  # For backwards-compat
+            "page_number": page_number_display,  # Now shows range if applicable
             "document_name": metadata.get("filename", "") if metadata else "",
             "start_page": start_page,
             "end_page": end_page,
@@ -164,11 +170,11 @@ def chunk_text(text, metadata=None):
         else:
             pos = chunk_end
 
-        # Optional: attach entire metadata
+        # Optionally attach entire metadata
         if metadata:
             meta_copy = metadata.copy()
             meta_copy["pages"] = chunk_pages
-            meta_copy["page_number"] = start_page
+            meta_copy["page_number"] = page_number_display
             meta_copy["start_page"] = start_page
             meta_copy["end_page"] = end_page
             meta_copy["document_name"] = metadata.get("filename", "")
@@ -256,10 +262,7 @@ def process_text_file(bucket_name, file_key):
 
         logger.info(f"Successfully processed and chunked {file_key} into {len(chunks)} chunks")
         return {
-            "source": {
-                "bucket": bucket_name,
-                "file_key": file_key,
-            },
+            "source": {"bucket": bucket_name, "file_key": file_key},
             "output": {
                 "bucket": CHUNKED_TEXT_BUCKET,
                 "manifest_key": manifest_key,
@@ -282,7 +285,7 @@ def lambda_handler(event, context):
 
         results = []
         for record in event.get("Records", []):
-            # Check if it's an S3 event
+            # Process only S3 events
             if record.get("eventSource") != "aws:s3":
                 continue
 
@@ -294,7 +297,6 @@ def lambda_handler(event, context):
                 logger.info(f"Skipping non-text file: {file_key}")
                 continue
 
-            # Process the text file
             result = process_text_file(bucket_name, file_key)
             results.append(result)
 
@@ -309,7 +311,4 @@ def lambda_handler(event, context):
 
     except Exception as e:
         logger.error(f"Error in lambda_handler: {str(e)}")
-        return {
-            "statusCode": 500,
-            "body": {"message": f"Error processing text files: {str(e)}"},
-        }
+        return {"statusCode": 500, "body": {"message": f"Error processing text files: {str(e)}"}}
