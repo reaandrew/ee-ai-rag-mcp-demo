@@ -329,6 +329,16 @@ resource "aws_iam_policy" "app_specific_policy" {
         Resource = "*"
       },
       {
+        # KMS permissions requiring more open resource specs
+        Action = [
+          "kms:CreateAlias",
+          "kms:DeleteAlias", 
+          "kms:UpdateAlias"
+        ]
+        Effect   = "Allow"
+        Resource = "*" 
+      },
+      {
         # KMS permissions for specific keys
         Action = [
           "kms:Sign",
@@ -341,23 +351,10 @@ resource "aws_iam_policy" "app_specific_policy" {
           "kms:GetKeyPolicy",
           "kms:PutKeyPolicy",
           "kms:ScheduleKeyDeletion",
-          "kms:GenerateDataKey",
-          "kms:CreateAlias",
-          "kms:DeleteAlias", 
-          "kms:UpdateAlias"
+          "kms:GenerateDataKey"
         ]
         Effect   = "Allow"
         Resource = "arn:aws:kms:${var.aws_region}:${var.aws_account_id}:key/*"
-      },
-      {
-        # KMS alias resource permissions
-        Action = [
-          "kms:CreateAlias",
-          "kms:DeleteAlias", 
-          "kms:UpdateAlias"
-        ]
-        Effect   = "Allow"
-        Resource = "arn:aws:kms:${var.aws_region}:${var.aws_account_id}:alias/ee-ai-rag-mcp-demo*"
       },
       {
         # CloudWatch Logs global operations that require account-level permissions
