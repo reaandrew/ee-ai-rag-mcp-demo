@@ -197,10 +197,10 @@ resource "aws_iam_role" "auth_authorizer_role" {
 resource "aws_kms_key" "api_token_key" {
   description             = "KMS key for signing and verifying API tokens"
   deletion_window_in_days = 30
-  # We're using an asymmetric key, which doesn't support rotation
-  enable_key_rotation     = false
-  key_usage               = "SIGN_VERIFY"  # For JWT signing and verification
-  customer_master_key_spec = "RSA_2048"   # RSA for JWT signatures
+  # Using a symmetric key which supports rotation
+  enable_key_rotation     = true
+  # Default values for symmetric key
+  # No need to specify key_usage or customer_master_key_spec for symmetric keys
   
   tags = {
     Environment = var.environment
@@ -233,9 +233,10 @@ resource "aws_iam_policy" "auth_authorizer_policy" {
       },
       {
         Action = [
-          "kms:Verify",
-          "kms:DescribeKey",
-          "kms:GetPublicKey"
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:GenerateDataKey",
+          "kms:DescribeKey"
         ]
         Effect   = "Allow"
         Resource = aws_kms_key.api_token_key.arn

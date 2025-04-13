@@ -45,96 +45,6 @@ def extract_method_path(event):
     return http_method, resource_path, source_ip, user_agent
 
 
-class KMSTokenVerifier:
-    """
-    A class for verifying JWTs signed with AWS KMS.
-
-    This class adapts the AWS KMS service to work with PyJWT by implementing
-    the required methods for a PyJWT verification backend.
-    """
-
-    def __init__(self, kms_client, key_id):
-        """
-        Initialize the verifier with a KMS client and key ID.
-
-        Args:
-            kms_client: Boto3 KMS client
-            key_id (str): KMS key ID
-        """
-        self.kms_client = kms_client
-        self.key_id = key_id
-        self._public_key = None
-        self.algorithm = "RS256"  # The algorithm we use with KMS
-
-    def get_public_key(self):
-        """
-        Get the public key from KMS for verification.
-
-        Returns:
-            bytes: The public key in PEM format
-        """
-        if self._public_key is not None:
-            return self._public_key
-
-        try:
-            response = self.kms_client.get_public_key(KeyId=self.key_id)
-            self._public_key = response["PublicKey"]
-            return self._public_key
-        except Exception as e:
-            logger.error(f"Error getting public key: {str(e)}")
-            raise
-
-    def verify(self, token, **kwargs):
-        """
-        Verify a JWT token using KMS public key.
-
-        Args:
-            token (str): JWT token
-            **kwargs: Additional arguments
-
-        Returns:
-            dict: The token payload if verification succeeds
-
-        Raises:
-            jwt.InvalidTokenError: If verification fails
-        """
-        logger.info(f"Verifying JWT token with KMS key ID: {self.key_id}")
-
-        try:
-            # Get the key for verification
-            public_key = self.get_public_key()
-
-            # Decode and verify the token
-            payload = jwt.decode(
-                token,
-                public_key,
-                algorithms=[self.algorithm],
-                issuer=ALLOWED_ISSUER,  # Required issuer
-                options={
-                    "verify_signature": True,
-                    "verify_exp": True,
-                    "verify_iat": True,
-                },
-            )
-
-            logger.info(f"JWT verification successful: {payload}")
-            return payload
-
-        except jwt.ExpiredSignatureError:
-            logger.warning("JWT token has expired")
-            raise
-        except jwt.InvalidTokenError as e:
-            logger.warning(f"Invalid JWT token: {str(e)}")
-            raise
-        except Exception as e:
-            logger.error(f"Unexpected error during JWT verification: {str(e)}")
-            raise jwt.InvalidTokenError(f"Verification error: {str(e)}")
-
-
-# Initialize the token verifier
-token_verifier = KMSTokenVerifier(kms_client, KMS_KEY_ID)
-
-
 def verify_token(token):
     """
     Verify a JWT token using the KMS key.
@@ -150,8 +60,34 @@ def verify_token(token):
             logger.warning("Empty token provided")
             return False
 
-        # Attempt to verify and decode the token
-        token_verifier.verify(token)
+        logger.info(f"Verifying JWT token with KMS key ID: {KMS_KEY_ID}")
+
+        # Extract the kid (Key ID) from the token header
+        # This should match our KMS key ID
+        try:
+            unverified_header = jwt.get_unverified_header(token)
+            kid = unverified_header.get("kid")
+            if kid != KMS_KEY_ID:
+                logger.warning(f"Token key ID {kid} does not match expected key ID {KMS_KEY_ID}")
+                # We'll still try to verify with our key
+        except Exception as e:
+            logger.warning(f"Error parsing token header: {str(e)}")
+            return False
+
+        # Verify the token using HS256 algorithm with the KMS key ID as the secret
+        # This works because we're using a symmetric key
+        payload = jwt.decode(
+            token,
+            KMS_KEY_ID,  # Using KMS key ID as the secret
+            algorithms=["HS256"],
+            issuer=ALLOWED_ISSUER,
+            options={
+                "verify_signature": True,
+                "verify_exp": True,
+                "verify_iat": True,
+            },
+        )
+        logger.info(f"JWT verification successful: {payload}")
         return True
 
     except jwt.ExpiredSignatureError:

@@ -14,8 +14,6 @@ def mock_boto3_and_env():
     """Mock boto3 client and environment variables for all tests"""
     # Mock KMS client
     mock_kms = MagicMock()
-    mock_kms.verify.return_value = {"SignatureValid": True}
-    mock_kms.get_public_key.return_value = {"PublicKey": b"mock-public-key"}
 
     with patch("boto3.client") as mock_client:
         mock_client.return_value = mock_kms
@@ -149,7 +147,7 @@ def test_verify_token_empty():
 
 def test_verify_token_expired():
     """Test verify_token with expired token"""
-    with patch.object(handler.token_verifier, "verify", side_effect=jwt.ExpiredSignatureError):
+    with patch.object(jwt, "decode", side_effect=jwt.ExpiredSignatureError):
         with patch.object(handler.logger, "warning"):
             result = handler.verify_token("expired_token")
 
@@ -158,9 +156,7 @@ def test_verify_token_expired():
 
 def test_verify_token_invalid():
     """Test verify_token with invalid token"""
-    with patch.object(
-        handler.token_verifier, "verify", side_effect=jwt.InvalidTokenError("Invalid token")
-    ):
+    with patch.object(jwt, "decode", side_effect=jwt.InvalidTokenError("Invalid token")):
         with patch.object(handler.logger, "warning"):
             result = handler.verify_token("invalid_token")
 
@@ -169,116 +165,29 @@ def test_verify_token_invalid():
 
 def test_verify_token_unexpected_error():
     """Test verify_token with unexpected error"""
-    with patch.object(handler.token_verifier, "verify", side_effect=Exception("Unexpected error")):
+    with patch.object(jwt, "decode", side_effect=Exception("Unexpected error")):
         with patch.object(handler.logger, "error"):
             result = handler.verify_token("problematic_token")
 
     assert result is False
 
 
-def test_kms_token_verifier_init():
-    """Test KMSTokenVerifier initialization"""
-    mock_kms = MagicMock()
-    test_key_id = "test-key-id"
-
-    verifier = handler.KMSTokenVerifier(mock_kms, test_key_id)
-
-    assert verifier.kms_client == mock_kms
-    assert verifier.key_id == test_key_id
-    assert verifier.algorithm == "RS256"
-
-
-def test_kms_token_verifier_get_public_key():
-    """Test KMSTokenVerifier.get_public_key method"""
-    mock_kms = MagicMock()
-    mock_kms.get_public_key.return_value = {"PublicKey": b"test-public-key"}
-    test_key_id = "test-key-id"
-
-    verifier = handler.KMSTokenVerifier(mock_kms, test_key_id)
-    public_key = verifier.get_public_key()
-
-    assert public_key == b"test-public-key"
-    mock_kms.get_public_key.assert_called_once_with(KeyId=test_key_id)
-
-    # Test caching
-    verifier.get_public_key()
-    # Should still be called only once if caching works
-    mock_kms.get_public_key.assert_called_once()
-
-
-def test_kms_token_verifier_verify_success():
-    """Test KMSTokenVerifier.verify method success case"""
-    mock_kms = MagicMock()
-    mock_kms.get_public_key.return_value = {"PublicKey": b"test-public-key"}
-    test_key_id = "test-key-id"
-
-    verifier = handler.KMSTokenVerifier(mock_kms, test_key_id)
-
-    import time
-
-    mock_payload = {
-        "iss": handler.ALLOWED_ISSUER,
-        "exp": int(time.time()) + 3600,
-        "iat": int(time.time()) - 60,
-    }
+def test_verify_token_success():
+    """Test verify_token success case"""
+    mock_payload = {"iss": handler.ALLOWED_ISSUER, "exp": 1714305458, "iat": 1714219058}
 
     with patch.object(jwt, "decode", return_value=mock_payload):
         with patch.object(handler.logger, "info"):
-            result = verifier.verify("valid_token")
+            with patch.object(jwt, "get_unverified_header", return_value={"kid": "test-key-id"}):
+                result = handler.verify_token("valid-token")
 
-    assert result == mock_payload
+    assert result is True
 
 
-def test_kms_token_verifier_verify_expired():
-    """Test KMSTokenVerifier.verify with expired token"""
-    mock_kms = MagicMock()
-    mock_kms.get_public_key.return_value = {"PublicKey": b"test-public-key"}
-    test_key_id = "test-key-id"
-
-    verifier = handler.KMSTokenVerifier(mock_kms, test_key_id)
-
-    with patch.object(jwt, "decode", side_effect=jwt.ExpiredSignatureError):
+def test_verify_token_header_parsing_error():
+    """Test verify_token with header parsing error"""
+    with patch.object(jwt, "get_unverified_header", side_effect=Exception("Header error")):
         with patch.object(handler.logger, "warning"):
-            with pytest.raises(jwt.ExpiredSignatureError):
-                verifier.verify("expired_token")
+            result = handler.verify_token("invalid-header-token")
 
-
-def test_kms_token_verifier_verify_invalid():
-    """Test KMSTokenVerifier.verify with invalid token"""
-    mock_kms = MagicMock()
-    mock_kms.get_public_key.return_value = {"PublicKey": b"test-public-key"}
-    test_key_id = "test-key-id"
-
-    verifier = handler.KMSTokenVerifier(mock_kms, test_key_id)
-
-    with patch.object(jwt, "decode", side_effect=jwt.InvalidTokenError("Invalid token")):
-        with patch.object(handler.logger, "warning"):
-            with pytest.raises(jwt.InvalidTokenError):
-                verifier.verify("invalid_token")
-
-
-def test_kms_token_verifier_verify_unexpected_error():
-    """Test KMSTokenVerifier.verify with unexpected error"""
-    mock_kms = MagicMock()
-    mock_kms.get_public_key.return_value = {"PublicKey": b"test-public-key"}
-    test_key_id = "test-key-id"
-
-    verifier = handler.KMSTokenVerifier(mock_kms, test_key_id)
-
-    with patch.object(jwt, "decode", side_effect=Exception("Unexpected error")):
-        with patch.object(handler.logger, "error"):
-            with pytest.raises(jwt.InvalidTokenError):
-                verifier.verify("problematic_token")
-
-
-def test_kms_token_verifier_get_public_key_error():
-    """Test KMSTokenVerifier.get_public_key error handling"""
-    mock_kms = MagicMock()
-    mock_kms.get_public_key.side_effect = Exception("Public key error")
-    test_key_id = "test-key-id"
-
-    verifier = handler.KMSTokenVerifier(mock_kms, test_key_id)
-
-    with patch.object(handler.logger, "error"):
-        with pytest.raises(Exception):
-            verifier.get_public_key()
+    assert result is False
