@@ -6,7 +6,8 @@ mkdir -p package/python
 
 # Install minimal dependencies directly (no requirements.txt)
 echo "Installing dependencies for Lambda layers..."
-pip install --target package/python langchain-text-splitters==0.3.8 pydantic==2.11.3 regex opensearch-py==2.0.0 requests-aws4auth==1.1.0 pyjwt==2.6.0 cryptography==38.0.0
+# Use an older version of cryptography that's compatible with Lambda's GLIBC
+pip install --target package/python langchain-text-splitters==0.3.8 pydantic==2.11.3 regex opensearch-py==2.0.0 requests-aws4auth==1.1.0 pyjwt==2.6.0 cryptography==36.0.0
 
 # Clean up unnecessary files to reduce size
 echo "Cleaning up to reduce layer size..."

@@ -9,7 +9,7 @@ setup(
     install_requires=[
         "boto3>=1.28.0",
         "pyjwt>=2.6.0",
-        "cryptography>=38.0.0",
+        "cryptography==36.0.0",
     ],
     description="Text extractor for PDFs stored in S3",
     author="Claude AI",
