@@ -38,7 +38,7 @@ def parse_page_info(text):
         return text, {0: 1}
 
     # Create a mapping from character position to page number
-    page_map = {}
+    page_map = {0: 1}  # Start with page 1 at offset 0
     cleaned_text = ""
 
     for i, marker in enumerate(page_markers):
@@ -56,20 +56,20 @@ def parse_page_info(text):
         # Extract the text for this page
         page_text = text[start_pos:end_pos]
 
-        # Record current offset in the cleaned text -> page_num
-        page_map[len(cleaned_text)] = page_num
-
         # Append the page's text (excluding the marker) into cleaned_text
         cleaned_text += page_text
+
+        # Record the end of this page's text as the start of the next page
+        if i < len(page_markers) - 1:
+            page_map[len(cleaned_text)] = page_num + 1
 
     return cleaned_text, page_map
 
 
 def build_page_ranges(cleaned_text, page_map):
     """
-    Convert the page_map (which marks where each page starts) into a list of
-    (start_offset, end_offset, page_number). Each tuple describes the exact
-    byte range of a page in the cleaned text.
+    Convert the page_map into a list of (start_offset, end_offset, page_number).
+    Each tuple describes the exact byte range of a page in the cleaned text.
     """
     page_ranges = []
     positions = sorted(page_map.keys())
@@ -88,19 +88,23 @@ def find_page_for_chunk(chunk_start, chunk_end, page_ranges):
     """
     Given a chunk's [chunk_start, chunk_end) offsets in the cleaned text,
     return a list of page numbers that overlap with that chunk range.
+    Prioritize the page where chunk_start lies to avoid off-by-one errors.
     """
     chunk_pages = []
     for page_start, page_end, page_num in page_ranges:
-        # If the page range is entirely before this chunk, skip
+        # Skip if page ends before chunk starts
         if page_end <= chunk_start:
             continue
-        # If the page range is entirely after this chunk, we can stop
+        # Stop if page starts after chunk ends
         if page_start >= chunk_end:
             break
-        # Otherwise, it overlaps
-        chunk_pages.append(page_num)
-
-    # If we found no pages for some reason, default to page 1
+        # Include page if chunk starts within page or overlaps
+        if page_start <= chunk_start < page_end or \
+           (chunk_start < page_start and chunk_end > page_start):
+            chunk_pages.append(page_num)
+    # Deduplicate while preserving order
+    seen = set()
+    chunk_pages = [p for p in chunk_pages if not (p in seen or seen.add(p))]
     return chunk_pages if chunk_pages else [1]
 
 
@@ -147,7 +151,7 @@ def chunk_text(text, metadata=None):
             "text": chunk,
             "chunk_size": len(chunk),
             "pages": chunk_pages,
-            "page_number": start_page,  # For backwards-compat if you only want a single page
+            "page_number": start_page,  # For backwards-compat
             "document_name": metadata.get("filename", "") if metadata else "",
             "start_page": start_page,
             "end_page": end_page,
@@ -155,15 +159,12 @@ def chunk_text(text, metadata=None):
 
         # For next iteration, account for overlap
         if i < len(chunks) - 1:
-            # The next chunk will “slide back” by CHUNK_OVERLAP
-            # So effectively we move pos only by (len(chunk) - CHUNK_OVERLAP)
             pos = chunk_end - CHUNK_OVERLAP
         else:
             pos = chunk_end
 
         # Optional: attach entire metadata
         if metadata:
-            # copy for safety
             meta_copy = metadata.copy()
             meta_copy["pages"] = chunk_pages
             meta_copy["page_number"] = start_page
