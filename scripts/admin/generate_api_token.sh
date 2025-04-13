@@ -12,10 +12,10 @@ if ! command -v aws &> /dev/null; then
 fi
 
 # Check if the KMS key alias exists
-KEY_ID=$(aws kms list-aliases --query "Aliases[?AliasName=='alias/ee-ai-rag-mcp-demo-api-token'].TargetKeyId" --output text)
+KEY_ID=$(aws kms list-aliases --query "Aliases[?AliasName=='alias/ee-ai-rag-mcp-demo-api-token-sign'].TargetKeyId" --output text)
 
 if [ -z "$KEY_ID" ] || [ "$KEY_ID" == "None" ]; then
-    echo "Error: KMS key with alias 'alias/ee-ai-rag-mcp-demo-api-token' not found."
+    echo "Error: KMS key with alias 'alias/ee-ai-rag-mcp-demo-api-token-sign' not found."
     echo "Please deploy the infrastructure first."
     exit 1
 fi

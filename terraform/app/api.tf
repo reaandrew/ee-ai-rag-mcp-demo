@@ -208,9 +208,9 @@ resource "aws_kms_key" "api_token_key" {
   }
 }
 
-# Create a KMS alias for the key
+# Create a KMS alias for the key - use a new alias name to avoid conflicts with existing key
 resource "aws_kms_alias" "api_token_key_alias" {
-  name          = "alias/ee-ai-rag-mcp-demo-api-token"
+  name          = "alias/ee-ai-rag-mcp-demo-api-token-sign"
   target_key_id = aws_kms_key.api_token_key.key_id
 }
 
