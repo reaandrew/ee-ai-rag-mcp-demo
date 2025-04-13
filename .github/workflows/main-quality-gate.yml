@@ -37,14 +37,10 @@ jobs:
         run: |
           npm run test:coverage
           
-      - name: Install UI dependencies
+      - name: Install UI dependencies and run lint checks
         working-directory: ui
         run: |
           npm install
-          
-      - name: Run UI lint checks
-        working-directory: ui
-        run: |
           npm run lint
           
       - name: Run UI tests
