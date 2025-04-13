@@ -99,8 +99,9 @@ def find_page_for_chunk(chunk_start, chunk_end, page_ranges):
         if page_start >= chunk_end:
             break
         # Include page if chunk starts within page or overlaps
-        if page_start <= chunk_start < page_end or \
-           (chunk_start < page_start and chunk_end > page_start):
+        if page_start <= chunk_start < page_end or (
+            chunk_start < page_start and chunk_end > page_start
+        ):
             chunk_pages.append(page_num)
     # Deduplicate while preserving order
     seen = set()
