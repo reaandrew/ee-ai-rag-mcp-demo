@@ -1,9 +1,8 @@
 import json
 import logging
 import os
-import base64
 import boto3
-from botocore.exceptions import ClientError
+import jwt
 
 # Set up logging
 logger = logging.getLogger()
@@ -19,6 +18,9 @@ KMS_KEY_ID = os.environ.get("API_TOKEN_KMS_KEY_ID")
 
 # Initialize the KMS client
 kms_client = boto3.client("kms")
+
+# Set the allowed issuer
+ALLOWED_ISSUER = "ee-ai-rag-mcp-demo"
 
 
 def extract_method_path(event):
@@ -43,12 +45,102 @@ def extract_method_path(event):
     return http_method, resource_path, source_ip, user_agent
 
 
+class KMSTokenVerifier:
+    """
+    A class for verifying JWTs signed with AWS KMS.
+
+    This class adapts the AWS KMS service to work with PyJWT by implementing
+    the required methods for a PyJWT verification backend.
+    """
+
+    def __init__(self, kms_client, key_id):
+        """
+        Initialize the verifier with a KMS client and key ID.
+
+        Args:
+            kms_client: Boto3 KMS client
+            key_id (str): KMS key ID
+        """
+        self.kms_client = kms_client
+        self.key_id = key_id
+        self._public_key = None
+        self.algorithm = "RS256"  # The algorithm we use with KMS
+
+    def get_public_key(self):
+        """
+        Get the public key from KMS for verification.
+
+        Returns:
+            bytes: The public key in PEM format
+        """
+        if self._public_key is not None:
+            return self._public_key
+
+        try:
+            response = self.kms_client.get_public_key(KeyId=self.key_id)
+            self._public_key = response["PublicKey"]
+            return self._public_key
+        except Exception as e:
+            logger.error(f"Error getting public key: {str(e)}")
+            raise
+
+    def verify(self, token, **kwargs):
+        """
+        Verify a JWT token using KMS public key.
+
+        Args:
+            token (str): JWT token
+            **kwargs: Additional arguments
+
+        Returns:
+            dict: The token payload if verification succeeds
+
+        Raises:
+            jwt.InvalidTokenError: If verification fails
+        """
+        logger.info(f"Verifying JWT token with KMS key ID: {self.key_id}")
+
+        try:
+            # Get the key for verification
+            public_key = self.get_public_key()
+
+            # Decode and verify the token
+            payload = jwt.decode(
+                token,
+                public_key,
+                algorithms=[self.algorithm],
+                issuer=ALLOWED_ISSUER,  # Required issuer
+                options={
+                    "verify_signature": True,
+                    "verify_exp": True,
+                    "verify_iat": True,
+                },
+            )
+
+            logger.info(f"JWT verification successful: {payload}")
+            return payload
+
+        except jwt.ExpiredSignatureError:
+            logger.warning("JWT token has expired")
+            raise
+        except jwt.InvalidTokenError as e:
+            logger.warning(f"Invalid JWT token: {str(e)}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error during JWT verification: {str(e)}")
+            raise jwt.InvalidTokenError(f"Verification error: {str(e)}")
+
+
+# Initialize the token verifier
+token_verifier = KMSTokenVerifier(kms_client, KMS_KEY_ID)
+
+
 def verify_token(token):
     """
-    Verify the signed API token using the KMS key.
+    Verify a JWT token using the KMS key.
 
     Args:
-        token (str): Base64-encoded token containing both UUID and signature
+        token (str): JWT token
 
     Returns:
         bool: True if verification succeeds, False otherwise
@@ -58,70 +150,15 @@ def verify_token(token):
             logger.warning("Empty token provided")
             return False
 
-        # Enhanced debugging
-        logger.info(f"Verifying token with KMS key ID: {KMS_KEY_ID}")
+        # Attempt to verify and decode the token
+        token_verifier.verify(token)
+        return True
 
-        # Split the token into parts (token_id:signature)
-        try:
-            # Add padding if needed for base64 decoding
-            padded_token = token
-            padding = len(padded_token) % 4
-            if padding:
-                padded_token += "=" * (4 - padding)
-
-            logger.info(f"Padded token length: {len(padded_token)}")
-
-            # Decode the base64 token
-            decoded_bytes = base64.b64decode(padded_token)
-            decoded = decoded_bytes.decode("utf-8")
-
-            logger.info(f"Decoded token length: {len(decoded)}")
-
-            # Split the parts
-            parts = decoded.split(":")
-
-            if len(parts) != 2:
-                logger.warning(f"Invalid token format: expected 2 parts, got {len(parts)}")
-                return False
-
-            token_id, signature = parts
-            logger.info(f"Token ID length: {len(token_id)}, Signature length: {len(signature)}")
-
-            # Add padding to signature if needed
-            padded_signature = signature
-            sig_padding = len(padded_signature) % 4
-            if sig_padding:
-                padded_signature += "=" * (4 - sig_padding)
-
-            # Base64 decode the signature
-            binary_signature = base64.b64decode(padded_signature)
-            logger.info(f"Binary signature length: {len(binary_signature)} bytes")
-
-            # Verify the signature with KMS
-            try:
-                response = kms_client.verify(
-                    KeyId=KMS_KEY_ID,
-                    Message=token_id.encode("utf-8"),
-                    Signature=binary_signature,
-                    SigningAlgorithm="RSASSA_PKCS1_V1_5_SHA_256",
-                )
-                is_valid = response.get("SignatureValid", False)
-                logger.info(f"KMS verification result: {is_valid}")
-                return is_valid
-
-            except ClientError as kms_err:
-                logger.error(f"KMS verification error: {str(kms_err)}")
-                # Check if we can get more details
-                if hasattr(kms_err, "response"):
-                    logger.error(f"KMS error response: {kms_err.response}")
-                return False
-
-        except Exception as e:
-            logger.error(f"Error parsing token: {str(e)}")
-            return False
-
-    except ClientError as e:
-        logger.error(f"AWS KMS error: {str(e)}")
+    except jwt.ExpiredSignatureError:
+        logger.warning("Token has expired")
+        return False
+    except jwt.InvalidTokenError as e:
+        logger.warning(f"Invalid token: {str(e)}")
         return False
     except Exception as e:
         logger.error(f"Unexpected error during token verification: {str(e)}")
