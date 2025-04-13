@@ -40,8 +40,10 @@ jobs:
       - name: Install UI dependencies and run lint checks
         working-directory: ui
         run: |
+          # Run npm install instead of npm ci to ensure consistent behavior
           npm install
-          npm run lint
+          # Run eslint directly with explicit configuration to avoid CI failures
+          npx eslint --config .eslintrc.cjs . --ext .js,.jsx --report-unused-disable-directives --max-warnings 0
           
       - name: Run UI tests
         working-directory: ui
