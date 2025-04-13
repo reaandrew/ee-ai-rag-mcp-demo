@@ -18,7 +18,10 @@ const ChatMessage = ({ message }) => {
   };
   
   return (
-    <div className={`chat-message ${role === 'user' ? 'chat-message--user' : 'chat-message--assistant'}`}>
+    <div 
+      className={`chat-message ${role === 'user' ? 'chat-message--user' : 'chat-message--assistant'}`}
+      data-testid="message-container"
+    >
       <div className="chat-message__avatar">
         {role === 'user' ? '👤' : '🤖'}
       </div>

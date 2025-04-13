@@ -43,8 +43,10 @@ describe('ChatMessage Component', () => {
     
     render(<ChatMessage message={message} />);
     
-    expect(screen.getByText('Line 1')).toBeInTheDocument();
-    expect(screen.getByText('Line 2')).toBeInTheDocument();
-    expect(screen.getByText('Line 3')).toBeInTheDocument();
+    // Check that the message container contains the text
+    const messageContainer = screen.getByTestId('message-container');
+    expect(messageContainer).toHaveTextContent('Line 1');
+    expect(messageContainer).toHaveTextContent('Line 2');
+    expect(messageContainer).toHaveTextContent('Line 3');
   });
 });

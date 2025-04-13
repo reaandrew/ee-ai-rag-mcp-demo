@@ -12,7 +12,7 @@ module.exports = {
     'plugin:react/jsx-runtime',
     'plugin:react-hooks/recommended',
   ],
-  ignorePatterns: ['dist', '.eslintrc.cjs', 'node_modules'],
+  ignorePatterns: ['dist', '.eslintrc.cjs', 'node_modules', 'coverage', 'coverage-reports'],
   parserOptions: { ecmaVersion: 'latest', sourceType: 'module' },
   settings: { 
     react: { 
