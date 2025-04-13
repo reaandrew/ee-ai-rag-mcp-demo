@@ -287,7 +287,8 @@ fi
 query_api "$1"
 """)
     
-    os.chmod(script_path, 0o755)
+    # Use more secure permissions (user read+write+execute only)
+    os.chmod(script_path, 0o700)
     print(f"Shell script created: {script_path}")
     print(f"Usage: {script_path} \"Your question here\"")
     

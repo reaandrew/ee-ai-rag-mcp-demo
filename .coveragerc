@@ -13,6 +13,8 @@ include =
 omit =
     src/utils/bedrock_utils.py
     src/utils/opensearch_utils.py
+    scripts/*
+    scripts/admin/*
 
 [report]
 exclude_lines =

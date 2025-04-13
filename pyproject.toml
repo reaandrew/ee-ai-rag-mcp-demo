@@ -20,7 +20,9 @@ exclude = '''
 [tool.coverage.run]
 source = ["src/lambda_functions"]
 omit = [
-    "src/lambda_functions/*/dependencies/**"
+    "src/lambda_functions/*/dependencies/**",
+    "scripts/**",
+    "scripts/admin/**"
 ]
 
 [tool.coverage.report]
