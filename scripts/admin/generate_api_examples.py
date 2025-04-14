@@ -184,51 +184,16 @@ def main():
     print("\n" + "="*50)
     print("DOCUMENT STATUS API EXAMPLES")
     print("="*50)
-    
-    doc_id = args.doc_id
-    
-    # GET with path parameter
-    doc_status_path_curl = (
-        f"# Document Status API - GET /status/{doc_id}\n"
+        
+    # GET list of all documents
+    doc_status_list_curl = (
+        f"# Document Status API - GET /status (List all documents with their status)\n"
         f"curl -X GET \\\n"
         f"  -H \"Authorization: {jwt_token}\" \\\n"
-        f"  {document_status_api_url}/{doc_id}"
-    )
-    
-    # GET with query parameter
-    doc_status_query_curl = (
-        f"# Document Status API - GET /status?document_id={doc_id}\n"
-        f"curl -X GET \\\n"
-        f"  -H \"Authorization: {jwt_token}\" \\\n"
-        f"  \"{document_status_api_url}?document_id={doc_id}\""
-    )
-    
-    # GET with query parameter and use_base_id=false
-    doc_status_query_base_curl = (
-        f"# Document Status API - GET /status?document_id={doc_id}&use_base_id=false\n"
-        f"curl -X GET \\\n"
-        f"  -H \"Authorization: {jwt_token}\" \\\n"
-        f"  \"{document_status_api_url}?document_id={doc_id}&use_base_id=false\""
-    )
-    
-    # POST with body
-    doc_status_body_json = json.dumps({"document_id": doc_id, "use_base_id": True})
-    doc_status_post_curl = (
-        f"# Document Status API - POST /status\n"
-        f"curl -X POST \\\n"
-        f"  -H \"Content-Type: application/json\" \\\n"
-        f"  -H \"Authorization: {jwt_token}\" \\\n"
-        f"  -d '{doc_status_body_json}' \\\n"
         f"  {document_status_api_url}"
     )
     
-    print(doc_status_path_curl)
-    print("\n" + "-"*50 + "\n")
-    print(doc_status_query_curl)
-    print("\n" + "-"*50 + "\n")
-    print(doc_status_query_base_curl)
-    print("\n" + "-"*50 + "\n")
-    print(doc_status_post_curl)
+    print(doc_status_list_curl)
     print("="*50)
     
     return 0
