@@ -50,7 +50,8 @@ resource "aws_iam_policy" "document_status_policy" {
       {
         Action = [
           "dynamodb:GetItem",
-          "dynamodb:Query"
+          "dynamodb:Query",
+          "dynamodb:Scan"
         ]
         Effect   = "Allow"
         Resource = [
