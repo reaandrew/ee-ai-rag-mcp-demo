@@ -116,6 +116,32 @@ resource "aws_kms_key_policy" "sns_key_policy" {
           "kms:CancelKeyDeletion"
         ]
         Resource = aws_kms_key.sns_encryption_key.arn
+      },
+      {
+        Sid    = "Allow vector_generator Lambda to use the key"
+        Effect = "Allow"
+        Principal = {
+          AWS = aws_iam_role.vector_generator_role.arn
+        }
+        Action = [
+          "kms:Decrypt",
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey"
+        ]
+        Resource = aws_kms_key.sns_encryption_key.arn
+      },
+      {
+        Sid    = "Allow text_chunker Lambda to use the key"
+        Effect = "Allow"
+        Principal = {
+          AWS = aws_iam_role.text_chunker_role.arn
+        }
+        Action = [
+          "kms:Decrypt",
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey"
+        ]
+        Resource = aws_kms_key.sns_encryption_key.arn
       }
     ]
   })
