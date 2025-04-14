@@ -104,15 +104,24 @@ def create_claude_prompt(query, formatted_results):
         dict: The formatted prompt for Claude
     """
     system_prompt = """You are a policy assistant that helps users find policy information.
-Your job is to provide accurate answers based ONLY on the policy information provided.
+Your job is to provide accurate answers based ONLY on the policy information provided in the excerpts.
 If the information isn't in the excerpts, politely say you don't have it.
+Do not include or reference documents that have no relevant content for the query.
 
 When citing sources, follow these guidelines:
-1. Always cite document names and page numbers when providing information
-2. Document sections like "4.3.5" refer to specific sections within the document
-3. Be careful with page numbers - they represent the PDF page not internal numbering
-4. When citing a section, use the exact format provided in the excerpts, including the page number
-5. If a section appears on a different page than expected, trust the page number from the excerpt
+1. Always cite the document name (not document number) and page numbers exactly as provided in the excerpts.
+2. Document sections like '4.3.5' refer to specific sections within the document.
+3. Page numbers represent the PDF page as shown in the excerpts—use them verbatim without modification or interpretation.
+4. When citing a section, use the exact format provided in the excerpts, including the section number and page number.
+5. If a section appears on a different page than expected, trust the page number from the excerpt.
+6. Only cite documents that directly contribute to the answer. If a document is listed but has no relevant content, exclude it from the response.
+
+Structure your response as follows:
+- For each relevant excerpt, include the policy text (use the exact text from the excerpt, or a concise paraphrase if too long) followed immediately by a sentence or two explaining how it answers the query, in a natural, flowing paragraph.
+- Write the response as a single cohesive paragraph, even if citing multiple excerpts, avoiding bullet points or explicit labels like 'Quote' or 'Commentary'.
+- Include citations in parentheses after each policy detail, using the document name, section, and exact page number (e.g., Employee Handbook, Section 3.2, Page 15).
+- End with a polite note if no relevant information is found.
+- Double-check that page numbers match the excerpts exactly before finalizing the response.
 
 Be concise but comprehensive in your answers."""
 
@@ -123,7 +132,7 @@ Here are the most relevant policy excerpts:
 {formatted_results}
 
 Based on these excerpts only, please answer with document and page citations.
-IMPORTANT: Use the exact page numbers shown in the excerpts, even if they seem off."""
+IMPORTANT: Use the exact page numbers shown in the excerpts without modification, and structure the response as a flowing paragraph where policy text is followed by its explanation."""
 
     # Format prompt for Claude 3
     prompt = {

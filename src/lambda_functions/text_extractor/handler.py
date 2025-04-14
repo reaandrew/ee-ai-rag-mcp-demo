@@ -4,6 +4,7 @@ import logging
 import time
 import os
 import re
+import random
 from urllib.parse import unquote_plus
 
 # Set up logging
@@ -180,13 +181,37 @@ def process_document_async(bucket_name, file_key):
     Returns:
         tuple: (extracted_text, page_count)
     """
-    # Start the asynchronous document text detection
-    response = textract_client.start_document_text_detection(
-        DocumentLocation={"S3Object": {"Bucket": bucket_name, "Name": file_key}}
-    )
-
-    job_id = response["JobId"]
-    logger.info(f"Started async Textract job {job_id} for {file_key}")
+    # Start the asynchronous document text detection with exponential backoff
+    max_retries = 10
+    base_delay = 1  # Base delay in seconds
+    job_id = None
+    for attempt in range(max_retries):
+        try:
+            response = textract_client.start_document_text_detection(
+                DocumentLocation={"S3Object": {"Bucket": bucket_name, "Name": file_key}}
+            )
+            job_id = response["JobId"]
+            logger.info(f"Started async Textract job {job_id} for {file_key}")
+            break  # Success, exit retry loop
+        except textract_client.exceptions.ProvisionedThroughputExceededException:
+            # Calculate exponential backoff delay with jitter
+            delay = min(30, (2 ** attempt) * base_delay + (2 * base_delay * random.random()))
+            if attempt < max_retries - 1:  # Don't log on the last attempt
+                logger.warning(
+                    f"Textract rate limit exceeded. Retrying in {delay:.2f}s. "
+                    f"Attempt {attempt+1}/{max_retries}"
+                )
+                time.sleep(delay)
+            else:
+                logger.error(
+                    f"Textract rate limit exceeded after {max_retries} attempts. Giving up."
+                )
+                raise
+        except Exception as e:
+            logger.error(f"Unexpected error starting Textract job: {str(e)}")
+            raise
+    if not job_id:
+        raise Exception("Failed to start Textract job after retries")
 
     # Wait for the job to complete
     status = "IN_PROGRESS"
@@ -197,7 +222,28 @@ def process_document_async(bucket_name, file_key):
     while status == "IN_PROGRESS" and total_tries < max_tries:
         total_tries += 1
         try:
-            response = textract_client.get_document_text_detection(JobId=job_id)
+            # Add retry logic for get_document_text_detection
+            retry_count = 0
+            max_get_retries = 5
+            while retry_count < max_get_retries:
+                try:
+                    response = textract_client.get_document_text_detection(JobId=job_id)
+                    break  # Success, exit retry loop
+                except textract_client.exceptions.ProvisionedThroughputExceededException:
+                    retry_count += 1
+                    if retry_count >= max_get_retries:
+                        logger.error("Rate limit exceeded when getting document text detection")
+                        raise
+                    # Exponential backoff with jitter
+                    delay = min(30, (2 ** retry_count) * 0.5 + random.random())
+                    logger.warning(
+                        f"Rate limit getting results. Retrying in {delay:.2f}s. "
+                        f"Attempt {retry_count}/{max_get_retries}"
+                    )
+                    time.sleep(delay)
+                except Exception as e:
+                    logger.error(f"Error getting Textract results: {str(e)}")
+                    raise
             status = response["JobStatus"]
 
             if status == "SUCCEEDED":
@@ -243,12 +289,36 @@ def process_document_async(bucket_name, file_key):
     current_page = 1
 
     while True:
-        if next_token:
-            response = textract_client.get_document_text_detection(
-                JobId=job_id, NextToken=next_token
-            )
-        else:
-            response = textract_client.get_document_text_detection(JobId=job_id)
+        # Add retry logic for getting results with exponential backoff
+        retry_count = 0
+        max_get_retries = 5
+        success = False
+        while not success and retry_count < max_get_retries:
+            try:
+                if next_token:
+                    response = textract_client.get_document_text_detection(
+                        JobId=job_id, NextToken=next_token
+                    )
+                else:
+                    response = textract_client.get_document_text_detection(JobId=job_id)
+                success = True
+            except textract_client.exceptions.ProvisionedThroughputExceededException:
+                retry_count += 1
+                if retry_count >= max_get_retries:
+                    logger.error("Rate limit exceeded when getting document text detection")
+                    raise
+                # Exponential backoff with jitter
+                delay = min(30, (2 ** retry_count) * 0.5 + random.random())
+                logger.warning(
+                    f"Rate limit getting results. Retrying in {delay:.2f}s. "
+                    f"Attempt {retry_count}/{max_get_retries}"
+                )
+                time.sleep(delay)
+            except Exception as e:
+                logger.error(f"Error getting Textract results: {str(e)}")
+                raise
+        if not success:
+            raise Exception("Failed to get Textract results after multiple retries")
 
         # Update the page count
         # Each page in the response increases the DocumentMetadata.Pages count
