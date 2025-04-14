@@ -129,7 +129,8 @@ def process_chunk_file(bucket_name, file_key):
             "embedding_dimension": len(embedding),
             "source_key": file_key,
             "document_name": chunk_data.get("document_name", ""),
-            "page_number": chunk_data.get("page_number", 0),
+            # Ensure page_number is a string for OpenSearch compatibility
+            "page_number": str(chunk_data.get("page_number", "0")),
             "metadata": chunk_data.get("metadata", {}),
         }
 
@@ -154,7 +155,7 @@ def process_chunk_file(bucket_name, file_key):
                     tracking_utils.update_indexing_progress(
                         document_id=document_id,
                         document_name=chunk_data.get("document_name", ""),
-                        page_number=chunk_data.get("page_number", 0),
+                        page_number=str(chunk_data.get("page_number", "0")),
                     )
                     logger.info(f"Updated tracking for document: {document_id}")
                 else:

@@ -212,7 +212,8 @@ def create_index_if_not_exists(client, index_name=None):
                         "source_key": {"type": "keyword"},
                         "embedding_model": {"type": "keyword"},
                         "embedding_dimension": {"type": "integer"},
-                        "page_number": {"type": "integer"},
+                        # Use keyword type for page_number to support formats like "1-2"
+                        "page_number": {"type": "keyword"},
                         "document_name": {"type": "keyword"},
                     }
                 },
