@@ -33,14 +33,15 @@ resource "aws_opensearch_domain" "vectors" {
   engine_version = "OpenSearch_2.9"
 
   cluster_config {
-    instance_type          = "t3.small.search" # More cost-effective instance for dev
+    instance_type          = "m6g.large.search" # Better instance for vector search operations
     instance_count         = 1
     zone_awareness_enabled = false
   }
 
   ebs_options {
     ebs_enabled = true
-    volume_size = 10
+    volume_size = 30
+    volume_type = "gp3"  # More consistent performance
   }
 
   encrypt_at_rest {
