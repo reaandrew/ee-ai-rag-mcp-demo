@@ -170,7 +170,7 @@ def create_index_if_not_exists(client, index_name=None):
         index_name: Name of the index to create (defaults to OPENSEARCH_INDEX)
 
     Returns:
-        bool: True if successful, raises exception otherwise
+        bool: True if successful
     """
     if index_name is None:
         index_name = OPENSEARCH_INDEX
@@ -218,9 +218,18 @@ def create_index_if_not_exists(client, index_name=None):
                 },
             }
 
-            # Create the index
-            client.indices.create(index=index_name, body=index_body)
-            logger.info(f"Created OpenSearch index: {index_name}")
+            try:
+                # Create the index
+                client.indices.create(index=index_name, body=index_body)
+                logger.info(f"Created OpenSearch index: {index_name}")
+            except Exception as create_error:
+                # Check if this is just a "resource already exists" error, which we can ignore
+                if "resource_already_exists_exception" in str(create_error):
+                    logger.info(f"Index {index_name} already exists, continuing.")
+                    return True
+                else:
+                    # For other errors, log and propagate
+                    raise create_error
 
         return True
 
@@ -237,4 +246,10 @@ def create_index_if_not_exists(client, index_name=None):
                 logger.error(f"Lambda execution identity: {identity.get('Arn')}")
             except Exception as sts_error:
                 logger.error(f"Could not get caller identity: {str(sts_error)}")
+
+        # For index already exists errors, don't propagate the error
+        if "resource_already_exists_exception" in str(e):
+            logger.info(f"Index {index_name} already exists, continuing without error.")
+            return True
+
         raise e
