@@ -51,5 +51,6 @@ build_lambda_package "text_chunker"
 build_lambda_package "vector_generator"
 build_lambda_package "policy_search"
 build_lambda_package "auth_authorizer"
+build_lambda_package "document_status"
 
 echo "All Lambda packages built successfully"

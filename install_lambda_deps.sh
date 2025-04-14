@@ -33,6 +33,7 @@ zip -r "../build/text-chunker-layer.zip" * -r
 cp "../build/text-chunker-layer.zip" "../build/vector-generator-layer.zip"
 cp "../build/text-chunker-layer.zip" "../build/policy-search-layer.zip"
 cp "../build/text-chunker-layer.zip" "../build/auth-authorizer-layer.zip"
+cp "../build/text-chunker-layer.zip" "../build/document-status-layer.zip"
 cd ..
 
 # Display the size of the layers
@@ -40,4 +41,5 @@ echo "Text chunker layer size: $(du -h build/text-chunker-layer.zip | cut -f1)"
 echo "Vector generator layer size: $(du -h build/vector-generator-layer.zip | cut -f1)"
 echo "Policy search layer size: $(du -h build/policy-search-layer.zip | cut -f1)"
 echo "Auth authorizer layer size: $(du -h build/auth-authorizer-layer.zip | cut -f1)"
+echo "Document status layer size: $(du -h build/document-status-layer.zip | cut -f1)"
 echo "Lambda layers packaged successfully"

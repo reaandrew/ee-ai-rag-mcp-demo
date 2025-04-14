@@ -81,6 +81,16 @@ data "archive_file" "document_status_zip" {
   output_path = "${path.module}/../../build/document-status.zip"
 }
 
+# Lambda layer for document status dependencies
+resource "aws_lambda_layer_version" "document_status_layer" {
+  layer_name = "ee-ai-rag-mcp-demo-document-status-layer"
+  filename   = "${path.module}/../../build/document-status-layer.zip"
+  source_code_hash = filebase64sha256("${path.module}/../../build/document-status-layer.zip")
+
+  compatible_runtimes = ["python3.9"]
+  description = "Layer containing dependencies for document_status Lambda function"
+}
+
 # Create the Lambda function
 resource "aws_lambda_function" "document_status" {
   function_name    = "ee-ai-rag-mcp-demo-document-status"
@@ -92,6 +102,7 @@ resource "aws_lambda_function" "document_status" {
   runtime          = "python3.9"
   timeout          = 30
   memory_size      = 128
+  layers           = [aws_lambda_layer_version.document_status_layer.arn]
 
   environment {
     variables = {
