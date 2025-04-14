@@ -1,7 +1,21 @@
 import json
 import logging
+import decimal
 
 # import os  # Not directly used
+
+
+# Helper class to convert Decimal objects to int/float for JSON serialization
+class DecimalEncoder(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, decimal.Decimal):
+            # Convert decimals to integers or floats
+            if o % 1 == 0:
+                return int(o)
+            else:
+                return float(o)
+        return super(DecimalEncoder, self).default(o)
+
 
 try:
     # Try to import tracking utils
@@ -55,7 +69,9 @@ def lambda_handler(event, context):
             return {
                 "statusCode": 200,
                 "headers": CORS_HEADERS,
-                "body": json.dumps({"message": "CORS preflight request successful"}),
+                "body": json.dumps(
+                    {"message": "CORS preflight request successful"}, cls=DecimalEncoder
+                ),
             }
 
         # Check if tracking is available
@@ -63,13 +79,19 @@ def lambda_handler(event, context):
             return {
                 "statusCode": 500,
                 "headers": CORS_HEADERS,
-                "body": json.dumps({"error": "Document tracking is not available"}),
+                "body": json.dumps(
+                    {"error": "Document tracking is not available"}, cls=DecimalEncoder
+                ),
             }
 
         # Get all documents with their latest status
         status = {"documents": tracking_utils.get_all_documents()}
 
-        return {"statusCode": 200, "headers": CORS_HEADERS, "body": json.dumps(status)}
+        return {
+            "statusCode": 200,
+            "headers": CORS_HEADERS,
+            "body": json.dumps(status, cls=DecimalEncoder),
+        }
 
     except Exception as e:
         logger.error(f"Error in lambda_handler: {str(e)}")
@@ -77,6 +99,7 @@ def lambda_handler(event, context):
             "statusCode": 500,
             "headers": CORS_HEADERS,
             "body": json.dumps(
-                {"error": f"An error occurred while checking document status: {str(e)}"}
+                {"error": f"An error occurred while checking document status: {str(e)}"},
+                cls=DecimalEncoder,
             ),
         }
