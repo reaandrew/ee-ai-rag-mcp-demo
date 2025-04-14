@@ -262,11 +262,13 @@ resource "aws_apigatewayv2_route" "document_status_post_route" {
   authorization_type = "CUSTOM"
 }
 
-# OPTIONS request doesn't need authorization (for CORS preflight)
+# OPTIONS route with same authorizer as other routes for security
 resource "aws_apigatewayv2_route" "document_status_options_route" {
-  api_id    = aws_apigatewayv2_api.document_status_api.id
-  route_key = "OPTIONS /status"
-  target    = "integrations/${aws_apigatewayv2_integration.document_status_integration.id}"
+  api_id             = aws_apigatewayv2_api.document_status_api.id
+  route_key          = "OPTIONS /status"
+  target             = "integrations/${aws_apigatewayv2_integration.document_status_integration.id}"
+  authorizer_id      = var.authorizer_id
+  authorization_type = "CUSTOM"
 }
 
 # Lambda permission for API Gateway with more specific source ARN
