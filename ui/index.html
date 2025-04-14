@@ -274,6 +274,111 @@
       color: var(--govuk-secondary-text-colour);
       background-color: #f8f8f8;
     }
+    
+    .policy-block {
+      margin: 2rem 0;
+      border: 1px solid #dee0e2;
+      border-radius: 4px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      overflow: hidden;
+      position: relative;
+    }
+    
+    .policy-block::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 5px;
+      background: linear-gradient(to bottom, var(--govuk-brand-colour), #4c2c92);
+    }
+    
+    .policy-text {
+      background-color: #ffffff;
+      padding: 1.25rem;
+      padding-left: 2.25rem;
+      font-style: normal;
+      border-bottom: 1px solid #dee0e2;
+      font-size: 1.05em;
+      line-height: 1.5;
+      position: relative;
+    }
+    
+    .policy-text::before {
+      content: "\"";
+      position: absolute;
+      left: 0.5rem;
+      top: 1rem;
+      font-size: 2em;
+      color: #b1b4b6;
+      font-family: serif;
+      margin-right: 0.5rem;
+    }
+    
+    .citation-block {
+      background-color: #f0f4f5;
+      font-size: 0.9em;
+      font-style: normal;
+      color: #505a5f;
+      padding: 0.75rem 1rem;
+      font-weight: 600;
+      position: relative;
+      padding-left: 2.5rem;
+      border-bottom: 1px solid #dee0e2;
+    }
+    
+    .citation-block::before {
+      content: "📄";
+      position: absolute;
+      left: 0.75rem;
+      top: 0.75rem;
+      margin-right: 1rem;
+    }
+    
+    .policy-commentary {
+      background-color: #f8f8f8;
+      padding: 1.25rem;
+      font-style: italic;
+      color: #0b0c0c;
+      position: relative;
+      padding-left: 2.75rem;
+      line-height: 1.4;
+    }
+    
+    .policy-commentary::before {
+      content: "💡";
+      position: absolute;
+      left: 0.75rem;
+      top: 1.25rem;
+      font-size: 1.1em;
+      margin-right: 1rem;
+    }
+    
+    .policy-citation {
+      font-weight: bold;
+      color: var(--govuk-brand-colour);
+      background-color: rgba(29, 112, 184, 0.1);
+      padding: 0.1rem 0.3rem;
+      border-radius: 3px;
+    }
+    
+    .policy-intro {
+      border-left: 3px solid #f47738;
+      padding-left: 15px;
+      margin-bottom: 20px;
+      color: #0b0c0c;
+    }
+    
+    .policy-conclusion {
+      border-left: 3px solid #00703c;
+      padding-left: 15px;
+      margin-top: 20px;
+      color: #0b0c0c;
+      background-color: rgba(0, 112, 60, 0.05);
+      padding: 10px 15px;
+      border-radius: 0 4px 4px 0;
+    }
 
     .source-item {
       margin-bottom: 0.5rem;
@@ -840,21 +945,109 @@
           // Hide spinner
           spinner.style.display = 'none';
 
-          // Display the answer with proper formatting for newlines and quotes
-          // Process the text to handle various formats
+          // Display the answer with proper formatting for citations and line breaks
+          // Process the text to handle the new CITATION format
           let formattedAnswer = data.answer;
           
-          // First, identify sections with quotes (text between double quotes)
-          formattedAnswer = formattedAnswer.replace(/"([^"]+)"/g, function(match, quote) {
-            // Convert the quoted text to a blockquote
-            return `</p><div class="govuk-blockquote">${quote}</div><p>`;
+          // First, add a CSS class to style references (text in parentheses with document names and page numbers)
+          formattedAnswer = formattedAnswer.replace(/\(([^)]+(?:Page|p\.|Section|§)[\s\d.,:-]+[^)]*)\)/g, function(match, citation) {
+            return `<span class="policy-citation">${match}</span>`;
           });
           
-          // Then, handle paragraph breaks and line breaks
-          formattedAnswer = formattedAnswer.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>');
+          // Find lines starting with CITATION: and group content into policy blocks
+          const lines = formattedAnswer.split('\n');
+          let processedContent = '';
           
-          // Wrap the entire content in a paragraph
-          answerText.innerHTML = `<p>${formattedAnswer}</p>`;
+          // First, preprocess to find all CITATION: line indices
+          const citationLineIndices = [];
+          for (let i = 0; i < lines.length; i++) {
+            if (lines[i].trim().startsWith('CITATION:')) {
+              citationLineIndices.push(i);
+            }
+          }
+          
+          // If no citations found, just return the original formatted text
+          if (citationLineIndices.length === 0) {
+            // Handle the case with no CITATION: lines
+            formattedAnswer = formattedAnswer.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>');
+            answerText.innerHTML = `<p>${formattedAnswer}</p>`;
+            return;
+          }
+          
+          // Extract introductory text (before first citation block)
+          let introText = '';
+          if (citationLineIndices[0] > 0) {
+            const introLines = [];
+            for (let i = 0; i < citationLineIndices[0] - 1; i++) {
+              if (lines[i].trim()) {
+                introLines.push(lines[i]);
+              }
+            }
+            if (introLines.length > 0) {
+              introText = `<p class="policy-intro">${introLines.join('<br>')}</p>`;
+            }
+          }
+          
+          // Process each citation block (policy text, citation, commentary)
+          const policyBlocks = [];
+          for (let j = 0; j < citationLineIndices.length; j++) {
+            const citationIndex = citationLineIndices[j];
+            
+            // Get policy text (line before citation)
+            const policyText = citationIndex > 0 ? lines[citationIndex - 1].trim() : '';
+            
+            // Get citation (without prefix)
+            const citationLine = lines[citationIndex].trim();
+            const citationText = citationLine.substring('CITATION:'.length).trim();
+            
+            // Get commentary (line after citation)
+            let commentaryText = '';
+            if (citationIndex < lines.length - 1) {
+              commentaryText = lines[citationIndex + 1].trim();
+              
+              // Sometimes Claude might not include a commentary line directly after citation
+              // Check if the next line is empty or starts with CITATION, which would indicate no commentary
+              if (!commentaryText || (j < citationLineIndices.length - 1 && citationIndex + 1 === citationLineIndices[j+1])) {
+                commentaryText = "No specific commentary provided.";
+              }
+            }
+            
+            // Only add the block if it has either a policy text or commentary
+            if (policyText || commentaryText) {
+              // Handle potentially empty policy text (which can happen if Claude starts with CITATION:)
+              const hasPolicyText = policyText && policyText.length > 0;
+              
+              policyBlocks.push(`
+                <div class="policy-block">
+                  <div class="policy-text">${hasPolicyText ? policyText : 'See citation below for policy reference.'}</div>
+                  <div class="citation-block">${citationText}</div>
+                  <div class="policy-commentary">${commentaryText}</div>
+                </div>
+              `);
+            }
+          }
+          
+          // Extract conclusion text (after last policy block)
+          let conclusionText = '';
+          const lastCitationIndex = citationLineIndices[citationLineIndices.length - 1];
+          
+          if (lastCitationIndex < lines.length - 2) {
+            const conclusionLines = [];
+            for (let i = lastCitationIndex + 2; i < lines.length; i++) {
+              if (lines[i].trim()) {
+                conclusionLines.push(lines[i]);
+              }
+            }
+            if (conclusionLines.length > 0) {
+              conclusionText = `<p class="policy-conclusion">${conclusionLines.join('<br>')}</p>`;
+            }
+          }
+          
+          // Combine all parts
+          processedContent = introText + policyBlocks.join('') + conclusionText;
+          
+          // Set the content directly - no further processing needed
+          answerText.innerHTML = processedContent;
 
           // Display sources
           if (data.sources && data.sources.length > 0) {
