@@ -226,9 +226,9 @@ def process_document_async(bucket_name, file_key):
     while status == "IN_PROGRESS" and total_tries < max_tries:
         total_tries += 1
         try:
-            # Add retry logic for get_document_text_detection
+            # Add retry logic for get_document_text_detection with more retries
             retry_count = 0
-            max_get_retries = 5
+            max_get_retries = 15  # Increased from 5 to 15 for higher throughput scenarios
             while retry_count < max_get_retries:
                 try:
                     response = textract_client.get_document_text_detection(JobId=job_id)
@@ -238,9 +238,10 @@ def process_document_async(bucket_name, file_key):
                     if retry_count >= max_get_retries:
                         logger.error("Rate limit exceeded when getting document text detection")
                         raise
-                    # Exponential backoff with secure jitter
+                    # Enhanced exponential backoff with secure jitter
                     jitter = secrets.randbelow(200) / 100  # generates value between 0.0 and 1.99
-                    delay = min(30, (2**retry_count) * 0.5 + jitter)
+                    # Increased base delay and max delay
+                    delay = min(60, (2**retry_count) * 1.0 + jitter)
                     logger.warning(
                         f"Rate limit getting results. Retrying in {delay:.2f}s. "
                         f"Attempt {retry_count}/{max_get_retries}"
@@ -294,9 +295,9 @@ def process_document_async(bucket_name, file_key):
     current_page = 1
 
     while True:
-        # Add retry logic for getting results with exponential backoff
+        # Add retry logic for getting results with exponential backoff and increased retries
         retry_count = 0
-        max_get_retries = 5
+        max_get_retries = 15  # Increased from 5 to 15 for higher throughput scenarios
         success = False
         while not success and retry_count < max_get_retries:
             try:
@@ -312,9 +313,10 @@ def process_document_async(bucket_name, file_key):
                 if retry_count >= max_get_retries:
                     logger.error("Rate limit exceeded when getting document text detection")
                     raise
-                # Exponential backoff with secure jitter
+                # Enhanced exponential backoff with secure jitter
                 jitter = secrets.randbelow(200) / 100  # generates value between 0.0 and 1.99
-                delay = min(30, (2**retry_count) * 0.5 + jitter)
+                # Increased base delay and max delay
+                delay = min(60, (2**retry_count) * 1.0 + jitter)
                 logger.warning(
                     f"Rate limit getting results. Retrying in {delay:.2f}s. "
                     f"Attempt {retry_count}/{max_get_retries}"
