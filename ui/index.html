@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en" class="govuk-template">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>Policy Search Interface</title>
+  <!-- GOV.UK Frontend CSS from jsdelivr CDN -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/govuk-frontend@4.7.0/dist/govuk/govuk-frontend.min.css">
+  
+  <!-- Favicon -->
+  <link rel="shortcut icon" href="https://www.gov.uk/assets/static/favicon.ico" type="image/x-icon">
+  
+  <style>
+    .spinner {
+      display: none;
+      width: 40px;
+      height: 40px;
+      margin: 20px auto;
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #1d70b8;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    #response-container {
+      margin-top: 2rem;
+      padding: 1rem;
+      border: 1px solid #b1b4b6;
+      display: none;
+    }
+    
+    .source-item {
+      margin-bottom: 0.5rem;
+    }
+    
+    #error-message {
+      display: none;
+      margin-top: 1rem;
+    }
+  </style>
+</head>
+<body class="govuk-template__body">
+  <script>document.body.className = ((document.body.className) ? document.body.className + ' js-enabled' : 'js-enabled');</script>
+  
+  <header class="govuk-header" role="banner" data-module="govuk-header">
+    <div class="govuk-header__container govuk-width-container">
+      <div class="govuk-header__logo">
+        <a href="#" class="govuk-header__link govuk-header__link--homepage">
+          <span class="govuk-header__logotype">
+            <span class="govuk-header__logotype-text">GOV.UK</span>
+          </span>
+        </a>
+      </div>
+      <div class="govuk-header__content">
+        <a href="#" class="govuk-header__link govuk-header__service-name">
+          Policy Search
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <div class="govuk-width-container">
+    <main class="govuk-main-wrapper" id="main-content" role="main">
+      <div class="govuk-grid-row">
+        <div class="govuk-grid-column-two-thirds">
+          <h1 class="govuk-heading-xl">Policy Search</h1>
+          
+          <form id="search-form" class="govuk-form-group">
+            <label class="govuk-label" for="search-query">
+              Ask a question about our policies
+            </label>
+            <input class="govuk-input" id="search-query" name="search-query" type="text">
+            <button type="submit" class="govuk-button" data-module="govuk-button" style="margin-top: 20px;">
+              Submit
+            </button>
+          </form>
+          
+          <div id="error-message" class="govuk-error-message">
+            <span class="govuk-visually-hidden">Error:</span>
+            An error occurred while processing your query.
+          </div>
+          
+          <div class="spinner" id="spinner"></div>
+          
+          <div id="response-container" class="govuk-body">
+            <h2 class="govuk-heading-m">Answer:</h2>
+            <div id="answer-text" class="govuk-body"></div>
+            
+            <h3 class="govuk-heading-s" style="margin-top: 2rem;">Sources:</h3>
+            <ul id="sources-list" class="govuk-list govuk-list--bullet"></ul>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <footer class="govuk-footer" role="contentinfo">
+    <div class="govuk-width-container">
+      <div class="govuk-footer__meta">
+        <div class="govuk-footer__meta-item govuk-footer__meta-item--grow">
+          <h2 class="govuk-visually-hidden">Support links</h2>
+          <ul class="govuk-footer__inline-list">
+            <li class="govuk-footer__inline-list-item">
+              <a class="govuk-footer__link" href="#">
+                Help
+              </a>
+            </li>
+            <li class="govuk-footer__inline-list-item">
+              <a class="govuk-footer__link" href="#">
+                Privacy
+              </a>
+            </li>
+            <li class="govuk-footer__inline-list-item">
+              <a class="govuk-footer__link" href="#">
+                Terms and conditions
+              </a>
+            </li>
+          </ul>
+          
+          <div class="govuk-footer__meta-custom">
+            Demo application
+          </div>
+          
+          <svg 
+            aria-hidden="true" 
+            focusable="false" 
+            class="govuk-footer__licence-logo" 
+            xmlns="http://www.w3.org/2000/svg" 
+            viewBox="0 0 483.2 195.7" 
+            height="17" 
+            width="41">
+            <path 
+              fill="currentColor" 
+              d="M421.5 142.8V.1l-50.7 32.3v161.1h112.4v-50.7zm-122.3-9.6A47.12 47.12 0 0 1 221 97.8c0-26 21.1-47.1 47.1-47.1 16.7 0 31.4 8.7 39.7 21.8l42.7-27.2A97.63 97.63 0 0 0 268.1 0c-36.5 0-68.3 20.1-85.1 49.7A98 98 0 0 0 97.8 0C43.9 0 0 43.9 0 97.8s43.9 97.8 97.8 97.8c36.5 0 68.3-20.1 85.1-49.7a97.76 97.76 0 0 0 149.6 25.4l19.4 22.2h3v-87.8h-80l24.3 27.5zM97.8 145c-26 0-47.1-21.1-47.1-47.1s21.1-47.1 47.1-47.1 47.2 21 47.2 47S123.8 145 97.8 145">
+            </path>
+          </svg>
+          <span class="govuk-footer__licence-description">
+            All content is available under the
+            <a class="govuk-footer__link" href="https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/" rel="license">
+              Open Government Licence v3.0
+            </a>, except where otherwise stated
+          </span>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- GOV.UK Frontend JavaScript from jsdelivr CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/govuk-frontend@4.7.0/dist/govuk/govuk-frontend.min.js"></script>
+  <script>
+    window.GOVUKFrontend.initAll();
+    
+    document.addEventListener('DOMContentLoaded', function() {
+      const searchForm = document.getElementById('search-form');
+      const searchQuery = document.getElementById('search-query');
+      const spinner = document.getElementById('spinner');
+      const responseContainer = document.getElementById('response-container');
+      const answerText = document.getElementById('answer-text');
+      const sourcesList = document.getElementById('sources-list');
+      const errorMessage = document.getElementById('error-message');
+      
+      // API endpoint - replace with your actual API endpoint URL after deployment
+      const apiEndpoint = 'YOUR_API_ENDPOINT_URL_HERE';
+      
+      searchForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const query = searchQuery.value.trim();
+        if (!query) {
+          return;
+        }
+        
+        // Clear previous results
+        answerText.textContent = '';
+        sourcesList.innerHTML = '';
+        errorMessage.style.display = 'none';
+        responseContainer.style.display = 'none';
+        
+        // Show spinner
+        spinner.style.display = 'block';
+        
+        // Make API request
+        fetch(apiEndpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ query: query })
+        })
+        .then(response => {
+          if (!response.ok) {
+            throw new Error('Network response was not ok');
+          }
+          return response.json();
+        })
+        .then(data => {
+          // Hide spinner
+          spinner.style.display = 'none';
+          
+          // Display the answer
+          answerText.textContent = data.answer;
+          
+          // Display sources
+          if (data.sources && data.sources.length > 0) {
+            data.sources.forEach(source => {
+              const li = document.createElement('li');
+              li.className = 'source-item';
+              li.textContent = `${source.document_name}, Page ${source.page_number}`;
+              sourcesList.appendChild(li);
+            });
+          } else {
+            const li = document.createElement('li');
+            li.textContent = 'No specific sources provided';
+            sourcesList.appendChild(li);
+          }
+          
+          // Show the response container
+          responseContainer.style.display = 'block';
+        })
+        .catch(error => {
+          console.error('Error:', error);
+          spinner.style.display = 'none';
+          errorMessage.style.display = 'block';
+        });
+      });
+    });
+  </script>
+</body>
+</html>
