@@ -160,14 +160,8 @@ resource "aws_apigatewayv2_route" "document_status_route" {
   authorization_type = "CUSTOM"
 }
 
-# OPTIONS route with authorizer for security compliance
-resource "aws_apigatewayv2_route" "document_status_options_route" {
-  api_id             = aws_apigatewayv2_api.policy_search_api.id
-  route_key          = "OPTIONS /status"
-  target             = "integrations/${aws_apigatewayv2_integration.document_status_integration.id}"
-  authorizer_id      = aws_apigatewayv2_authorizer.lambda_authorizer.id
-  authorization_type = "CUSTOM"
-}
+# Removed explicit OPTIONS route to use API Gateway's default OPTIONS handler for CORS
+# This matches the approach used by the policy search endpoint
 
 # Lambda permission for API Gateway
 resource "aws_lambda_permission" "document_status_permission" {
