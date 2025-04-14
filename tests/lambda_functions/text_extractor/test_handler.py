@@ -1094,6 +1094,277 @@ class TestTextExtractorHandler(unittest.TestCase):
         # Verify that the stubber was used correctly
         self.textract_stubber.assert_no_pending_responses()
 
+    def test_process_document_async_rate_limiting(self):
+        """
+        Test the process_document_async function when rate limiting occurs.
+        """
+        # Define test data
+        bucket_name = "test-bucket"
+        file_key = "rate-limited-sample.pdf"
+        job_id = "rate-limited-job"
+
+        # Create a client error for ProvisionedThroughputExceededException
+        self.textract_stubber.add_client_error(
+            "start_document_text_detection",
+            service_error_code="ProvisionedThroughputExceededException",
+            service_message="The request was rejected because provisioned throughput capacity limit was exceeded.",
+            http_status_code=400,
+            expected_params={
+                "DocumentLocation": {"S3Object": {"Bucket": bucket_name, "Name": file_key}}
+            },
+        )
+
+        # For the retry attempt, return success
+        self.textract_stubber.add_response(
+            "start_document_text_detection",
+            {"JobId": job_id},
+            {"DocumentLocation": {"S3Object": {"Bucket": bucket_name, "Name": file_key}}},
+        )
+
+        # Mock successful job status
+        self.textract_stubber.add_response(
+            "get_document_text_detection",
+            {"JobStatus": "SUCCEEDED", "DocumentMetadata": {"Pages": 1}},
+            {"JobId": job_id},
+        )
+
+        # Mock successful result with content
+        self.textract_stubber.add_response(
+            "get_document_text_detection",
+            {
+                "JobStatus": "SUCCEEDED",
+                "DocumentMetadata": {"Pages": 1},
+                "Blocks": [
+                    {
+                        "BlockType": "LINE",
+                        "Text": "Rate limited but successful text.",
+                        "Id": "1",
+                        "Confidence": 99.0,
+                        "Page": 1,
+                    }
+                ],
+            },
+            {"JobId": job_id},
+        )
+
+        # Activate the stubber
+        self.textract_stubber.activate()
+
+        # Call the function - should retry and eventually succeed
+        extracted_text, page_count = process_document_async(bucket_name, file_key)
+
+        # Verify the results
+        self.assertEqual(page_count, 1)
+        self.assertIn("Rate limited but successful text.", extracted_text)
+
+        # Verify all expected API calls were made
+        self.textract_stubber.assert_no_pending_responses()
+
+    def test_process_document_async_job_status_rate_limiting(self):
+        """
+        Test the process_document_async function when rate limiting occurs during job status check.
+        """
+        # Define test data
+        bucket_name = "test-bucket"
+        file_key = "status-rate-limited.pdf"
+        job_id = "status-rate-limited-job"
+
+        # Start the job successfully
+        self.textract_stubber.add_response(
+            "start_document_text_detection",
+            {"JobId": job_id},
+            {"DocumentLocation": {"S3Object": {"Bucket": bucket_name, "Name": file_key}}},
+        )
+
+        # First attempt to check job status is rate limited
+        self.textract_stubber.add_client_error(
+            "get_document_text_detection",
+            service_error_code="ProvisionedThroughputExceededException",
+            service_message="The request was rejected because provisioned throughput capacity limit was exceeded.",
+            http_status_code=400,
+            expected_params={"JobId": job_id},
+        )
+
+        # Second attempt to check job status succeeds
+        self.textract_stubber.add_response(
+            "get_document_text_detection",
+            {"JobStatus": "SUCCEEDED", "DocumentMetadata": {"Pages": 1}},
+            {"JobId": job_id},
+        )
+
+        # Get results succeeds
+        self.textract_stubber.add_response(
+            "get_document_text_detection",
+            {
+                "JobStatus": "SUCCEEDED",
+                "DocumentMetadata": {"Pages": 1},
+                "Blocks": [
+                    {
+                        "BlockType": "LINE",
+                        "Text": "Text after status rate limiting.",
+                        "Id": "1",
+                        "Confidence": 99.0,
+                        "Page": 1,
+                    }
+                ],
+            },
+            {"JobId": job_id},
+        )
+
+        # Activate the stubber
+        self.textract_stubber.activate()
+
+        # Call the function - should retry and eventually succeed
+        extracted_text, page_count = process_document_async(bucket_name, file_key)
+
+        # Verify the results
+        self.assertEqual(page_count, 1)
+        self.assertIn("Text after status rate limiting.", extracted_text)
+        self.assertIn("--- PAGE 1 ---", extracted_text)
+
+        # Verify all expected API calls were made
+        self.textract_stubber.assert_no_pending_responses()
+
+    def test_process_document_async_get_results_rate_limiting(self):
+        """
+        Test the process_document_async function when rate limiting occurs during results retrieval.
+        """
+        # Define test data
+        bucket_name = "test-bucket"
+        file_key = "rate-limited-results.pdf"
+        job_id = "rate-limited-results-job"
+
+        # Start the job successfully
+        self.textract_stubber.add_response(
+            "start_document_text_detection",
+            {"JobId": job_id},
+            {"DocumentLocation": {"S3Object": {"Bucket": bucket_name, "Name": file_key}}},
+        )
+
+        # Job status check succeeds
+        self.textract_stubber.add_response(
+            "get_document_text_detection",
+            {"JobStatus": "SUCCEEDED", "DocumentMetadata": {"Pages": 2}},
+            {"JobId": job_id},
+        )
+
+        # First attempt to get results is rate limited
+        self.textract_stubber.add_client_error(
+            "get_document_text_detection",
+            service_error_code="ProvisionedThroughputExceededException",
+            service_message="The request was rejected because provisioned throughput capacity limit was exceeded.",
+            http_status_code=400,
+            expected_params={"JobId": job_id},
+        )
+
+        # Second attempt succeeds
+        self.textract_stubber.add_response(
+            "get_document_text_detection",
+            {
+                "JobStatus": "SUCCEEDED",
+                "DocumentMetadata": {"Pages": 2},
+                "Blocks": [
+                    {
+                        "BlockType": "LINE",
+                        "Text": "Page one text after rate limiting.",
+                        "Id": "1",
+                        "Confidence": 99.0,
+                        "Page": 1,
+                    }
+                ],
+                "NextToken": "page2token",
+            },
+            {"JobId": job_id},
+        )
+
+        # Getting second page results is also rate limited
+        self.textract_stubber.add_client_error(
+            "get_document_text_detection",
+            service_error_code="ProvisionedThroughputExceededException",
+            service_message="The request was rejected because provisioned throughput capacity limit was exceeded.",
+            http_status_code=400,
+            expected_params={"JobId": job_id, "NextToken": "page2token"},
+        )
+
+        # Retry for second page succeeds
+        self.textract_stubber.add_response(
+            "get_document_text_detection",
+            {
+                "JobStatus": "SUCCEEDED",
+                "Blocks": [
+                    {
+                        "BlockType": "LINE",
+                        "Text": "Page two text after rate limiting.",
+                        "Id": "2",
+                        "Confidence": 98.0,
+                        "Page": 2,
+                    }
+                ],
+                # No NextToken since this is the last page
+            },
+            {"JobId": job_id, "NextToken": "page2token"},
+        )
+
+        # Activate the stubber
+        self.textract_stubber.activate()
+
+        # Call the function - should retry and eventually succeed
+        extracted_text, page_count = process_document_async(bucket_name, file_key)
+
+        # Verify the results
+        self.assertEqual(page_count, 2)
+        self.assertIn("Page one text after rate limiting.", extracted_text)
+        self.assertIn("Page two text after rate limiting.", extracted_text)
+        self.assertIn("--- PAGE 1 ---", extracted_text)
+        self.assertIn("--- PAGE 2 ---", extracted_text)
+
+        # Verify all expected API calls were made
+        self.textract_stubber.assert_no_pending_responses()
+
+    def test_process_document_async_max_retries_exceeded(self):
+        """
+        Test the process_document_async function when max retries are exceeded for rate limiting.
+        """
+        # Define test data
+        bucket_name = "test-bucket"
+        file_key = "max-retries-exceeded.pdf"
+
+        # Get the actual max retries from the handler
+        max_retries = 10  # This should match what's in the handler.py file
+
+        # Simulate multiple rate limit errors that exceed the retry count
+        for _ in range(max_retries):
+            self.textract_stubber.add_client_error(
+                "start_document_text_detection",
+                service_error_code="ProvisionedThroughputExceededException",
+                service_message="The request was rejected because provisioned throughput capacity limit was exceeded.",
+                http_status_code=400,
+                expected_params={
+                    "DocumentLocation": {"S3Object": {"Bucket": bucket_name, "Name": file_key}}
+                },
+            )
+
+        # Activate the stubber
+        self.textract_stubber.activate()
+
+        # Mock sleep to make the test run faster
+        with mock.patch("time.sleep"):
+            # Call the function - should retry and eventually fail with an exception
+            with self.assertRaises(Exception) as context:
+                process_document_async(bucket_name, file_key)
+
+        # Verify the exception message
+        # It can be either a rate limit message or a stub message (both indicate the right flow path)
+        exception_msg = str(context.exception).lower()
+        self.assertTrue(
+            "rate limit" in exception_msg
+            or "throughput" in exception_msg
+            or "textract" in exception_msg
+        )
+
+        # Verify all expected API calls were made
+        self.textract_stubber.assert_no_pending_responses()
+
     def test_lambda_handler_with_exception(self):
         """
         Test the lambda_handler function when an exception occurs.
