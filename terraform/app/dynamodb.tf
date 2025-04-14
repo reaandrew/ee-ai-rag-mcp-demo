@@ -38,9 +38,9 @@ resource "aws_dynamodb_table" "document_tracking" {
     enabled = true
   }
   
-  # Enable point-in-time recovery for enhanced data protection
+  # Temporarily disable point-in-time recovery until IAM permissions are updated
   point_in_time_recovery {
-    enabled = true
+    enabled = false
   }
   
   tags = {

@@ -537,7 +537,9 @@ resource "aws_iam_policy" "app_specific_policy" {
           "dynamodb:UpdateItem",
           "dynamodb:DeleteItem",
           "dynamodb:Query",
-          "dynamodb:Scan"
+          "dynamodb:Scan",
+          "dynamodb:UpdateContinuousBackups",
+          "dynamodb:DescribeContinuousBackups"
         ]
         Effect   = "Allow"
         Resource = [
