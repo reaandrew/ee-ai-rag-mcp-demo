@@ -1,6 +1,4 @@
-# Get current AWS account ID and region (if not already defined in main.tf)
-data "aws_caller_identity" "current" {}
-data "aws_region" "current" {}
+# Using AWS account ID and region defined elsewhere
 
 resource "aws_dynamodb_table" "document_tracking" {
   name         = "ee-ai-rag-mcp-demo-doc-tracking"

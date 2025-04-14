@@ -19,8 +19,4 @@ resource "aws_iam_role_policy_attachment" "vector_generator_sns_attachment" {
   policy_arn = aws_iam_policy.sns_publish_policy.arn
 }
 
-# Output document_status API URL
-output "document_status_api_url" {
-  value = "${aws_apigatewayv2_stage.document_status_stage.invoke_url}/status"
-  description = "URL for document status API"
-}
+# Output is defined in outputs.tf
