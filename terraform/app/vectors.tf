@@ -250,8 +250,8 @@ resource "aws_lambda_function" "vector_generator" {
       MODEL_ID = var.bedrock_model_id,
       USE_IAM_AUTH = "true",
       USE_AOSS = "false",  # Set to "true" if using OpenSearch Serverless
-      TRACKING_TABLE = module.tracking.document_tracking_table_name,
-      SNS_TOPIC_ARN = module.tracking.sns_topic_arn
+      TRACKING_TABLE = aws_dynamodb_table.document_tracking.name,
+      SNS_TOPIC_ARN = aws_sns_topic.document_indexing.arn
     }
   }
 

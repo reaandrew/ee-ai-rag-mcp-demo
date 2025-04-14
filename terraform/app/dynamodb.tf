@@ -1,4 +1,5 @@
-# Using AWS account ID and region defined elsewhere
+# Get current AWS account ID and region
+data "aws_region" "current" {}
 
 resource "aws_dynamodb_table" "document_tracking" {
   name         = "ee-ai-rag-mcp-demo-doc-tracking"
