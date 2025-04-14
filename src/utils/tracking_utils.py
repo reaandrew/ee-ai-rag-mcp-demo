@@ -214,12 +214,14 @@ def update_indexing_progress(document_id, document_name, page_number):
             # This fixes any inconsistencies where indexed > total
             tracking_table.update_item(
                 Key={"document_id": document_id},
-                UpdateExpression="SET #status = :status, completion_time = :time, indexed_chunks = :total",
+                UpdateExpression=(
+                    "SET #status = :status, completion_time = :time, indexed_chunks = :total"
+                ),
                 ExpressionAttributeNames={"#status": "status"},
                 ExpressionAttributeValues={
-                    ":status": "COMPLETED", 
+                    ":status": "COMPLETED",
                     ":time": completion_time,
-                    ":total": total_chunks
+                    ":total": total_chunks,
                 },
             )
 

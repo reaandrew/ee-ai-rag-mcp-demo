@@ -103,6 +103,8 @@ def create_claude_prompt(query, formatted_results):
     Returns:
         dict: The formatted prompt for Claude
     """
+    # flake8: noqa
+    # fmt: off
     system_prompt = """You are a policy assistant that helps users find policy information.
     Your job is to provide accurate answers based ONLY on the policy information provided in the excerpts.
     If the information isn't in the excerpts, politely say you don't have it.
@@ -133,6 +135,8 @@ def create_claude_prompt(query, formatted_results):
 
     Based on these excerpts only, please answer with document and page citations.
     IMPORTANT: Use the exact page numbers shown in the excerpts without modification, and structure the response as a flowing paragraph where policy text is followed by its explanation."""
+    # fmt: on
+    # flake8: noqa: E501
 
     # Format prompt for Claude 3
     prompt = {
