@@ -8,11 +8,14 @@ include =
     src/lambda_functions/policy_search/__init__.py
     src/lambda_functions/auth_authorizer/handler.py
     src/lambda_functions/auth_authorizer/__init__.py
+    src/lambda_functions/document_status/handler.py
+    src/lambda_functions/document_status/__init__.py
     src/utils/__init__.py
 
 omit =
     src/utils/bedrock_utils.py
     src/utils/opensearch_utils.py
+    src/utils/tracking_utils.py
     scripts/*
     scripts/admin/*
     */scripts/*
