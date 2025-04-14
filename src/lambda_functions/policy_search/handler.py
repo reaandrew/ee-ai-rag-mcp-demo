@@ -120,6 +120,21 @@ def lambda_handler(event, context):
     try:
         logger.info(f"Received event: {json.dumps(event)}")
 
+        # Handle OPTIONS method for CORS preflight requests
+        if event.get("httpMethod") == "OPTIONS":
+            return {
+                "statusCode": 200,
+                "headers": {
+                    "Content-Type": "application/json",
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+                    "Access-Control-Allow-Headers": (
+                        "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token"
+                    ),
+                },
+                "body": json.dumps({"message": "CORS preflight request successful"}),
+            }
+
         if hasattr(context, "function_name"):
             logger.info(
                 f"Lambda context: {context.function_name}, "
@@ -158,6 +173,10 @@ def lambda_handler(event, context):
             "headers": {
                 "Content-Type": "application/json",
                 "Access-Control-Allow-Origin": "*",  # For CORS
+                "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+                "Access-Control-Allow-Headers": (
+                    "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token"
+                ),
             },
             "body": json.dumps({"query": query, "answer": response_text, "sources": sources}),
         }
@@ -166,7 +185,14 @@ def lambda_handler(event, context):
         logger.error(f"Validation error: {str(ve)}")
         return {
             "statusCode": 400,
-            "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"},
+            "headers": {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+                "Access-Control-Allow-Headers": (
+                    "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token"
+                ),
+            },
             "body": json.dumps({"error": str(ve)}),
         }
     except Exception as e:
@@ -174,6 +200,13 @@ def lambda_handler(event, context):
         logger.error(traceback.format_exc())
         return {
             "statusCode": 500,
-            "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"},
+            "headers": {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+                "Access-Control-Allow-Headers": (
+                    "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token"
+                ),
+            },
             "body": json.dumps({"error": "An error occurred while processing your query"}),
         }
