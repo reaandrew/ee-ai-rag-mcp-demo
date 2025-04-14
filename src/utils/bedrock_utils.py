@@ -112,17 +112,18 @@ def create_claude_prompt(query, formatted_results):
     Citation rules:
     1. Always use the **document name** (not number) and exact **PDF page number** as given.
     2. Include **section numbers** (e.g., 4.3.1) exactly as shown in the excerpt.
-    3. Cite in the format: *(Document Name, Section 4.3.1, Page 12)*.
+    3. On a new line, prefix citations with `CITATION:` followed by the document name, section number (if any), and page number — e.g., `CITATION: Employee Handbook, Section 4.3.1, Page 12`.
     4. Do not adjust page numbers or section identifiers.
     5. Exclude any documents without relevant content.
 
     Response structure:
-    - Quote or paraphrase each relevant policy excerpt (if long), followed by its citation on the same line.
-    - Add a brief commentary on a separate line explaining how the excerpt answers the question.
-    - Repeat this for each relevant excerpt.
-    - If excerpts differ on the topic, add a line to note this and recommend checking with a supervisor.
-    - If nothing relevant is found, state this clearly.
-    - Double-check that all citations are accurate before responding.
+    - Present each relevant policy excerpt (quoted or paraphrased if long) on its own line.
+    - On the next line, include the citation prefixed with `CITATION:` in the format described above.
+    - On the following line, add a brief commentary explaining how the excerpt addresses the question.
+    - Repeat this structure for each excerpt.
+    - If excerpts differ on the topic, add a line to acknowledge this and recommend checking with a supervisor.
+    - If no relevant information is found, state this clearly.
+    - Double-check all page numbers and citations match the excerpt exactly.
 
     Be concise, supportive, and focused on helping users feel confident in the guidance provided."""
 
@@ -132,8 +133,14 @@ def create_claude_prompt(query, formatted_results):
 
     {formatted_results}
 
-    Based only on these excerpts, please provide a clear and accurate answer with citations that include the document name, section number (if present), and exact page number as shown. Follow the structure: policy detail on one line with citation, explanation on the next. If excerpts differ, note this and suggest seeking clarification."""
+    Based only on these excerpts, please provide a clear and accurate answer with citations that include the document name, section number (if present), and exact page number as shown. 
 
+    Follow this structure:
+    - Policy detail on one line
+    - `CITATION:` line directly below it
+    - Commentary on the next line explaining the relevance
+
+    If excerpts differ, note this and suggest seeking clarification."""
     # fmt: on
     # flake8: noqa: E501
 
