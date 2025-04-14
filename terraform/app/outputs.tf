@@ -260,6 +260,6 @@ output "sns_topic_arn" {
 }
 
 output "document_status_api_url" {
-  value       = "${aws_apigatewayv2_stage.document_status_stage.invoke_url}/status"
-  description = "The URL of the document status API endpoint"
+  value       = "${aws_apigatewayv2_stage.policy_search_stage.invoke_url}/status"
+  description = "The URL of the document status API endpoint (using the same API Gateway as policy search)"
 }

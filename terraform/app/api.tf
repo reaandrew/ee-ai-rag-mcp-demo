@@ -314,7 +314,7 @@ resource "aws_apigatewayv2_api" "policy_search_api" {
   
   cors_configuration {
     allow_origins = ["*"]
-    allow_methods = ["POST"]
+    allow_methods = ["POST", "GET", "OPTIONS"]
     allow_headers = ["content-type", "authorization"]
     max_age       = 300
   }
