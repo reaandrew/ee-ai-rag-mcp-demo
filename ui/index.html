@@ -922,13 +922,16 @@
           updateTime.textContent = now.toLocaleTimeString();
           lastUpdated.style.display = 'inline-block';
 
+          // Clear any existing rows
+          documentStatusBody.innerHTML = '';
+
           // Display the document status
-          if (data && data.length > 0) {
+          if (data && data.documents && data.documents.length > 0) {
             // Sort documents by upload timestamp (newest first)
-            data.sort((a, b) => b.upload_timestamp - a.upload_timestamp);
+            data.documents.sort((a, b) => b.upload_timestamp - a.upload_timestamp);
             
             // Create table rows for each document
-            data.forEach(doc => {
+            data.documents.forEach(doc => {
               const row = document.createElement('tr');
               row.className = 'govuk-table__row';
               
@@ -946,7 +949,7 @@
               // Format progress
               const progressCell = document.createElement('td');
               progressCell.className = 'govuk-table__cell';
-              progressCell.textContent = `${doc.indexed_chunks || 0}/${doc.total_chunks || 0}`;
+              progressCell.textContent = doc.progress || '0/0';
               
               // Format status with appropriate styling
               const statusCell = document.createElement('td');
@@ -954,7 +957,7 @@
               const status = doc.status || 'UNKNOWN';
               
               let statusClass = '';
-              if (status === 'COMPLETE') {
+              if (status === 'COMPLETED') {
                 statusClass = 'status-complete';
               } else if (status === 'PROCESSING') {
                 statusClass = 'status-processing';
