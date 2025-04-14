@@ -198,6 +198,21 @@ resource "aws_iam_policy" "vector_generator_policy" {
         Resource = [
           "arn:aws:secretsmanager:${var.aws_region}:${data.aws_caller_identity.current.account_id}:secret:ee-ai-rag-mcp-demo/opensearch-master-credentials*"
         ]
+      },
+      {
+        Action = [
+          "sns:Publish"
+        ]
+        Effect   = "Allow"
+        Resource = [aws_sns_topic.document_indexing.arn]
+      },
+      {
+        Action = [
+          "kms:Decrypt",
+          "kms:GenerateDataKey*"
+        ]
+        Effect   = "Allow"
+        Resource = aws_kms_key.sns_encryption_key.arn
       }
     ]
   })
