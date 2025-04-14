@@ -569,9 +569,8 @@ resource "aws_iam_policy" "app_specific_policy" {
         ]
       },
       {
-        # KMS permissions for SNS topic encryption
+        # KMS permissions that can only be applied to specific keys (after creation)
         Action = [
-          "kms:CreateKey",
           "kms:CreateAlias",
           "kms:DeleteAlias",
           "kms:UpdateAlias",
@@ -580,13 +579,40 @@ resource "aws_iam_policy" "app_specific_policy" {
           "kms:ScheduleKeyDeletion",
           "kms:DescribeKey",
           "kms:EnableKeyRotation",
-          "kms:ListAliases",
           "kms:TagResource",
           "kms:UntagResource",
           "kms:GenerateDataKey"
         ]
         Effect   = "Allow"
-        Resource = "*"  # For creating and managing KMS keys
+        Resource = "arn:aws:kms:${var.aws_region}:${var.aws_account_id}:key/*"
+        Condition = {
+          StringLike = {
+            "kms:ViaService": "sns.${var.aws_region}.amazonaws.com"
+          }
+        }
+      },
+      {
+        # Limited KMS permissions that require key creation capabilities
+        # These are restricted to keys whose alias matches our project naming
+        Action = [
+          "kms:CreateKey"
+        ]
+        Effect   = "Allow"
+        Resource = "*"
+        Condition = {
+          StringEquals = {
+            "aws:RequestTag/Service": "ee-ai-rag-mcp-demo"
+          }
+        }
+      },
+      {
+        # Permissions to list KMS resources - read-only operations
+        Action = [
+          "kms:ListAliases",
+          "kms:ListKeys"
+        ]
+        Effect   = "Allow"
+        Resource = "*"
       },
       {
         # SNS list operations that require * as resource

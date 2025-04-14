@@ -1,5 +1,6 @@
-# Get current AWS account ID
+# Get current AWS account ID and region
 data "aws_caller_identity" "current" {}
+data "aws_region" "current" {}
 
 resource "aws_dynamodb_table" "document_tracking" {
   name         = "ee-ai-rag-mcp-demo-doc-tracking"
@@ -60,6 +61,8 @@ resource "aws_kms_key" "sns_encryption_key" {
   tags = {
     Environment = var.environment
     Name        = "ee-ai-rag-mcp-demo-sns-encryption-key"
+    Service     = "ee-ai-rag-mcp-demo"
+    ManagedBy   = "terraform"
   }
 }
 
@@ -84,16 +87,36 @@ resource "aws_kms_key_policy" "sns_key_policy" {
           "kms:Decrypt",
           "kms:GenerateDataKey*"
         ]
-        Resource = "*"
+        Resource = aws_kms_key.sns_encryption_key.arn
+        Condition = {
+          StringEquals = {
+            "kms:ViaService": "sns.${data.aws_region.current.name}.amazonaws.com"
+          }
+        }
       },
       {
-        Sid    = "Allow key management"
+        Sid    = "Allow account administrators to manage the key"
         Effect = "Allow"
         Principal = {
           AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
         }
-        Action = "kms:*"
-        Resource = "*"
+        Action = [
+          "kms:Create*",
+          "kms:Describe*",
+          "kms:Enable*",
+          "kms:List*",
+          "kms:Put*",
+          "kms:Update*",
+          "kms:Revoke*",
+          "kms:Disable*",
+          "kms:Get*",
+          "kms:Delete*",
+          "kms:TagResource",
+          "kms:UntagResource",
+          "kms:ScheduleKeyDeletion",
+          "kms:CancelKeyDeletion"
+        ]
+        Resource = aws_kms_key.sns_encryption_key.arn
       }
     ]
   })
