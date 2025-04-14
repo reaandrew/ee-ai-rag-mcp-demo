@@ -280,15 +280,17 @@ def get_all_documents():
         dynamodb = boto3.resource("dynamodb", region_name=region)
         tracking_table = dynamodb.Table(TRACKING_TABLE)
 
-        # Use a GSI scan to get all base documents
-        # This gets all records, sorted by upload_timestamp (newest first)
-        # We'll group them by base_document_id and take the first one for each
-        response = tracking_table.scan(IndexName="BaseDocumentIndex")
+        # Use a regular scan instead of GSI - works better when GSI may not be fully propagated
+        response = tracking_table.scan()
+        logger.info(f"Found {len(response.get('Items', []))} items in tracking table")
 
         # Group by base_document_id
         documents_by_id = {}
         for item in response.get("Items", []):
             base_id = item.get("base_document_id")
+            # Skip items without a base_document_id (like error entries)
+            if not base_id:
+                continue
             timestamp = item.get("upload_timestamp", 0)
 
             # If this is the first time we're seeing this base_id or if newer version
@@ -319,7 +321,7 @@ def get_all_documents():
 
         # Sort by upload_timestamp, newest first
         documents.sort(key=lambda x: x.get("upload_timestamp", 0), reverse=True)
-
+        logger.info(f"Returning {len(documents)} processed documents")
         return documents
     except Exception as e:
         logger.error(f"Error getting all documents: {str(e)}")
