@@ -949,7 +949,21 @@
               // Format progress
               const progressCell = document.createElement('td');
               progressCell.className = 'govuk-table__cell';
-              progressCell.textContent = doc.progress || '0/0';
+              
+              // Handle incorrect progress values where indexed > total
+              let progress = doc.progress || '0/0';
+              if (progress) {
+                const parts = progress.split('/');
+                if (parts.length === 2) {
+                  const indexed = parseInt(parts[0], 10);
+                  const total = parseInt(parts[1], 10);
+                  if (indexed > total) {
+                    // Normalize the display - indexed should not exceed total
+                    progress = `${total}/${total}`;
+                  }
+                }
+              }
+              progressCell.textContent = progress;
               
               // Format status with appropriate styling
               const statusCell = document.createElement('td');

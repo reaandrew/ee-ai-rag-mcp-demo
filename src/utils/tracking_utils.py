@@ -159,13 +159,24 @@ def update_indexing_progress(document_id, document_name, page_number):
             )
             response = {"Attributes": {"indexed_chunks": current_chunks}}
         else:
-            # Update the counter atomically only if we won't exceed total_chunks
-            response = tracking_table.update_item(
-                Key={"document_id": document_id},
-                UpdateExpression="ADD indexed_chunks :val",
-                ExpressionAttributeValues={":val": 1},
-                ReturnValues="UPDATED_NEW",
-            )
+            # Use a conditional update to ensure we don't exceed total_chunks
+            # This uses a condition expression to only increment if the current value
+            # is less than the total chunks
+            try:
+                response = tracking_table.update_item(
+                    Key={"document_id": document_id},
+                    UpdateExpression="ADD indexed_chunks :val",
+                    ConditionExpression="indexed_chunks < :total",
+                    ExpressionAttributeValues={":val": 1, ":total": total_chunks},
+                    ReturnValues="UPDATED_NEW",
+                )
+            except tracking_table.meta.client.exceptions.ConditionalCheckFailedException:
+                # If condition fails (indexed already >= total), don't increment
+                logger.warning(
+                    f"Concurrent update prevented excess increment for {document_id}. "
+                    f"Current chunks {current_chunks}/{total_chunks}."
+                )
+                response = {"Attributes": {"indexed_chunks": current_chunks}}
 
         # Check if this was the last chunk
         updated_count = int(response.get("Attributes", {}).get("indexed_chunks", 0))
@@ -196,15 +207,20 @@ def update_indexing_progress(document_id, document_name, page_number):
             )
 
         # If all chunks are now indexed
-        if updated_count >= total_chunks:
+        if total_chunks > 0 and updated_count >= total_chunks:
             completion_time = datetime.now().isoformat()
 
-            # Update status to COMPLETED
+            # Update status to COMPLETED and ensure indexed_chunks = total_chunks
+            # This fixes any inconsistencies where indexed > total
             tracking_table.update_item(
                 Key={"document_id": document_id},
-                UpdateExpression="SET #status = :status, completion_time = :time",
+                UpdateExpression="SET #status = :status, completion_time = :time, indexed_chunks = :total",
                 ExpressionAttributeNames={"#status": "status"},
-                ExpressionAttributeValues={":status": "COMPLETED", ":time": completion_time},
+                ExpressionAttributeValues={
+                    ":status": "COMPLETED", 
+                    ":time": completion_time,
+                    ":total": total_chunks
+                },
             )
 
             # Send completion notification
