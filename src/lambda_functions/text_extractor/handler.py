@@ -7,6 +7,9 @@ import re
 import secrets
 from urllib.parse import unquote_plus
 
+# Constants
+CONTENT_TYPE_PLAIN = "text/plain"
+
 # Set up logging
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -83,7 +86,7 @@ def extract_text_from_pdf(bucket_name, file_key):
                     "bucket": EXTRACTED_TEXT_BUCKET,
                     "file_key": target_key,
                     "size_bytes": len(extracted_text),
-                    "content_type": "text/plain",
+                    "content_type": CONTENT_TYPE_PLAIN,
                 },
                 "extracted_text": extracted_text,
                 "page_count": page_count,
@@ -110,7 +113,7 @@ def extract_text_from_pdf(bucket_name, file_key):
             Bucket=EXTRACTED_TEXT_BUCKET,
             Key=target_key,
             Body=extracted_text,
-            ContentType="text/plain",
+            ContentType=CONTENT_TYPE_PLAIN,
         )
 
         # Delete the original PDF if configured to do so
@@ -154,7 +157,7 @@ def extract_text_from_pdf(bucket_name, file_key):
                 "bucket": EXTRACTED_TEXT_BUCKET,
                 "file_key": target_key,
                 "size_bytes": len(extracted_text),
-                "content_type": "text/plain",
+                "content_type": CONTENT_TYPE_PLAIN,
             },
             "extracted_text": extracted_text,
             "page_count": page_count,

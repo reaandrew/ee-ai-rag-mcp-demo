@@ -170,7 +170,8 @@ def create_index_if_not_exists(client, index_name=None):
         index_name: Name of the index to create (defaults to OPENSEARCH_INDEX)
 
     Returns:
-        bool: True if successful
+        bool: True if index exists or was created successfully, False if client is unavailable
+        or the operation failed
     """
     if index_name is None:
         index_name = OPENSEARCH_INDEX
@@ -179,60 +180,63 @@ def create_index_if_not_exists(client, index_name=None):
         # Check if OpenSearch client is available
         if not client:
             logger.warning("OpenSearch client not available, skipping index creation")
+            return False
+
+        # Check if index already exists
+        if client.indices.exists(index=index_name):
+            logger.info(f"Index {index_name} already exists")
             return True
 
-        # Check if index exists
-        if not client.indices.exists(index=index_name):
-            logger.info(f"Creating OpenSearch index: {index_name}")
+        # Index doesn't exist, create it
+        logger.info(f"Creating OpenSearch index: {index_name}")
 
-            # Define mappings for vector search
-            index_body = {
-                "settings": {
-                    "index": {
-                        "number_of_shards": 2,
-                        "number_of_replicas": 1,
-                        "knn": True,
-                        "knn.algo_param.ef_search": 100,
-                    }
-                },
-                "mappings": {
-                    "properties": {
-                        "embedding": {
-                            "type": "knn_vector",
-                            "dimension": 1024,  # Dimension for Titan embeddings
-                            "method": {
-                                "name": "hnsw",
-                                "space_type": "cosinesimil",  # Correct value for cosine similarity
-                                "engine": "nmslib",
-                                "parameters": {"ef_construction": 128, "m": 16},
-                            },
+        # Define mappings for vector search
+        index_body = {
+            "settings": {
+                "index": {
+                    "number_of_shards": 2,
+                    "number_of_replicas": 1,
+                    "knn": True,
+                    "knn.algo_param.ef_search": 100,
+                }
+            },
+            "mappings": {
+                "properties": {
+                    "embedding": {
+                        "type": "knn_vector",
+                        "dimension": 1024,  # Dimension for Titan embeddings
+                        "method": {
+                            "name": "hnsw",
+                            "space_type": "cosinesimil",  # Correct value for cosine similarity
+                            "engine": "nmslib",
+                            "parameters": {"ef_construction": 128, "m": 16},
                         },
-                        "text": {"type": "text"},
-                        "metadata": {"type": "object"},
-                        "source_key": {"type": "keyword"},
-                        "embedding_model": {"type": "keyword"},
-                        "embedding_dimension": {"type": "integer"},
-                        # Use keyword type for page_number to support formats like "1-2"
-                        "page_number": {"type": "keyword"},
-                        "document_name": {"type": "keyword"},
-                    }
-                },
-            }
+                    },
+                    "text": {"type": "text"},
+                    "metadata": {"type": "object"},
+                    "source_key": {"type": "keyword"},
+                    "embedding_model": {"type": "keyword"},
+                    "embedding_dimension": {"type": "integer"},
+                    # Use keyword type for page_number to support formats like "1-2"
+                    "page_number": {"type": "keyword"},
+                    "document_name": {"type": "keyword"},
+                }
+            },
+        }
 
-            try:
-                # Create the index
-                client.indices.create(index=index_name, body=index_body)
-                logger.info(f"Created OpenSearch index: {index_name}")
-            except Exception as create_error:
-                # Check if this is just a "resource already exists" error, which we can ignore
-                if "resource_already_exists_exception" in str(create_error):
-                    logger.info(f"Index {index_name} already exists, continuing.")
-                    return True
-                else:
-                    # For other errors, log and propagate
-                    raise create_error
-
-        return True
+        try:
+            # Create the index
+            client.indices.create(index=index_name, body=index_body)
+            logger.info(f"Created OpenSearch index: {index_name}")
+            return True
+        except Exception as create_error:
+            # Check if this is just a "resource already exists" error, which we can ignore
+            if "resource_already_exists_exception" in str(create_error):
+                logger.info(f"Index {index_name} already exists, continuing.")
+                return True
+            else:
+                # For other errors, log and propagate
+                raise create_error
 
     except Exception as e:
         logger.error(f"Error creating OpenSearch index: {str(e)}")
@@ -253,4 +257,5 @@ def create_index_if_not_exists(client, index_name=None):
             logger.info(f"Index {index_name} already exists, continuing without error.")
             return True
 
-        raise e
+        # For all other errors
+        return False

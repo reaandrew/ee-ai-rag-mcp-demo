@@ -3,6 +3,16 @@ import logging
 import os
 import traceback
 
+# Constants
+CONTENT_TYPE_JSON = "application/json"
+CONTENT_TYPE_PLAIN = "text/plain"
+CORS_HEADERS_VALUE = "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token"
+CORS_HEADERS = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": CORS_HEADERS_VALUE,
+}
+
 try:
     # When running in the Lambda environment with utils copied locally
     from utils import opensearch_utils, bedrock_utils
@@ -125,12 +135,8 @@ def lambda_handler(event, context):
             return {
                 "statusCode": 200,
                 "headers": {
-                    "Content-Type": "application/json",
-                    "Access-Control-Allow-Origin": "*",
-                    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-                    "Access-Control-Allow-Headers": (
-                        "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token"
-                    ),
+                    "Content-Type": CONTENT_TYPE_JSON,
+                    **CORS_HEADERS,
                 },
                 "body": json.dumps({"message": "CORS preflight request successful"}),
             }
@@ -171,12 +177,8 @@ def lambda_handler(event, context):
         return {
             "statusCode": 200,
             "headers": {
-                "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "*",  # For CORS
-                "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-                "Access-Control-Allow-Headers": (
-                    "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token"
-                ),
+                "Content-Type": CONTENT_TYPE_JSON,
+                **CORS_HEADERS,  # For CORS
             },
             "body": json.dumps({"query": query, "answer": response_text, "sources": sources}),
         }
@@ -186,12 +188,8 @@ def lambda_handler(event, context):
         return {
             "statusCode": 400,
             "headers": {
-                "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-                "Access-Control-Allow-Headers": (
-                    "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token"
-                ),
+                "Content-Type": CONTENT_TYPE_JSON,
+                **CORS_HEADERS,
             },
             "body": json.dumps({"error": str(ve)}),
         }
@@ -201,12 +199,8 @@ def lambda_handler(event, context):
         return {
             "statusCode": 500,
             "headers": {
-                "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-                "Access-Control-Allow-Headers": (
-                    "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token"
-                ),
+                "Content-Type": CONTENT_TYPE_JSON,
+                **CORS_HEADERS,
             },
             "body": json.dumps({"error": "An error occurred while processing your query"}),
         }

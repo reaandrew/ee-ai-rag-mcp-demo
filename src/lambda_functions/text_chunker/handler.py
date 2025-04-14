@@ -7,6 +7,11 @@ import os
 from urllib.parse import unquote_plus
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
+# Constants
+CONTENT_TYPE_JSON = "application/json"
+CONTENT_TYPE_PLAIN = "text/plain"
+CORS_HEADERS_VALUE = "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token"
+
 try:
     # Try to import tracking utils
     from utils import tracking_utils
@@ -246,7 +251,7 @@ def process_text_file(bucket_name, file_key):
                 Bucket=CHUNKED_TEXT_BUCKET,
                 Key=chunk_key,
                 Body=json.dumps(chunk, ensure_ascii=False),
-                ContentType="application/json",
+                ContentType=CONTENT_TYPE_JSON,
             )
 
             saved_chunks.append(
@@ -283,7 +288,7 @@ def process_text_file(bucket_name, file_key):
                     Bucket=CHUNKED_TEXT_BUCKET,
                     Key=chunk_key,
                     Body=json.dumps(chunk, ensure_ascii=False),
-                    ContentType="application/json",
+                    ContentType=CONTENT_TYPE_JSON,
                 )
 
         # 4) Create and save a manifest
@@ -307,7 +312,7 @@ def process_text_file(bucket_name, file_key):
             Bucket=CHUNKED_TEXT_BUCKET,
             Key=manifest_key,
             Body=json.dumps(manifest, ensure_ascii=False),
-            ContentType="application/json",
+            ContentType=CONTENT_TYPE_JSON,
         )
 
         logger.info(f"Successfully processed and chunked {file_key} into {len(chunks)} chunks")

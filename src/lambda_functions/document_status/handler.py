@@ -2,8 +2,6 @@ import json
 import logging
 import decimal
 
-# import os  # Not directly used
-
 
 # Helper class to convert Decimal objects to int/float for JSON serialization
 class DecimalEncoder(json.JSONEncoder):
@@ -39,14 +37,17 @@ except ImportError:
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
+# Constants
+CONTENT_TYPE_JSON = "application/json"
+CONTENT_TYPE_PLAIN = "text/plain"
+CORS_HEADERS_VALUE = "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token"
+
 # Define a common CORS headers variable
 CORS_HEADERS = {
-    "Content-Type": "application/json",
+    "Content-Type": CONTENT_TYPE_JSON,
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": (
-        "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token"
-    ),
+    "Access-Control-Allow-Headers": CORS_HEADERS_VALUE,
 }
 
 
