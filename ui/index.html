@@ -692,7 +692,8 @@
 
       // API endpoints - replace with your actual API endpoint URLs after deployment
       const searchApiEndpoint = 'https://q0kp17krt7.execute-api.eu-west-2.amazonaws.com/search';
-      const statusApiEndpoint = 'https://q0kp17krt7.execute-api.eu-west-2.amazonaws.com/status';
+      // Need to use specific format for CORS compatibility with deployment
+      const statusApiEndpoint = 'https://fmlrljovt8.execute-api.eu-west-2.amazonaws.com/status';
 
       // Check if token is already stored
       const storedToken = localStorage.getItem('apiToken');

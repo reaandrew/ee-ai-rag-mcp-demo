@@ -132,7 +132,7 @@ resource "aws_cloudwatch_log_group" "document_status_logs" {
   }
 }
 
-# API Gateway for document status
+# API Gateway for document status 
 resource "aws_apigatewayv2_api" "document_status_api" {
   name          = "ee-ai-rag-mcp-demo-document-status-api"
   protocol_type = "HTTP"
