@@ -417,6 +417,7 @@ resource "aws_iam_policy" "app_specific_policy" {
           "logs:DescribeLogDeliveries", 
           "logs:DescribeResourcePolicies",
           "logs:PutResourcePolicy",
+          "logs:DeleteResourcePolicy",
           "logs:UpdateLogDelivery"
         ]
         Effect   = "Allow" 
