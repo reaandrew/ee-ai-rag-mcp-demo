@@ -4,6 +4,26 @@ import logging
 import os
 from urllib.parse import unquote_plus
 
+# datetime imported but used only in tracking_utils
+
+try:
+    # Try to import tracking utils
+    from utils import tracking_utils
+except ImportError:
+    try:
+        # When running locally or in tests with src structure
+        from src.utils import tracking_utils
+    except ImportError:
+        try:
+            # Absolute import (sometimes needed in Lambda)
+            import utils.tracking_utils as tracking_utils
+        except ImportError:
+            # Define a fallback for tracking in case import fails
+            tracking_utils = None
+            logging.warning(
+                "Could not import tracking_utils module, document tracking will be disabled"
+            )
+
 # Try to import from different locations depending on the context
 try:
     # When running in the Lambda environment with utils copied locally
@@ -125,6 +145,20 @@ def process_chunk_file(bucket_name, file_key):
                 refresh=True,  # Ensure document is searchable immediately
             )
             logger.info(f"Indexed document in OpenSearch: {opensearch_response}")
+
+            # Update tracking information if available
+            if tracking_utils:
+                # Extract document_id from metadata
+                document_id = chunk_data.get("metadata", {}).get("document_id")
+                if document_id:
+                    tracking_utils.update_indexing_progress(
+                        document_id=document_id,
+                        document_name=chunk_data.get("document_name", ""),
+                        page_number=chunk_data.get("page_number", 0),
+                    )
+                    logger.info(f"Updated tracking for document: {document_id}")
+                else:
+                    logger.warning("No document_id found in metadata, tracking not updated")
         else:
             logger.warning("OpenSearch client not available, skipping indexing")
 

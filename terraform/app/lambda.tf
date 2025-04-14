@@ -259,7 +259,9 @@ resource "aws_lambda_function" "text_chunker" {
       CHUNKED_TEXT_BUCKET = var.chunked_text_bucket_name,
       CHUNKED_TEXT_PREFIX = var.chunked_text_prefix,
       CHUNK_SIZE = "1000",           # Default chunk size
-      CHUNK_OVERLAP = "200"          # Default chunk overlap
+      CHUNK_OVERLAP = "200",         # Default chunk overlap
+      TRACKING_TABLE = module.tracking.document_tracking_table_name,
+      SNS_TOPIC_ARN = module.tracking.sns_topic_arn
     }
   }
 

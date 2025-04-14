@@ -18,6 +18,12 @@ sys.modules[
     "langchain_text_splitters"
 ].RecursiveCharacterTextSplitter = RecursiveCharacterTextSplitterMock
 
+# Mock the tracking_utils module
+tracking_utils_mock = mock.MagicMock()
+tracking_utils_mock.initialize_document_tracking.return_value = "test-document-id"
+sys.modules["src.utils.tracking_utils"] = tracking_utils_mock
+sys.modules["utils.tracking_utils"] = tracking_utils_mock
+
 # Import the Lambda handler
 from src.lambda_functions.text_chunker.handler import (
     lambda_handler,
@@ -157,6 +163,18 @@ This is the third paragraph with even more text to make sure we get several chun
             },
         )
 
+        # Second put_object for the same chunk with document_id added by tracking
+        self.s3_stubber.add_response(
+            "put_object",
+            {},
+            {
+                "Bucket": CHUNKED_TEXT_BUCKET,
+                "Key": chunk_key,
+                "Body": mock.ANY,
+                "ContentType": "application/json",
+            },
+        )
+
         # Stub the put_object method for saving the manifest
         manifest_key = f"{CHUNKED_TEXT_PREFIX}/{filename_without_ext}/manifest.json"
         self.s3_stubber.add_response(
@@ -240,6 +258,18 @@ This is the third paragraph with even more text to make sure we get several chun
 
         # Add response for the one chunk that our mock will create
         chunk_key = f"{CHUNKED_TEXT_PREFIX}/{filename_without_ext}/chunk_0.json"
+        self.s3_stubber.add_response(
+            "put_object",
+            {},
+            {
+                "Bucket": CHUNKED_TEXT_BUCKET,
+                "Key": chunk_key,
+                "Body": mock.ANY,
+                "ContentType": "application/json",
+            },
+        )
+
+        # Second put_object for the same chunk with document_id added by tracking
         self.s3_stubber.add_response(
             "put_object",
             {},

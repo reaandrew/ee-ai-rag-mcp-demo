@@ -242,3 +242,8 @@ output "bruno_collection_path" {
   value       = local_file.bruno_collection.filename
   description = "Path to the generated Bruno collection"
 }
+
+output "document_status_api_url" {
+  value       = module.tracking.document_status_api_url
+  description = "The URL of the document status API endpoint"
+}

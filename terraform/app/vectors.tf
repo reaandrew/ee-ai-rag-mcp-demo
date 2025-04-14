@@ -249,7 +249,9 @@ resource "aws_lambda_function" "vector_generator" {
       VECTOR_PREFIX = var.vector_prefix,
       MODEL_ID = var.bedrock_model_id,
       USE_IAM_AUTH = "true",
-      USE_AOSS = "false"  # Set to "true" if using OpenSearch Serverless
+      USE_AOSS = "false",  # Set to "true" if using OpenSearch Serverless
+      TRACKING_TABLE = module.tracking.document_tracking_table_name,
+      SNS_TOPIC_ARN = module.tracking.sns_topic_arn
     }
   }
 

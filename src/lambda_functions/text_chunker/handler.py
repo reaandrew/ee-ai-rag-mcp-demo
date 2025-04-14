@@ -2,8 +2,28 @@ import json
 import boto3
 import logging
 import os
+
+# datetime imported but used only in tracking_utils
 from urllib.parse import unquote_plus
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+try:
+    # Try to import tracking utils
+    from utils import tracking_utils
+except ImportError:
+    try:
+        # When running locally or in tests with src structure
+        from src.utils import tracking_utils
+    except ImportError:
+        try:
+            # Absolute import (sometimes needed in Lambda)
+            import utils.tracking_utils as tracking_utils
+        except ImportError:
+            # Define a fallback for tracking in case import fails
+            tracking_utils = None
+            logging.warning(
+                "Could not import tracking_utils module, document tracking will be disabled"
+            )
 
 # Set up logging
 logger = logging.getLogger()
@@ -237,7 +257,36 @@ def process_text_file(bucket_name, file_key):
                 }
             )
 
-        # 3) Create and save a manifest
+        # 3) Initialize document tracking
+        document_id = None
+        if tracking_utils:
+            document_id = tracking_utils.initialize_document_tracking(
+                bucket_name=CHUNKED_TEXT_BUCKET,
+                document_key=f"{filename_without_ext}",
+                document_name=filename,
+                total_chunks=len(chunks),
+            )
+            logger.info(f"Initialized document tracking with ID: {document_id}")
+
+            # Update the chunks with document_id for tracking
+            for i, chunk in enumerate(chunks):
+                chunk_key = (
+                    f"{CHUNKED_TEXT_PREFIX}/{filename_without_ext}/chunk_{chunk['chunk_id']}.json"
+                )
+                # Add document_id to metadata
+                if "metadata" not in chunk:
+                    chunk["metadata"] = {}
+                chunk["metadata"]["document_id"] = document_id
+
+                # Re-save the chunk with the updated metadata
+                s3_client.put_object(
+                    Bucket=CHUNKED_TEXT_BUCKET,
+                    Key=chunk_key,
+                    Body=json.dumps(chunk, ensure_ascii=False),
+                    ContentType="application/json",
+                )
+
+        # 4) Create and save a manifest
         manifest = {
             "source": file_metadata,
             "chunking": {
@@ -250,6 +299,7 @@ def process_text_file(bucket_name, file_key):
                 "bucket": CHUNKED_TEXT_BUCKET,
                 "prefix": f"{CHUNKED_TEXT_PREFIX}/{filename_without_ext}/",
             },
+            "tracking": {"document_id": document_id, "enabled": tracking_utils is not None},
         }
 
         manifest_key = f"{CHUNKED_TEXT_PREFIX}/{filename_without_ext}/manifest.json"
