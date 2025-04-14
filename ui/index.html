@@ -578,19 +578,37 @@
             <div class="govuk-tabs__panel govuk-tabs__panel--hidden" id="document-status">
               <h2 class="govuk-heading-m">Document Processing Status</h2>
               
-              <button id="refresh-status" class="govuk-button" data-module="govuk-button">
-                Refresh Status
-              </button>
+              <div class="govuk-grid-row">
+                <div class="govuk-grid-column">
+                  <p class="govuk-body">This panel shows the current status of all documents being processed by the system.</p>
+                  
+                  <div class="govuk-button-group">
+                    <button id="refresh-status" class="govuk-button" data-module="govuk-button">
+                      Refresh Status
+                    </button>
+                    
+                    <span id="last-updated" class="govuk-body govuk-!-margin-left-5 govuk-!-margin-bottom-0" style="line-height: 2.5; display: none;">
+                      Last updated: <time id="update-time"></time>
+                    </span>
+                  </div>
+                  
+                  <div class="spinner" id="status-spinner" style="display: none;"></div>
+                </div>
+              </div>
               
-              <div class="spinner" id="status-spinner" style="display: none;"></div>
+              <div id="status-error-message" class="govuk-error-message" style="display: none; margin-bottom: 20px;">
+                <span class="govuk-visually-hidden">Error:</span>
+                An error occurred while retrieving document status.
+              </div>
               
               <table class="govuk-table" id="document-status-table">
+                <caption class="govuk-table__caption govuk-table__caption--m">Document processing queue</caption>
                 <thead class="govuk-table__head">
                   <tr class="govuk-table__row">
-                    <th scope="col" class="govuk-table__header">Document Name</th>
-                    <th scope="col" class="govuk-table__header">Upload Time</th>
-                    <th scope="col" class="govuk-table__header">Progress</th>
-                    <th scope="col" class="govuk-table__header">Status</th>
+                    <th scope="col" class="govuk-table__header" style="width: 40%">Document Name</th>
+                    <th scope="col" class="govuk-table__header" style="width: 25%">Upload Time</th>
+                    <th scope="col" class="govuk-table__header" style="width: 15%">Progress</th>
+                    <th scope="col" class="govuk-table__header" style="width: 20%">Status</th>
                   </tr>
                 </thead>
                 <tbody class="govuk-table__body" id="document-status-body">
@@ -601,10 +619,20 @@
                 </tbody>
               </table>
               
-              <div id="status-error-message" class="govuk-error-message" style="display: none;">
-                <span class="govuk-visually-hidden">Error:</span>
-                An error occurred while retrieving document status.
-              </div>
+              <details class="govuk-details" data-module="govuk-details">
+                <summary class="govuk-details__summary">
+                  <span class="govuk-details__summary-text">
+                    About document processing states
+                  </span>
+                </summary>
+                <div class="govuk-details__text">
+                  <ul class="govuk-list">
+                    <li><span class="status-processing">PROCESSING</span> - Document is currently being processed and indexed</li>
+                    <li><span class="status-complete">COMPLETE</span> - Document has been fully processed and is available for search</li>
+                    <li><span class="status-cancelled">CANCELLED</span> - Processing was cancelled, typically because a newer version was uploaded</li>
+                  </ul>
+                </div>
+              </details>
             </div>
           </div>
         </div>
@@ -689,11 +717,12 @@
       const documentStatusTable = document.getElementById('document-status-table');
       const documentStatusBody = document.getElementById('document-status-body');
       const statusErrorMessage = document.getElementById('status-error-message');
+      const lastUpdated = document.getElementById('last-updated');
+      const updateTime = document.getElementById('update-time');
 
-      // API endpoints - replace with your actual API endpoint URLs after deployment
+      // API endpoints - using single consolidated API Gateway for both endpoints
       const searchApiEndpoint = 'https://q0kp17krt7.execute-api.eu-west-2.amazonaws.com/search';
-      // Need to use specific format for CORS compatibility with deployment
-      const statusApiEndpoint = 'https://fmlrljovt8.execute-api.eu-west-2.amazonaws.com/status';
+      const statusApiEndpoint = 'https://q0kp17krt7.execute-api.eu-west-2.amazonaws.com/status';
 
       // Check if token is already stored
       const storedToken = localStorage.getItem('apiToken');
@@ -887,6 +916,11 @@
         .then(data => {
           // Hide spinner
           statusSpinner.style.display = 'none';
+          
+          // Update the last refreshed time
+          const now = new Date();
+          updateTime.textContent = now.toLocaleTimeString();
+          lastUpdated.style.display = 'inline-block';
 
           // Display the document status
           if (data && data.length > 0) {
@@ -952,20 +986,31 @@
           }
         })
         .catch(error => {
-          console.error('Error:', error);
+          console.error('Error fetching document status:', error);
           statusSpinner.style.display = 'none';
+          
+          // Show detailed error message for debugging
+          statusErrorMessage.textContent = `Error: ${error.message || 'Unknown error'}`;
           statusErrorMessage.style.display = 'block';
           
-          // Show error in table
+          // Show error in table with detailed information
           const row = document.createElement('tr');
           row.className = 'govuk-table__row';
           const cell = document.createElement('td');
           cell.className = 'govuk-table__cell';
           cell.setAttribute('colspan', '4');
-          cell.textContent = 'Failed to load document status. Please try again.';
+          cell.innerHTML = `
+            <p>Failed to load document status. Error details:</p>
+            <p>${error.message || 'Network error occurred'}</p>
+            <p>API Endpoint: ${statusApiEndpoint}</p>
+          `;
           row.appendChild(cell);
           documentStatusBody.innerHTML = '';
           documentStatusBody.appendChild(row);
+          
+          // Log additional debugging information
+          console.log('Status API endpoint:', statusApiEndpoint);
+          console.log('Auth token present:', !!localStorage.getItem('apiToken'));
         });
       }
 
