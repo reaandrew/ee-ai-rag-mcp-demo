@@ -65,6 +65,21 @@ def initialize_document_tracking(bucket_name, document_key, document_name, total
         # Initialize DynamoDB tracking record
         tracking_table = dynamodb.Table(TRACKING_TABLE)
 
+        # Check if there are any existing versions of this document in processing state
+        existing_docs = get_document_history(base_document_id)
+        for doc in existing_docs:
+            if doc.get("status") == "PROCESSING":
+                # Clean up processing records for the same document
+                logger.info(
+                    f"Found existing processing record for {base_document_id}. Cleaning up."
+                )
+                tracking_table.update_item(
+                    Key={"document_id": doc.get("document_id")},
+                    UpdateExpression="SET #status = :status",
+                    ExpressionAttributeNames={"#status": "status"},
+                    ExpressionAttributeValues={":status": "CANCELLED"},
+                )
+
         item = {
             "document_id": document_id,  # Compound ID with version
             "base_document_id": base_document_id,  # Original document path
@@ -129,21 +144,33 @@ def update_indexing_progress(document_id, document_name, page_number):
 
         tracking_table = dynamodb.Table(TRACKING_TABLE)
 
-        # Update the counter atomically
-        response = tracking_table.update_item(
-            Key={"document_id": document_id},
-            UpdateExpression="ADD indexed_chunks :val",
-            ExpressionAttributeValues={":val": 1},
-            ReturnValues="UPDATED_NEW",
-        )
+        # First get the current document to check total chunks and current count
+        doc_response = tracking_table.get_item(Key={"document_id": document_id})
+        item = doc_response.get("Item", {})
+        total_chunks = item.get("total_chunks", 0)
+        current_chunks = item.get("indexed_chunks", 0)
+
+        # Check if we would exceed total_chunks - if so, don't increment
+        if current_chunks >= total_chunks:
+            # Log warning for documents that already have all chunks indexed
+            logger.warning(
+                f"Document {document_id} has {current_chunks}/{total_chunks} chunks indexed. "
+                f"Skipping increment."
+            )
+            response = {"Attributes": {"indexed_chunks": current_chunks}}
+        else:
+            # Update the counter atomically only if we won't exceed total_chunks
+            response = tracking_table.update_item(
+                Key={"document_id": document_id},
+                UpdateExpression="ADD indexed_chunks :val",
+                ExpressionAttributeValues={":val": 1},
+                ReturnValues="UPDATED_NEW",
+            )
 
         # Check if this was the last chunk
         updated_count = int(response.get("Attributes", {}).get("indexed_chunks", 0))
 
-        # Get the total expected chunks
-        doc_response = tracking_table.get_item(Key={"document_id": document_id})
-        item = doc_response.get("Item", {})
-        total_chunks = item.get("total_chunks", 0)
+        # We already have the document info, so no need to query again
         base_document_id = item.get("base_document_id", "")
         document_version = item.get("document_version", "")
         upload_timestamp = item.get("upload_timestamp", 0)
