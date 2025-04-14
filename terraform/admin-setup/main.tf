@@ -286,6 +286,49 @@ resource "aws_iam_policy" "terraform_state_policy" {
   })
 }
 
+# Create dedicated DynamoDB policy for document tracking
+resource "aws_iam_policy" "dynamodb_tracking_policy" {
+  name        = "${var.ci_role_name}-dynamodb-policy"
+  description = "DynamoDB permissions for the CI role"
+  
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        # DynamoDB permissions for document tracking
+        Action = [
+          "dynamodb:CreateTable",
+          "dynamodb:DeleteTable",
+          "dynamodb:DescribeTable",
+          "dynamodb:ListTables",
+          "dynamodb:UpdateTable",
+          "dynamodb:DescribeTimeToLive",
+          "dynamodb:UpdateTimeToLive",
+          "dynamodb:TagResource",
+          "dynamodb:UntagResource",
+          "dynamodb:ListTagsOfResource",
+          "dynamodb:CreateGlobalTable",
+          "dynamodb:DescribeGlobalTable",
+          "dynamodb:UpdateGlobalTable",
+          "dynamodb:PutItem",
+          "dynamodb:GetItem",
+          "dynamodb:UpdateItem",
+          "dynamodb:DeleteItem",
+          "dynamodb:Query",
+          "dynamodb:Scan",
+          "dynamodb:UpdateContinuousBackups",
+          "dynamodb:DescribeContinuousBackups"
+        ]
+        Effect   = "Allow"
+        Resource = [
+          "arn:aws:dynamodb:${var.aws_region}:${var.aws_account_id}:table/ee-ai-rag-mcp-demo-doc-tracking",
+          "arn:aws:dynamodb:${var.aws_region}:${var.aws_account_id}:table/ee-ai-rag-mcp-demo-doc-tracking/index/*"
+        ]
+      }
+    ]
+  })
+}
+
 # Create application-specific policies
 resource "aws_iam_policy" "app_specific_policy" {
   name        = "${var.ci_role_name}-app-policy"
@@ -516,37 +559,7 @@ resource "aws_iam_policy" "app_specific_policy" {
           "arn:aws:s3:::${var.terraform_state_bucket}-logs/*"
         ]
       },
-      {
-        # DynamoDB permissions for document tracking
-        Action = [
-          "dynamodb:CreateTable",
-          "dynamodb:DeleteTable",
-          "dynamodb:DescribeTable",
-          "dynamodb:ListTables",
-          "dynamodb:UpdateTable",
-          "dynamodb:DescribeTimeToLive",
-          "dynamodb:UpdateTimeToLive",
-          "dynamodb:TagResource",
-          "dynamodb:UntagResource",
-          "dynamodb:ListTagsOfResource",
-          "dynamodb:CreateGlobalTable",
-          "dynamodb:DescribeGlobalTable",
-          "dynamodb:UpdateGlobalTable",
-          "dynamodb:PutItem",
-          "dynamodb:GetItem",
-          "dynamodb:UpdateItem",
-          "dynamodb:DeleteItem",
-          "dynamodb:Query",
-          "dynamodb:Scan",
-          "dynamodb:UpdateContinuousBackups",
-          "dynamodb:DescribeContinuousBackups"
-        ]
-        Effect   = "Allow"
-        Resource = [
-          "arn:aws:dynamodb:${var.aws_region}:${var.aws_account_id}:table/ee-ai-rag-mcp-demo-doc-tracking",
-          "arn:aws:dynamodb:${var.aws_region}:${var.aws_account_id}:table/ee-ai-rag-mcp-demo-doc-tracking/index/*"
-        ]
-      },
+# Removing DynamoDB permissions from here - moved to dedicated policy
       {
         # SNS permissions for document tracking notifications
         Action = [
@@ -727,6 +740,12 @@ resource "aws_iam_role_policy_attachment" "app_specific_attachment" {
 resource "aws_iam_role_policy_attachment" "opensearch_secretsmanager_attachment" {
   role       = aws_iam_role.ci_role.name
   policy_arn = aws_iam_policy.opensearch_secretsmanager_policy.arn
+}
+
+# Attach DynamoDB policy to the CI role
+resource "aws_iam_role_policy_attachment" "dynamodb_tracking_attachment" {
+  role       = aws_iam_role.ci_role.name
+  policy_arn = aws_iam_policy.dynamodb_tracking_policy.arn
 }
 
 # Output the role ARN for use in CI setup
