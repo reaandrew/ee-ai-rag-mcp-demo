@@ -515,6 +515,67 @@ resource "aws_iam_policy" "app_specific_policy" {
           "arn:aws:s3:::${var.terraform_state_bucket}-logs",
           "arn:aws:s3:::${var.terraform_state_bucket}-logs/*"
         ]
+      },
+      {
+        # DynamoDB permissions for document tracking
+        Action = [
+          "dynamodb:CreateTable",
+          "dynamodb:DeleteTable",
+          "dynamodb:DescribeTable",
+          "dynamodb:ListTables",
+          "dynamodb:UpdateTable",
+          "dynamodb:DescribeTimeToLive",
+          "dynamodb:UpdateTimeToLive",
+          "dynamodb:TagResource",
+          "dynamodb:UntagResource",
+          "dynamodb:ListTagsOfResource",
+          "dynamodb:CreateGlobalTable",
+          "dynamodb:DescribeGlobalTable",
+          "dynamodb:UpdateGlobalTable",
+          "dynamodb:PutItem",
+          "dynamodb:GetItem",
+          "dynamodb:UpdateItem",
+          "dynamodb:DeleteItem",
+          "dynamodb:Query",
+          "dynamodb:Scan"
+        ]
+        Effect   = "Allow"
+        Resource = [
+          "arn:aws:dynamodb:${var.aws_region}:${var.aws_account_id}:table/ee-ai-rag-mcp-demo-doc-tracking",
+          "arn:aws:dynamodb:${var.aws_region}:${var.aws_account_id}:table/ee-ai-rag-mcp-demo-doc-tracking/index/*"
+        ]
+      },
+      {
+        # SNS permissions for document tracking notifications
+        Action = [
+          "sns:CreateTopic",
+          "sns:DeleteTopic",
+          "sns:GetTopicAttributes",
+          "sns:SetTopicAttributes",
+          "sns:TagResource",
+          "sns:UntagResource",
+          "sns:ListTopics",
+          "sns:ListTagsForResource",
+          "sns:Publish",
+          "sns:Subscribe",
+          "sns:Unsubscribe",
+          "sns:ListSubscriptionsByTopic",
+          "sns:GetSubscriptionAttributes",
+          "sns:SetSubscriptionAttributes"
+        ]
+        Effect   = "Allow"
+        Resource = [
+          "arn:aws:sns:${var.aws_region}:${var.aws_account_id}:ee-ai-rag-mcp-demo-document-indexing"
+        ]
+      },
+      {
+        # SNS list operations that require * as resource
+        Action = [
+          "sns:ListTopics",
+          "sns:ListSubscriptions"
+        ]
+        Effect   = "Allow"
+        Resource = "*"
       }
     ]
   })
