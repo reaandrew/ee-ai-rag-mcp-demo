@@ -243,7 +243,23 @@ output "bruno_collection_path" {
   description = "Path to the generated Bruno collection"
 }
 
+# Document tracking outputs
+output "document_tracking_table_name" {
+  value       = aws_dynamodb_table.document_tracking.name
+  description = "The name of the DynamoDB table for document tracking"
+}
+
+output "document_tracking_table_arn" {
+  value       = aws_dynamodb_table.document_tracking.arn
+  description = "The ARN of the DynamoDB table for document tracking"
+}
+
+output "sns_topic_arn" {
+  value       = aws_sns_topic.document_indexing.arn
+  description = "The ARN of the SNS topic for document indexing"
+}
+
 output "document_status_api_url" {
-  value       = module.tracking.document_status_api_url
+  value       = "${aws_apigatewayv2_stage.document_status_stage.invoke_url}/status"
   description = "The URL of the document status API endpoint"
 }
