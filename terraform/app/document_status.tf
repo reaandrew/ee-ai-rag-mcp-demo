@@ -295,8 +295,4 @@ resource "aws_lambda_permission" "document_status_permission" {
   source_account = data.aws_caller_identity.current.account_id
 }
 
-# Output the document status API URL
-output "document_status_api_url" {
-  value = "${aws_apigatewayv2_stage.document_status_stage.invoke_url}status"
-  description = "The URL of the document status API endpoint"
-}
+# API URL is defined in outputs.tf
