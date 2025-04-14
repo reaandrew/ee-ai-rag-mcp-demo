@@ -272,7 +272,7 @@ resource "aws_apigatewayv2_route" "document_status_route" {
   authorization_type = "CUSTOM"
 }
 
-# OPTIONS route with authorizer for security
+# OPTIONS route with authorizer for security compliance
 resource "aws_apigatewayv2_route" "document_status_options_route" {
   api_id             = aws_apigatewayv2_api.document_status_api.id
   route_key          = "OPTIONS /status"
@@ -293,4 +293,10 @@ resource "aws_lambda_permission" "document_status_permission" {
   
   # Adding source account condition for enhanced security
   source_account = data.aws_caller_identity.current.account_id
+}
+
+# Output the document status API URL
+output "document_status_api_url" {
+  value = "${aws_apigatewayv2_stage.document_status_stage.invoke_url}status"
+  description = "The URL of the document status API endpoint"
 }
