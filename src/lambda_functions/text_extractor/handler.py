@@ -4,7 +4,7 @@ import logging
 import time
 import os
 import re
-import random
+import secrets
 from urllib.parse import unquote_plus
 
 # Set up logging
@@ -194,8 +194,9 @@ def process_document_async(bucket_name, file_key):
             logger.info(f"Started async Textract job {job_id} for {file_key}")
             break  # Success, exit retry loop
         except textract_client.exceptions.ProvisionedThroughputExceededException:
-            # Calculate exponential backoff delay with jitter
-            delay = min(30, (2**attempt) * base_delay + (2 * base_delay * random.random()))
+            # Calculate exponential backoff delay with secure jitter
+            jitter = secrets.randbelow(200) / 100  # generates value between 0.0 and 1.99
+            delay = min(30, (2**attempt) * base_delay + (2 * base_delay * jitter))
             if attempt < max_retries - 1:  # Don't log on the last attempt
                 logger.warning(
                     f"Textract rate limit exceeded. Retrying in {delay:.2f}s. "
@@ -234,8 +235,9 @@ def process_document_async(bucket_name, file_key):
                     if retry_count >= max_get_retries:
                         logger.error("Rate limit exceeded when getting document text detection")
                         raise
-                    # Exponential backoff with jitter
-                    delay = min(30, (2**retry_count) * 0.5 + random.random())
+                    # Exponential backoff with secure jitter
+                    jitter = secrets.randbelow(200) / 100  # generates value between 0.0 and 1.99
+                    delay = min(30, (2**retry_count) * 0.5 + jitter)
                     logger.warning(
                         f"Rate limit getting results. Retrying in {delay:.2f}s. "
                         f"Attempt {retry_count}/{max_get_retries}"
@@ -307,8 +309,9 @@ def process_document_async(bucket_name, file_key):
                 if retry_count >= max_get_retries:
                     logger.error("Rate limit exceeded when getting document text detection")
                     raise
-                # Exponential backoff with jitter
-                delay = min(30, (2**retry_count) * 0.5 + random.random())
+                # Exponential backoff with secure jitter
+                jitter = secrets.randbelow(200) / 100  # generates value between 0.0 and 1.99
+                delay = min(30, (2**retry_count) * 0.5 + jitter)
                 logger.warning(
                     f"Rate limit getting results. Retrying in {delay:.2f}s. "
                     f"Attempt {retry_count}/{max_get_retries}"
