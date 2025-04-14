@@ -569,6 +569,26 @@ resource "aws_iam_policy" "app_specific_policy" {
         ]
       },
       {
+        # KMS permissions for SNS topic encryption
+        Action = [
+          "kms:CreateKey",
+          "kms:CreateAlias",
+          "kms:DeleteAlias",
+          "kms:UpdateAlias",
+          "kms:GetKeyPolicy",
+          "kms:PutKeyPolicy",
+          "kms:ScheduleKeyDeletion",
+          "kms:DescribeKey",
+          "kms:EnableKeyRotation",
+          "kms:ListAliases",
+          "kms:TagResource",
+          "kms:UntagResource",
+          "kms:GenerateDataKey"
+        ]
+        Effect   = "Allow"
+        Resource = "*"  # For creating and managing KMS keys
+      },
+      {
         # SNS list operations that require * as resource
         Action = [
           "sns:ListTopics",

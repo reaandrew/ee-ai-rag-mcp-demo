@@ -26,6 +26,14 @@ resource "aws_iam_policy" "sns_publish_policy" {
         Action   = ["sns:Publish"]
         Effect   = "Allow"
         Resource = [aws_sns_topic.document_indexing.arn]
+      },
+      {
+        Action = [
+          "kms:Decrypt",
+          "kms:GenerateDataKey*"
+        ]
+        Effect   = "Allow"
+        Resource = aws_kms_key.sns_encryption_key.arn
       }
     ]
   })
