@@ -76,8 +76,8 @@
       margin-right: -15px;
     }
 
-    .govuk-grid-column-two-thirds {
-      flex: 0 0 66.6666%;
+    .govuk-grid-column {
+      flex: 0 0 100%;
       padding: 0 15px;
       box-sizing: border-box;
     }
@@ -225,7 +225,7 @@
     }
 
     @media (max-width: 768px) {
-      .govuk-grid-column-two-thirds {
+      .govuk-grid-column {
         flex: 0 0 100%;
       }
     }
@@ -250,9 +250,20 @@
 
     #response-container {
       margin-top: 2rem;
-      padding: 1rem;
+      padding: 1.5rem;
       border: 1px solid #b1b4b6;
       display: none;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    
+    #answer-text {
+      width: 100%;
+      line-height: 1.5;
+    }
+    
+    #answer-text p {
+      margin-bottom: 1rem;
     }
 
     .source-item {
@@ -358,7 +369,7 @@
   <div class="govuk-width-container">
     <main class="govuk-main-wrapper" id="main-content" role="main">
       <div class="govuk-grid-row">
-        <div class="govuk-grid-column-two-thirds">
+        <div class="govuk-grid-column">
           <h1 class="govuk-heading-xl">Policy Search</h1>
 
           <!-- JWT authentication link and container -->
@@ -485,7 +496,7 @@
       const errorMessage = document.getElementById('error-message');
 
       // API endpoint - replace with your actual API endpoint URL after deployment
-      const apiEndpoint = 'YOUR_API_ENDPOINT_URL_HERE';
+      const apiEndpoint = 'https://q0kp17krt7.execute-api.eu-west-2.amazonaws.com/search';
 
       // Check if token is already stored
       const storedToken = localStorage.getItem('apiToken');
@@ -569,8 +580,10 @@
           // Hide spinner
           spinner.style.display = 'none';
 
-          // Display the answer
-          answerText.textContent = data.answer;
+          // Display the answer with proper formatting for newlines
+          // Convert newlines to <br> tags
+          const formattedAnswer = data.answer.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>');
+          answerText.innerHTML = `<p>${formattedAnswer}</p>`;
 
           // Display sources
           if (data.sources && data.sources.length > 0) {
