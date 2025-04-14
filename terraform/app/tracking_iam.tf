@@ -8,10 +8,14 @@ resource "aws_iam_policy" "dynamodb_access_policy" {
           "dynamodb:PutItem",
           "dynamodb:GetItem",
           "dynamodb:UpdateItem",
-          "dynamodb:Query"
+          "dynamodb:Query",
+          "dynamodb:Scan"
         ]
         Effect   = "Allow"
-        Resource = aws_dynamodb_table.document_tracking.arn
+        Resource = [
+          aws_dynamodb_table.document_tracking.arn,
+          "${aws_dynamodb_table.document_tracking.arn}/index/BaseDocumentIndex"
+        ]
       }
     ]
   })

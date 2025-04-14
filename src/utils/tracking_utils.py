@@ -8,8 +8,22 @@ import os
 import json
 import boto3
 import logging
+import decimal
 from datetime import datetime, timedelta
 from boto3.dynamodb.conditions import Key
+
+
+# Helper class to convert Decimal objects to int/float for JSON serialization
+class DecimalEncoder(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, decimal.Decimal):
+            # Convert decimals to integers or floats
+            if o % 1 == 0:
+                return int(o)
+            else:
+                return float(o)
+        return super(DecimalEncoder, self).default(o)
+
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -83,7 +97,8 @@ def initialize_document_tracking(bucket_name, document_key, document_name, total
                         "status": "PROCESSING",
                         "start_time": item["start_time"],
                         "is_reupload": len(get_document_history(base_document_id)) > 1,
-                    }
+                    },
+                    cls=DecimalEncoder,
                 ),
             )
 
@@ -148,7 +163,8 @@ def update_indexing_progress(document_id, document_name, page_number):
                         "progress": f"{updated_count}/{total_chunks}",
                         "status": "indexed",
                         "timestamp": datetime.now().isoformat(),
-                    }
+                    },
+                    cls=DecimalEncoder,
                 ),
             )
 
@@ -181,7 +197,8 @@ def update_indexing_progress(document_id, document_name, page_number):
                             "start_time": item.get("start_time"),
                             "completion_time": completion_time,
                             "is_reupload": len(get_document_history(base_document_id)) > 1,
-                        }
+                        },
+                        cls=DecimalEncoder,
                     ),
                 )
 
