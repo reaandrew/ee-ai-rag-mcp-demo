@@ -1,8 +1,10 @@
 # Document tracking module
 module "tracking" {
-  source      = "./modules/tracking"
-  environment = var.environment
-  app_version = var.app_version
+  source        = "./modules/tracking"
+  environment   = var.environment
+  app_version   = var.app_version
+  api_gateway_id = aws_apigatewayv2_api.policy_search_api.id
+  authorizer_id = aws_apigatewayv2_authorizer.lambda_authorizer.id
 }
 
 # Attach tracking policies to Lambda roles
