@@ -18,6 +18,11 @@
       --govuk-error-colour: #d4351c;
       --govuk-success-colour: #00703c;
     }
+    
+    /* Global box sizing */
+    * {
+      box-sizing: border-box;
+    }
 
     body {
       color: var(--govuk-text-colour);
@@ -110,10 +115,13 @@
 
     .govuk-input {
       border: 2px solid var(--govuk-border-colour);
-      padding: 5px;
+      padding: 10px;
       width: 100%;
       font-size: 19px;
       line-height: 1.3;
+      display: block;
+      box-sizing: border-box;
+      max-width: 100%;
     }
 
     .govuk-button {
@@ -222,7 +230,7 @@
       }
     }
   </style>
-  
+
   <style>
     .spinner {
       display: none;
@@ -234,31 +242,102 @@
       border-radius: 50%;
       animation: spin 1s linear infinite;
     }
-    
+
     @keyframes spin {
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
     }
-    
+
     #response-container {
       margin-top: 2rem;
       padding: 1rem;
       border: 1px solid #b1b4b6;
       display: none;
     }
-    
+
     .source-item {
       margin-bottom: 0.5rem;
     }
-    
+
     #error-message {
       display: none;
       margin-top: 1rem;
     }
+
+    /* JWT token storage styles */
+    #auth-link {
+      cursor: pointer;
+      color: var(--govuk-brand-colour);
+      text-decoration: underline;
+      font-size: 16px;
+      display: inline-block;
+      margin-bottom: 20px;
+    }
+
+    #auth-link:hover {
+      color: #003078;
+      text-decoration: none;
+    }
+
+    #auth-container {
+      display: none;
+      padding: 15px;
+      background-color: #f8f8f8;
+      border: 1px solid var(--govuk-border-colour);
+      margin-bottom: 20px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .govuk-form-group {
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    #token-input {
+      width: 100%;
+      margin-bottom: 15px;
+      display: block;
+      box-sizing: border-box;
+      max-width: 100%;
+    }
+
+    .auth-buttons {
+      display: flex;
+      gap: 10px;
+      width: 100%;
+      box-sizing: border-box;
+      margin-top: 15px;
+    }
+
+    .govuk-button--secondary {
+      background-color: #f3f2f1;
+      color: var(--govuk-text-colour);
+    }
+
+    .govuk-button--secondary:hover {
+      background-color: #dbdad9;
+    }
+
+    .auth-status {
+      font-size: 16px;
+      margin-top: 10px;
+      padding: 5px;
+      border-radius: 3px;
+    }
+
+    .auth-status--success {
+      background-color: #e9f6eb;
+      color: var(--govuk-success-colour);
+      display: none;
+      margin-bottom: 20px;
+      padding: 10px;
+      border-left: 5px solid var(--govuk-success-colour);
+    }
   </style>
 </head>
 <body class="govuk-template__body js-enabled">
-  
+
   <header class="govuk-header" role="banner" data-module="govuk-header">
     <div class="govuk-header__container govuk-width-container">
       <div class="govuk-header__logo">
@@ -281,7 +360,29 @@
       <div class="govuk-grid-row">
         <div class="govuk-grid-column-two-thirds">
           <h1 class="govuk-heading-xl">Policy Search</h1>
-          
+
+          <!-- JWT authentication link and container -->
+          <a id="auth-link" class="govuk-link">Set API Token</a>
+
+          <div id="auth-success" class="auth-status auth-status--success">
+            Token saved successfully!
+          </div>
+
+          <div id="auth-container">
+            <label class="govuk-label" for="token-input">
+              Enter your JWT token
+            </label>
+            <input class="govuk-input" id="token-input" name="token-input" type="text" autocomplete="off">
+            <div class="auth-buttons">
+              <button type="button" id="save-token" class="govuk-button">
+                Save Token
+              </button>
+              <button type="button" id="cancel-token" class="govuk-button govuk-button--secondary">
+                Cancel
+              </button>
+            </div>
+          </div>
+
           <form id="search-form" class="govuk-form-group">
             <label class="govuk-label" for="search-query">
               Ask a question about our policies
@@ -291,18 +392,18 @@
               Submit
             </button>
           </form>
-          
+
           <div id="error-message" class="govuk-error-message">
             <span class="govuk-visually-hidden">Error:</span>
             An error occurred while processing your query.
           </div>
-          
+
           <div class="spinner" id="spinner"></div>
-          
+
           <div id="response-container" class="govuk-body">
             <h2 class="govuk-heading-m">Answer:</h2>
             <div id="answer-text" class="govuk-body"></div>
-            
+
             <h3 class="govuk-heading-s" style="margin-top: 2rem;">Sources:</h3>
             <ul id="sources-list" class="govuk-list govuk-list--bullet"></ul>
           </div>
@@ -333,21 +434,21 @@
               </a>
             </li>
           </ul>
-          
+
           <div class="govuk-footer__meta-custom">
             Demo application
           </div>
-          
-          <svg 
-            aria-hidden="true" 
-            focusable="false" 
-            class="govuk-footer__licence-logo" 
-            xmlns="http://www.w3.org/2000/svg" 
-            viewBox="0 0 483.2 195.7" 
-            height="17" 
+
+          <svg
+            aria-hidden="true"
+            focusable="false"
+            class="govuk-footer__licence-logo"
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 483.2 195.7"
+            height="17"
             width="41">
-            <path 
-              fill="currentColor" 
+            <path
+              fill="currentColor"
               d="M421.5 142.8V.1l-50.7 32.3v161.1h112.4v-50.7zm-122.3-9.6A47.12 47.12 0 0 1 221 97.8c0-26 21.1-47.1 47.1-47.1 16.7 0 31.4 8.7 39.7 21.8l42.7-27.2A97.63 97.63 0 0 0 268.1 0c-36.5 0-68.3 20.1-85.1 49.7A98 98 0 0 0 97.8 0C43.9 0 0 43.9 0 97.8s43.9 97.8 97.8 97.8c36.5 0 68.3-20.1 85.1-49.7a97.76 97.76 0 0 0 149.6 25.4l19.4 22.2h3v-87.8h-80l24.3 27.5zM97.8 145c-26 0-47.1-21.1-47.1-47.1s21.1-47.1 47.1-47.1 47.2 21 47.2 47S123.8 145 97.8 145">
             </path>
           </svg>
@@ -364,8 +465,17 @@
 
   <!-- No need for external GOV.UK JavaScript -->
   <script>
-    
+
     document.addEventListener('DOMContentLoaded', function() {
+      // JWT Token handling elements
+      const authLink = document.getElementById('auth-link');
+      const authContainer = document.getElementById('auth-container');
+      const tokenInput = document.getElementById('token-input');
+      const saveTokenBtn = document.getElementById('save-token');
+      const cancelTokenBtn = document.getElementById('cancel-token');
+      const authSuccess = document.getElementById('auth-success');
+
+      // Search elements
       const searchForm = document.getElementById('search-form');
       const searchQuery = document.getElementById('search-query');
       const spinner = document.getElementById('spinner');
@@ -373,32 +483,79 @@
       const answerText = document.getElementById('answer-text');
       const sourcesList = document.getElementById('sources-list');
       const errorMessage = document.getElementById('error-message');
-      
+
       // API endpoint - replace with your actual API endpoint URL after deployment
       const apiEndpoint = 'YOUR_API_ENDPOINT_URL_HERE';
-      
+
+      // Check if token is already stored
+      const storedToken = localStorage.getItem('apiToken');
+      if (storedToken) {
+        authLink.textContent = 'Update API Token';
+      }
+
+      // Toggle JWT token input display
+      authLink.addEventListener('click', function() {
+        authContainer.style.display = 'block';
+        tokenInput.value = localStorage.getItem('apiToken') || '';
+        tokenInput.focus();
+      });
+
+      // Save token
+      saveTokenBtn.addEventListener('click', function() {
+        const token = tokenInput.value.trim();
+        if (token) {
+          localStorage.setItem('apiToken', token);
+          authSuccess.style.display = 'block';
+
+          // Immediately hide the container and update the link text
+          authContainer.style.display = 'none';
+          authLink.textContent = 'Update API Token';
+
+          // Hide the success message after 2 seconds
+          setTimeout(function() {
+            authSuccess.style.display = 'none';
+          }, 2000);
+        }
+      });
+
+      // Cancel token setting
+      cancelTokenBtn.addEventListener('click', function() {
+        authContainer.style.display = 'none';
+        authSuccess.style.display = 'none';
+      });
+
       searchForm.addEventListener('submit', function(e) {
         e.preventDefault();
-        
+
         const query = searchQuery.value.trim();
         if (!query) {
           return;
         }
-        
+
         // Clear previous results
         answerText.textContent = '';
         sourcesList.innerHTML = '';
         errorMessage.style.display = 'none';
         responseContainer.style.display = 'none';
-        
+
         // Show spinner
         spinner.style.display = 'block';
-        
-        // Make API request
+
+        // Get the JWT token from local storage
+        const token = localStorage.getItem('apiToken');
+        if (!token) {
+          errorMessage.textContent = 'Please set an API token first.';
+          errorMessage.style.display = 'block';
+          spinner.style.display = 'none';
+          return;
+        }
+
+        // Make API request with Authorization header
         fetch(apiEndpoint, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
           },
           body: JSON.stringify({ query: query })
         })
@@ -411,10 +568,10 @@
         .then(data => {
           // Hide spinner
           spinner.style.display = 'none';
-          
+
           // Display the answer
           answerText.textContent = data.answer;
-          
+
           // Display sources
           if (data.sources && data.sources.length > 0) {
             data.sources.forEach(source => {
@@ -428,7 +585,7 @@
             li.textContent = 'No specific sources provided';
             sourcesList.appendChild(li);
           }
-          
+
           // Show the response container
           responseContainer.style.display = 'block';
         })
