@@ -265,6 +265,15 @@
     #answer-text p {
       margin-bottom: 1rem;
     }
+    
+    .govuk-blockquote {
+      margin: 1.5rem 0;
+      padding: 0.5rem 0 0.5rem 1.5rem;
+      border-left: 5px solid var(--govuk-border-colour);
+      font-style: italic;
+      color: var(--govuk-secondary-text-colour);
+      background-color: #f8f8f8;
+    }
 
     .source-item {
       margin-bottom: 0.5rem;
@@ -580,9 +589,20 @@
           // Hide spinner
           spinner.style.display = 'none';
 
-          // Display the answer with proper formatting for newlines
-          // Convert newlines to <br> tags
-          const formattedAnswer = data.answer.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>');
+          // Display the answer with proper formatting for newlines and quotes
+          // Process the text to handle various formats
+          let formattedAnswer = data.answer;
+          
+          // First, identify sections with quotes (text between double quotes)
+          formattedAnswer = formattedAnswer.replace(/"([^"]+)"/g, function(match, quote) {
+            // Convert the quoted text to a blockquote
+            return `</p><div class="govuk-blockquote">${quote}</div><p>`;
+          });
+          
+          // Then, handle paragraph breaks and line breaks
+          formattedAnswer = formattedAnswer.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>');
+          
+          // Wrap the entire content in a paragraph
           answerText.innerHTML = `<p>${formattedAnswer}</p>`;
 
           // Display sources
