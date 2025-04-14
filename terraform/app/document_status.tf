@@ -231,12 +231,32 @@ resource "aws_apigatewayv2_integration" "document_status_integration" {
   description            = "Integration with document status Lambda function"
 }
 
+# Create authorizer for the document status API (each API needs its own authorizer)
+resource "aws_apigatewayv2_authorizer" "document_status_authorizer" {
+  api_id           = aws_apigatewayv2_api.document_status_api.id
+  authorizer_type  = "REQUEST"
+  authorizer_uri   = aws_lambda_function.auth_authorizer.invoke_arn
+  identity_sources = ["$request.header.Authorization"]
+  name             = "lambda-authorizer"
+  authorizer_payload_format_version = "2.0"
+  enable_simple_responses = true
+}
+
+# Grant permission for the document status API to invoke the auth Lambda
+resource "aws_lambda_permission" "document_status_auth_permission" {
+  statement_id  = "AllowDocStatusAPIGatewayInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.auth_authorizer.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.document_status_api.execution_arn}/authorizers/*"
+}
+
 # API Gateway routes with authorizer
 resource "aws_apigatewayv2_route" "document_status_route" {
   api_id             = aws_apigatewayv2_api.document_status_api.id
   route_key          = "GET /status"
   target             = "integrations/${aws_apigatewayv2_integration.document_status_integration.id}"
-  authorizer_id      = aws_apigatewayv2_authorizer.lambda_authorizer.id
+  authorizer_id      = aws_apigatewayv2_authorizer.document_status_authorizer.id
   authorization_type = "CUSTOM"
 }
 
@@ -244,7 +264,7 @@ resource "aws_apigatewayv2_route" "document_status_path_route" {
   api_id             = aws_apigatewayv2_api.document_status_api.id
   route_key          = "GET /status/{document_id}"
   target             = "integrations/${aws_apigatewayv2_integration.document_status_integration.id}"
-  authorizer_id      = aws_apigatewayv2_authorizer.lambda_authorizer.id
+  authorizer_id      = aws_apigatewayv2_authorizer.document_status_authorizer.id
   authorization_type = "CUSTOM"
 }
 
@@ -252,7 +272,7 @@ resource "aws_apigatewayv2_route" "document_status_post_route" {
   api_id             = aws_apigatewayv2_api.document_status_api.id
   route_key          = "POST /status"
   target             = "integrations/${aws_apigatewayv2_integration.document_status_integration.id}"
-  authorizer_id      = aws_apigatewayv2_authorizer.lambda_authorizer.id
+  authorizer_id      = aws_apigatewayv2_authorizer.document_status_authorizer.id
   authorization_type = "CUSTOM"
 }
 
@@ -261,7 +281,7 @@ resource "aws_apigatewayv2_route" "document_status_options_route" {
   api_id             = aws_apigatewayv2_api.document_status_api.id
   route_key          = "OPTIONS /status"
   target             = "integrations/${aws_apigatewayv2_integration.document_status_integration.id}"
-  authorizer_id      = aws_apigatewayv2_authorizer.lambda_authorizer.id
+  authorizer_id      = aws_apigatewayv2_authorizer.document_status_authorizer.id
   authorization_type = "CUSTOM"
 }
 
