@@ -22,6 +22,9 @@ omit =
     */scripts/admin/*
     scripts/admin/generate_api_token.py
     */generate_api_token.py
+    diagrams/*
+    */diagrams/*
+    diagrams/architecture_diagram.py
 
 [report]
 exclude_lines =

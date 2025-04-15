@@ -22,7 +22,8 @@ source = ["src/lambda_functions"]
 omit = [
     "src/lambda_functions/*/dependencies/**",
     "scripts/**",
-    "scripts/admin/**"
+    "scripts/admin/**",
+    "diagrams/**"
 ]
 
 [tool.coverage.report]
