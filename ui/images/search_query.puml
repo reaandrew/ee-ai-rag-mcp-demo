@@ -1,0 +1,27 @@
+@startuml search_query
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam sequenceArrowThickness 1
+
+actor User
+participant "API Gateway" as APIGateway
+participant "Auth Authorizer\nLambda" as Authorizer
+participant "Policy Search\nLambda" as PolicySearch
+participant "Bedrock\nTitan Embeddings" as BedrockTitan
+participant "OpenSearch" as Search
+participant "Bedrock\nClaude" as BedrockClaude
+
+User -> APIGateway: POST /search
+APIGateway -> Authorizer: Validate Authorization token
+Authorizer --> APIGateway: Authorization result
+APIGateway -> PolicySearch: Forward query
+PolicySearch -> BedrockTitan: Generate embeddings for query
+BedrockTitan --> PolicySearch: Return query embeddings
+PolicySearch -> Search: Vector similarity search with query embeddings
+Search --> PolicySearch: Return relevant document chunks
+PolicySearch -> BedrockClaude: Send prompt with context and query
+BedrockClaude --> PolicySearch: Generate response with citations
+PolicySearch --> APIGateway: Return formatted response with citations
+APIGateway --> User: Return response
+@enduml

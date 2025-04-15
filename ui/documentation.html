@@ -1,0 +1,1308 @@
+<!DOCTYPE html>
+<html lang="en" class="govuk-template">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>Technical Documentation - Policy Search Solution</title>
+  
+  <!-- Styles based on GOV.UK Design System patterns -->
+  <style>
+    /* Global styles */
+    html {
+      height: 100%;
+      font-size: 16px;
+    }
+    
+    body {
+      min-height: 100vh;
+      margin: 0;
+      padding: 0;
+      color: #0b0c0c;
+      font-family: "GDS Transport", Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* GOV.UK colors */
+    :root {
+      --govuk-brand-colour: #1d70b8;
+      --govuk-text-colour: #0b0c0c;
+      --govuk-secondary-text-colour: #505a5f;
+      --govuk-border-colour: #b1b4b6;
+      --govuk-error-colour: #d4351c;
+      --govuk-success-colour: #00703c;
+      --govuk-focus-colour: #ffdd00;
+      --govuk-sidebar-bg: #f8f8f8;
+      --govuk-code-bg: #f3f2f1;
+    }
+
+    /* Global box sizing */
+    * {
+      box-sizing: border-box;
+    }
+
+    /* Header Styles */
+    .govuk-header {
+      background: #0b0c0c;
+      padding: 10px 0;
+      border-bottom: 10px solid #1d70b8;
+    }
+
+    .govuk-header__container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 15px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .govuk-header__link {
+      color: white;
+      text-decoration: none;
+      font-weight: bold;
+    }
+
+    .govuk-header__logotype-text {
+      font-size: 24px;
+      line-height: 1;
+    }
+
+    .govuk-header__service-name {
+      font-size: 18px;
+      line-height: 1.2;
+    }
+
+    .govuk-header__nav {
+      display: flex;
+      gap: 20px;
+    }
+
+    .govuk-header__nav-item {
+      margin: 0;
+      padding: 0;
+    }
+
+    .govuk-header__nav-link {
+      color: white;
+      text-decoration: none;
+      font-weight: normal;
+    }
+
+    .govuk-header__nav-link:hover {
+      text-decoration: underline;
+    }
+
+    /* Documentation layout */
+    .documentation-layout {
+      display: flex;
+      flex: 1;
+      background-color: #fff;
+    }
+
+    /* Table of contents sidebar */
+    .documentation-sidebar {
+      width: 280px;
+      padding: 25px 0;
+      background-color: var(--govuk-sidebar-bg);
+      border-right: 1px solid var(--govuk-border-colour);
+      flex-shrink: 0;
+      overflow-y: auto;
+      height: calc(100vh - 60px);
+      position: sticky;
+      top: 0;
+    }
+
+    .documentation-sidebar__nav {
+      padding: 0 20px;
+    }
+
+    .documentation-sidebar__heading {
+      font-size: 19px;
+      font-weight: bold;
+      margin: 0 0 15px 0;
+      padding: 0 5px;
+    }
+
+    .documentation-sidebar__list {
+      list-style: none;
+      margin: 0 0 20px 0;
+      padding: 0;
+    }
+
+    .documentation-sidebar__list-item {
+      margin-bottom: 5px;
+      padding: 8px 5px;
+      border-left: 4px solid transparent;
+    }
+
+    .documentation-sidebar__list-item--active {
+      border-left: 4px solid var(--govuk-brand-colour);
+      background-color: rgba(29, 112, 184, 0.1);
+      font-weight: bold;
+    }
+
+    .documentation-sidebar__link {
+      color: var(--govuk-brand-colour);
+      text-decoration: none;
+      display: block;
+    }
+
+    .documentation-sidebar__link:hover {
+      text-decoration: underline;
+    }
+
+    .documentation-sidebar__nav-section {
+      margin-bottom: 30px;
+    }
+
+    .documentation-sidebar__sub-list {
+      list-style: none;
+      margin: 5px 0 10px 15px;
+      padding: 0;
+    }
+
+    .documentation-sidebar__sub-item {
+      margin-bottom: 5px;
+      padding: 5px;
+      font-size: 15px;
+    }
+
+    /* Main content */
+    .documentation-content {
+      flex: 1;
+      padding: 25px 40px;
+      max-width: 920px;
+      margin: 0 auto;
+    }
+
+    /* Typography */
+    .govuk-heading-xl {
+      font-size: 32px;
+      font-weight: bold;
+      margin-top: 0;
+      margin-bottom: 30px;
+    }
+
+    .govuk-heading-l {
+      font-size: 28px;
+      font-weight: bold;
+      margin-top: 45px;
+      margin-bottom: 20px;
+      border-top: 1px solid var(--govuk-border-colour);
+      padding-top: 30px;
+    }
+
+    .govuk-heading-m {
+      font-size: 22px;
+      font-weight: bold;
+      margin-top: 35px;
+      margin-bottom: 15px;
+    }
+
+    .govuk-heading-s {
+      font-size: 18px;
+      font-weight: bold;
+      margin-top: 25px;
+      margin-bottom: 10px;
+    }
+
+    .govuk-body {
+      font-size: 17px;
+      line-height: 1.5;
+      margin-top: 0;
+      margin-bottom: 20px;
+    }
+
+    .govuk-body-s {
+      font-size: 15px;
+      line-height: 1.4;
+      margin-top: 0;
+      margin-bottom: 15px;
+    }
+
+    /* Lists */
+    .govuk-list {
+      font-size: 17px;
+      line-height: 1.5;
+      margin-top: 0;
+      margin-bottom: 20px;
+      padding-left: 20px;
+    }
+
+    .govuk-list--bullet {
+      list-style-type: disc;
+    }
+
+    .govuk-list--number {
+      list-style-type: decimal;
+    }
+
+    /* Code blocks */
+    .code-block {
+      background-color: var(--govuk-code-bg);
+      padding: 15px;
+      margin: 20px 0;
+      border-left: 4px solid var(--govuk-brand-colour);
+      overflow-x: auto;
+      font-family: monospace;
+      font-size: 15px;
+      line-height: 1.5;
+    }
+
+    /* Table styles */
+    .govuk-table {
+      width: 100%;
+      margin-bottom: 30px;
+      border-spacing: 0;
+      border-collapse: collapse;
+    }
+
+    .govuk-table__header {
+      font-weight: bold;
+      padding: 10px 20px 10px 0;
+      text-align: left;
+      background-color: var(--govuk-sidebar-bg);
+      border-bottom: 1px solid var(--govuk-border-colour);
+    }
+
+    .govuk-table__cell {
+      padding: 10px 20px 10px 0;
+      border-bottom: 1px solid var(--govuk-border-colour);
+      text-align: left;
+    }
+
+    /* Warning and information callouts */
+    .callout {
+      padding: 15px;
+      margin: 25px 0;
+      border-left: 5px solid;
+    }
+
+    .callout__title {
+      font-weight: bold;
+      margin-top: 0;
+      margin-bottom: 10px;
+    }
+
+    .callout--info {
+      background-color: #edf4fa;
+      border-left-color: var(--govuk-brand-colour);
+    }
+
+    .callout--warning {
+      background-color: #fff6ed;
+      border-left-color: #f47738;
+    }
+
+    .callout--success {
+      background-color: #e9f6eb;
+      border-left-color: var(--govuk-success-colour);
+    }
+
+    /* Images */
+    .documentation-image {
+      max-width: 100%;
+      height: auto;
+      margin: 20px 0;
+      border: 1px solid var(--govuk-border-colour);
+    }
+
+    .documentation-image--architecture {
+      max-width: 850px;
+    }
+
+    /* Footer */
+    .govuk-footer {
+      background-color: #f3f2f1;
+      padding: 30px 0;
+      border-top: 1px solid var(--govuk-border-colour);
+      margin-top: auto;
+    }
+
+    .govuk-footer__container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 15px;
+    }
+
+    .govuk-footer__meta {
+      display: flex;
+      margin-bottom: 15px;
+    }
+
+    .govuk-footer__meta-item {
+      margin-right: 15px;
+    }
+
+    .govuk-footer__meta-item--grow {
+      flex: 1;
+    }
+
+    .govuk-footer__inline-list {
+      list-style: none;
+      padding-left: 0;
+      margin-top: 0;
+      margin-bottom: 10px;
+    }
+
+    .govuk-footer__inline-list-item {
+      display: inline-block;
+      margin-right: 15px;
+      margin-bottom: 5px;
+    }
+
+    .govuk-footer__link {
+      color: var(--govuk-text-colour);
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+      .documentation-layout {
+        flex-direction: column;
+      }
+
+      .documentation-sidebar {
+        width: 100%;
+        height: auto;
+        position: relative;
+        border-right: none;
+        border-bottom: 1px solid var(--govuk-border-colour);
+      }
+
+      .documentation-content {
+        padding: 20px;
+      }
+
+      .govuk-heading-xl {
+        font-size: 28px;
+        margin-bottom: 20px;
+      }
+
+      .govuk-heading-l {
+        font-size: 24px;
+      }
+
+      .govuk-heading-m {
+        font-size: 20px;
+      }
+    }
+  </style>
+</head>
+<body class="govuk-template__body">
+  <header class="govuk-header" role="banner">
+    <div class="govuk-header__container">
+      <div class="govuk-header__logo">
+        <a href="index.html" class="govuk-header__link govuk-header__link--homepage">
+          <span class="govuk-header__logotype">
+            <span class="govuk-header__logotype-text">GOV.UK</span>
+          </span>
+        </a>
+      </div>
+      <div class="govuk-header__content">
+        <a href="index.html" class="govuk-header__link govuk-header__service-name">
+          Policy Search
+        </a>
+      </div>
+      <nav class="govuk-header__nav">
+        <ul class="govuk-header__nav-list">
+          <li class="govuk-header__nav-item">
+            <a class="govuk-header__nav-link" href="index.html">Home</a>
+          </li>
+          <li class="govuk-header__nav-item">
+            <a class="govuk-header__nav-link" href="documentation.html">Documentation</a>
+          </li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <div class="documentation-layout">
+    <!-- Sidebar navigation / Table of contents -->
+    <aside class="documentation-sidebar">
+      <nav class="documentation-sidebar__nav">
+        <h2 class="documentation-sidebar__heading">Contents</h2>
+        
+        <div class="documentation-sidebar__nav-section">
+          <ul class="documentation-sidebar__list">
+            <li class="documentation-sidebar__list-item">
+              <a href="#overview" class="documentation-sidebar__link">1. Overview</a>
+            </li>
+            <li class="documentation-sidebar__list-item">
+              <a href="#architecture" class="documentation-sidebar__link">2. Architecture</a>
+              <ul class="documentation-sidebar__sub-list">
+                <li class="documentation-sidebar__sub-item">
+                  <a href="#user-interface" class="documentation-sidebar__link">2.1 User Interface</a>
+                </li>
+                <li class="documentation-sidebar__sub-item">
+                  <a href="#api-layer" class="documentation-sidebar__link">2.2 API Layer</a>
+                </li>
+                <li class="documentation-sidebar__sub-item">
+                  <a href="#document-processing" class="documentation-sidebar__link">2.3 Document Processing</a>
+                </li>
+                <li class="documentation-sidebar__sub-item">
+                  <a href="#data-storage" class="documentation-sidebar__link">2.4 Data Storage</a>
+                </li>
+              </ul>
+            </li>
+            <li class="documentation-sidebar__list-item">
+              <a href="#setup-deployment" class="documentation-sidebar__link">3. Setup & Deployment</a>
+              <ul class="documentation-sidebar__sub-list">
+                <li class="documentation-sidebar__sub-item">
+                  <a href="#prerequisites" class="documentation-sidebar__link">3.1 Prerequisites</a>
+                </li>
+                <li class="documentation-sidebar__sub-item">
+                  <a href="#infrastructure-setup" class="documentation-sidebar__link">3.2 Infrastructure Setup</a>
+                </li>
+                <li class="documentation-sidebar__sub-item">
+                  <a href="#application-deployment" class="documentation-sidebar__link">3.3 Application Deployment</a>
+                </li>
+                <li class="documentation-sidebar__sub-item">
+                  <a href="#ci-cd-pipeline" class="documentation-sidebar__link">3.4 CI/CD Pipeline</a>
+                </li>
+              </ul>
+            </li>
+            <li class="documentation-sidebar__list-item">
+              <a href="#operation" class="documentation-sidebar__link">4. Operation</a>
+              <ul class="documentation-sidebar__sub-list">
+                <li class="documentation-sidebar__sub-item">
+                  <a href="#uploading-documents" class="documentation-sidebar__link">4.1 Uploading Documents</a>
+                </li>
+                <li class="documentation-sidebar__sub-item">
+                  <a href="#document-processing-flow" class="documentation-sidebar__link">4.2 Document Processing Flow</a>
+                </li>
+                <li class="documentation-sidebar__sub-item">
+                  <a href="#monitoring-status" class="documentation-sidebar__link">4.3 Monitoring Status</a>
+                </li>
+                <li class="documentation-sidebar__sub-item">
+                  <a href="#searching-policies" class="documentation-sidebar__link">4.4 Searching Policies</a>
+                </li>
+              </ul>
+            </li>
+            <li class="documentation-sidebar__list-item">
+              <a href="#development" class="documentation-sidebar__link">5. Development</a>
+              <ul class="documentation-sidebar__sub-list">
+                <li class="documentation-sidebar__sub-item">
+                  <a href="#local-development" class="documentation-sidebar__link">5.1 Local Development</a>
+                </li>
+                <li class="documentation-sidebar__sub-item">
+                  <a href="#code-structure" class="documentation-sidebar__link">5.2 Code Structure</a>
+                </li>
+                <li class="documentation-sidebar__sub-item">
+                  <a href="#testing" class="documentation-sidebar__link">5.3 Testing</a>
+                </li>
+                <li class="documentation-sidebar__sub-item">
+                  <a href="#contribution-guidelines" class="documentation-sidebar__link">5.4 Contribution Guidelines</a>
+                </li>
+              </ul>
+            </li>
+            <li class="documentation-sidebar__list-item">
+              <a href="#security" class="documentation-sidebar__link">6. Security</a>
+              <ul class="documentation-sidebar__sub-list">
+                <li class="documentation-sidebar__sub-item">
+                  <a href="#authentication" class="documentation-sidebar__link">6.1 Authentication</a>
+                </li>
+                <li class="documentation-sidebar__sub-item">
+                  <a href="#data-protection" class="documentation-sidebar__link">6.2 Data Protection</a>
+                </li>
+                <li class="documentation-sidebar__sub-item">
+                  <a href="#compliance" class="documentation-sidebar__link">6.3 Compliance</a>
+                </li>
+              </ul>
+            </li>
+            <li class="documentation-sidebar__list-item">
+              <a href="#performance" class="documentation-sidebar__link">7. Performance & Scaling</a>
+              <ul class="documentation-sidebar__sub-list">
+                <li class="documentation-sidebar__sub-item">
+                  <a href="#performance-considerations" class="documentation-sidebar__link">7.1 Performance Considerations</a>
+                </li>
+                <li class="documentation-sidebar__sub-item">
+                  <a href="#scaling-strategies" class="documentation-sidebar__link">7.2 Scaling Strategies</a>
+                </li>
+                <li class="documentation-sidebar__sub-item">
+                  <a href="#cost-optimization" class="documentation-sidebar__link">7.3 Cost Optimization</a>
+                </li>
+              </ul>
+            </li>
+            <li class="documentation-sidebar__list-item">
+              <a href="#troubleshooting" class="documentation-sidebar__link">8. Troubleshooting</a>
+              <ul class="documentation-sidebar__sub-list">
+                <li class="documentation-sidebar__sub-item">
+                  <a href="#common-issues" class="documentation-sidebar__link">8.1 Common Issues</a>
+                </li>
+                <li class="documentation-sidebar__sub-item">
+                  <a href="#logging-monitoring" class="documentation-sidebar__link">8.2 Logging & Monitoring</a>
+                </li>
+                <li class="documentation-sidebar__sub-item">
+                  <a href="#support" class="documentation-sidebar__link">8.3 Support</a>
+                </li>
+              </ul>
+            </li>
+            <li class="documentation-sidebar__list-item">
+              <a href="#references" class="documentation-sidebar__link">9. References</a>
+            </li>
+          </ul>
+        </div>
+      </nav>
+    </aside>
+
+    <!-- Main documentation content -->
+    <main class="documentation-content">
+      <h1 class="govuk-heading-xl" id="overview">EE-AI-RAG-MCP-Demo Technical Documentation</h1>
+      
+      <section>
+        <p class="govuk-body">
+          This documentation provides a comprehensive technical overview of the EE-AI-RAG-MCP-Demo solution, a serverless application that enables semantic search of policy documents using AWS services and RAG (Retrieval Augmented Generation) technology.
+        </p>
+        
+        <div class="callout callout--info">
+          <h3 class="callout__title">About This Solution</h3>
+          <p class="govuk-body">
+            The EE-AI-RAG-MCP-Demo is a production-ready solution that demonstrates how to build a modern document processing and retrieval system using AWS serverless technologies. It allows users to upload PDF documents, process them into searchable chunks, and query them using natural language through a semantic search interface.
+          </p>
+        </div>
+      </section>
+
+      <section>
+        <h2 class="govuk-heading-l" id="architecture">2. Architecture</h2>
+        
+        <p class="govuk-body">
+          The solution is built using a serverless, event-driven architecture on AWS. It consists of multiple components organized in layers that work together to provide the complete document processing and semantic search functionality.
+        </p>
+        
+        <img src="images/ee_ai_rag_mcp_architecture.png" alt="Architecture Overview Diagram" class="documentation-image documentation-image--architecture">
+        
+        <p class="govuk-body">
+          The architecture follows AWS best practices for security, scalability, and high availability. The components are loosely coupled through event-driven communication, allowing for independent scaling and resilience.
+        </p>
+        
+        <p class="govuk-body">
+          This RAG (Retrieval Augmented Generation) system integrates several AWS services:
+        </p>
+        
+        <ul class="govuk-list govuk-list--bullet">
+          <li><strong>Document Ingestion:</strong> PDF documents are uploaded to S3, triggering a processing pipeline</li>
+          <li><strong>Text Processing:</strong> Text is extracted using AWS Textract and chunked for optimal processing</li>
+          <li><strong>Vector Generation:</strong> Text chunks are converted to vector embeddings using Amazon Bedrock</li>
+          <li><strong>Vector Storage:</strong> Embeddings are stored in OpenSearch for efficient similarity search</li>
+          <li><strong>Query Processing:</strong> Natural language queries are converted to vectors and used to find relevant information</li>
+          <li><strong>Response Generation:</strong> Relevant context and the original query are sent to Claude to generate comprehensive answers</li>
+        </ul>
+
+        <h3 class="govuk-heading-m" id="user-interface">2.1 User Interface</h3>
+        
+        <p class="govuk-body">
+          The user interface is a static website hosted on Amazon S3 and distributed via Amazon CloudFront, providing secure HTTPS access and global content delivery.
+        </p>
+        
+        <ul class="govuk-list govuk-list--bullet">
+          <li><strong>S3 Website Bucket:</strong> Hosts the static HTML, CSS, and JavaScript files.</li>
+          <li><strong>CloudFront Distribution:</strong> Provides HTTPS access, caching, and global distribution of the UI content.</li>
+          <li><strong>Origin Access Control (OAC):</strong> Secures S3 bucket content so it's only accessible through CloudFront.</li>
+        </ul>
+
+        <h3 class="govuk-heading-m" id="api-layer">2.2 API Layer</h3>
+        
+        <p class="govuk-body">
+          The API layer provides secure endpoints for policy search and document status queries, with JWT token authentication.
+        </p>
+        
+        <ul class="govuk-list govuk-list--bullet">
+          <li><strong>API Gateway:</strong> HTTP API with CORS support and Lambda integration.</li>
+          <li><strong>Auth Authorizer Lambda:</strong> Validates JWT tokens for secure API access.</li>
+          <li><strong>KMS Key:</strong> Used for token signing and verification.</li>
+          <li><strong>Policy Search Lambda:</strong> Processes natural language queries and retrieves relevant policy information.</li>
+          <li><strong>Document Status Lambda:</strong> Provides information about document processing status.</li>
+        </ul>
+
+        <div class="code-block">
+# API Gateway route with JWT authorizer
+resource "aws_apigatewayv2_route" "policy_search_route" {
+  api_id             = aws_apigatewayv2_api.policy_search_api.id
+  route_key          = "POST /search"
+  target             = "integrations/${aws_apigatewayv2_integration.policy_search_integration.id}"
+  authorizer_id      = aws_apigatewayv2_authorizer.lambda_authorizer.id
+  authorization_type = "CUSTOM"
+}
+        </div>
+
+        <h3 class="govuk-heading-m" id="document-processing">2.3 Document Processing</h3>
+        
+        <p class="govuk-body">
+          The document processing pipeline handles the ingestion, extraction, chunking, and vectorization of PDF documents.
+        </p>
+        
+        <ul class="govuk-list govuk-list--bullet">
+          <li><strong>Text Extractor Lambda:</strong> Triggered by S3 events when PDFs are uploaded, uses Amazon Textract to extract text.</li>
+          <li><strong>Text Chunker Lambda:</strong> Splits extracted text into semantically meaningful chunks for indexing.</li>
+          <li><strong>Vector Generator Lambda:</strong> Creates vector embeddings for text chunks using AWS Bedrock.</li>
+          <li><strong>Document Tracking Lambda:</strong> Tracks document processing status and updates DynamoDB.</li>
+          <li><strong>SNS Topic:</strong> Decouples components and enables asynchronous processing.</li>
+        </ul>
+
+        <h3 class="govuk-heading-m" id="data-storage">2.4 Data Storage</h3>
+        
+        <p class="govuk-body">
+          The solution uses multiple storage services to manage data throughout the processing pipeline.
+        </p>
+        
+        <ul class="govuk-list govuk-list--bullet">
+          <li><strong>S3 Buckets:</strong> Store raw PDFs, extracted text, chunked text, and vector embeddings.</li>
+          <li><strong>OpenSearch:</strong> Stores and indexes vector embeddings for semantic search.</li>
+          <li><strong>DynamoDB:</strong> Tracks document processing status and metadata.</li>
+          <li><strong>CloudWatch Logs:</strong> Captures Lambda function logs for monitoring and debugging.</li>
+        </ul>
+
+        <table class="govuk-table">
+          <caption class="govuk-heading-s">Storage Components and Their Purposes</caption>
+          <thead>
+            <tr>
+              <th scope="col" class="govuk-table__header">Component</th>
+              <th scope="col" class="govuk-table__header">Purpose</th>
+              <th scope="col" class="govuk-table__header">Security Features</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="govuk-table__cell">S3 Raw PDFs Bucket</td>
+              <td class="govuk-table__cell">Store uploaded PDF documents</td>
+              <td class="govuk-table__cell">Server-side encryption, lifecycle policies</td>
+            </tr>
+            <tr>
+              <td class="govuk-table__cell">S3 Extracted Text Bucket</td>
+              <td class="govuk-table__cell">Store text extracted from PDFs</td>
+              <td class="govuk-table__cell">Server-side encryption, IAM policies</td>
+            </tr>
+            <tr>
+              <td class="govuk-table__cell">S3 Chunked Text Bucket</td>
+              <td class="govuk-table__cell">Store text chunks with metadata</td>
+              <td class="govuk-table__cell">Server-side encryption, IAM policies</td>
+            </tr>
+            <tr>
+              <td class="govuk-table__cell">OpenSearch Domain</td>
+              <td class="govuk-table__cell">Vector database for embeddings</td>
+              <td class="govuk-table__cell">Encryption, IAM access control</td>
+            </tr>
+            <tr>
+              <td class="govuk-table__cell">DynamoDB Table</td>
+              <td class="govuk-table__cell">Document processing status</td>
+              <td class="govuk-table__cell">Encryption at rest, IAM policies</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2 class="govuk-heading-l" id="setup-deployment">3. Setup & Deployment</h2>
+        
+        <h3 class="govuk-heading-m" id="prerequisites">3.1 Prerequisites</h3>
+        
+        <p class="govuk-body">
+          Before deploying the solution, ensure you have the following prerequisites in place:
+        </p>
+        
+        <ul class="govuk-list govuk-list--bullet">
+          <li>AWS Account with appropriate permissions</li>
+          <li>AWS CLI configured with appropriate credentials</li>
+          <li>Terraform v1.0.0 or later</li>
+          <li>Python 3.9 or later</li>
+          <li>Node.js 14.x or later (for UI development)</li>
+          <li>GitHub account (for CI/CD integration)</li>
+        </ul>
+
+        <div class="callout callout--warning">
+          <h3 class="callout__title">AWS Permissions</h3>
+          <p class="govuk-body">
+            The deployment requires administrative privileges in your AWS account. For production environments, it's recommended to use the principle of least privilege and create a dedicated IAM role with only the necessary permissions.
+          </p>
+        </div>
+
+        <h3 class="govuk-heading-m" id="infrastructure-setup">3.2 Infrastructure Setup</h3>
+        
+        <p class="govuk-body">
+          The infrastructure is defined as code using Terraform and organized in two main modules:
+        </p>
+        
+        <ul class="govuk-list govuk-list--bullet">
+          <li><strong>Admin Setup:</strong> Creates foundational resources for deployment (S3 bucket for Terraform state, DynamoDB for state locking, IAM roles for CI/CD)</li>
+          <li><strong>Application:</strong> Deploys the application components (Lambda functions, S3 buckets, OpenSearch domain, API Gateway, etc.)</li>
+        </ul>
+
+        <div class="code-block">
+# Initialize admin setup
+cd terraform/admin-setup
+terraform init
+terraform apply -var="aws_account_id=YOUR_ACCOUNT_ID"
+
+# Deploy application infrastructure
+cd ../app
+terraform init \
+  -backend-config="bucket=YOUR_TERRAFORM_STATE_BUCKET" \
+  -backend-config="key=app/terraform.tfstate" \
+  -backend-config="region=eu-west-2" \
+  -backend-config="dynamodb_table=YOUR_TERRAFORM_LOCK_TABLE"
+  
+terraform apply -var="app_version=1.0.0"
+        </div>
+
+        <h3 class="govuk-heading-m" id="application-deployment">3.3 Application Deployment</h3>
+        
+        <p class="govuk-body">
+          The application deployment includes preparing Lambda function packages, building layers, and updating the infrastructure:
+        </p>
+        
+        <ol class="govuk-list govuk-list--number">
+          <li>Install Lambda function dependencies</li>
+          <li>Create Lambda layers for shared dependencies</li>
+          <li>Package Lambda functions</li>
+          <li>Deploy infrastructure with Terraform</li>
+          <li>Upload UI files to the S3 bucket</li>
+        </ol>
+
+        <div class="code-block">
+# Install dependencies and create layers
+./install_lambda_deps.sh
+
+# Build Lambda packages
+./build_lambda.sh
+
+# Deploy with Terraform (as shown in the previous section)
+
+# After deployment, get the CloudFront URL
+terraform output cloudfront_url
+        </div>
+
+        <h3 class="govuk-heading-m" id="ci-cd-pipeline">3.4 CI/CD Pipeline</h3>
+        
+        <p class="govuk-body">
+          The project includes a CI/CD pipeline configured in GitHub Actions that automates testing, building, and deployment:
+        </p>
+        
+        <ul class="govuk-list govuk-list--bullet">
+          <li>Automatically runs linting and tests on pull requests</li>
+          <li>Builds Lambda packages and layers</li>
+          <li>Deploys infrastructure changes using Terraform</li>
+          <li>Updates UI files in the S3 bucket</li>
+          <li>Uses AWS OIDC integration for secure authentication</li>
+        </ul>
+
+        <p class="govuk-body">
+          The CI/CD pipeline is configured to deploy to different environments based on the Git branch:
+        </p>
+        
+        <ul class="govuk-list govuk-list--bullet">
+          <li><code>main</code> branch deploys to production</li>
+          <li><code>feature/*</code> branches can deploy to development environments</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2 class="govuk-heading-l" id="operation">4. Operation</h2>
+        
+        <h3 class="govuk-heading-m" id="uploading-documents">4.1 Uploading Documents</h3>
+        
+        <p class="govuk-body">
+          Documents can be uploaded to the system in two ways:
+        </p>
+        
+        <ul class="govuk-list govuk-list--bullet">
+          <li><strong>Direct S3 Upload:</strong> PDFs can be uploaded directly to the Raw PDFs bucket using the AWS Console, CLI, or SDKs.</li>
+          <li><strong>API-based Upload:</strong> A separate upload API can be used to programmatically upload documents (not included in this demo but can be added).</li>
+        </ul>
+
+        <div class="callout callout--info">
+          <h3 class="callout__title">Supported Document Formats</h3>
+          <p class="govuk-body">
+            The current implementation supports PDF documents. To support other formats like Word or Excel, additional preprocessing steps would need to be added to the pipeline.
+          </p>
+        </div>
+
+        <h3 class="govuk-heading-m" id="document-processing-flow">4.2 Document Processing Flow</h3>
+        
+        <p class="govuk-body">
+          When a document is uploaded to the Raw PDFs bucket, it triggers the following processing flow:
+        </p>
+        
+        <h4 class="govuk-heading-s">Stage 1: Document Upload and Text Extraction</h4>
+        <img src="images/document_upload.png" alt="Document Upload and Text Extraction" class="documentation-image">
+        
+        <ol class="govuk-list govuk-list--number">
+          <li><strong>PDF Upload:</strong> User uploads a PDF document to the S3 raw PDF bucket</li>
+          <li><strong>Event Trigger:</strong> The upload event triggers the Text Extractor Lambda</li>
+          <li><strong>Text Extraction:</strong> The Lambda extracts text using Amazon Textract</li>
+          <li><strong>Status Tracking:</strong> Processing status is recorded in DynamoDB</li>
+        </ol>
+        
+        <h4 class="govuk-heading-s">Stage 2: Text Chunking</h4>
+        <img src="images/text_chunking.png" alt="Text Chunking Process" class="documentation-image">
+        
+        <ol class="govuk-list govuk-list--number">
+          <li><strong>Chunk Creation:</strong> The Text Chunker Lambda splits extracted text into semantic chunks</li>
+          <li><strong>Chunk Storage:</strong> Chunks are saved to the Chunked Text bucket</li>
+          <li><strong>Status Update:</strong> Chunking status is updated in DynamoDB</li>
+        </ol>
+        
+        <h4 class="govuk-heading-s">Stage 3: Vector Generation and Indexing</h4>
+        <img src="images/vector_generation.png" alt="Vector Generation and Indexing" class="documentation-image">
+        
+        <ol class="govuk-list govuk-list--number">
+          <li><strong>Embedding Generation:</strong> The Vector Generator Lambda uses Bedrock to create embeddings</li>
+          <li><strong>Vector Indexing:</strong> Embeddings are stored in OpenSearch for similarity search</li>
+          <li><strong>Completion Tracking:</strong> Progress is tracked for each chunk, with completion event when all chunks are processed</li>
+        </ol>
+
+        <p class="govuk-body">
+          The entire process is asynchronous and designed to handle large documents efficiently. Progress can be monitored through the Document Status API.
+        </p>
+
+        <h3 class="govuk-heading-m" id="monitoring-status">4.3 Monitoring Status</h3>
+        
+        <p class="govuk-body">
+          Document processing status can be monitored through:
+        </p>
+        
+        <img src="images/status_query.png" alt="Document Status Query Process" class="documentation-image">
+        
+        <ul class="govuk-list govuk-list--bullet">
+          <li><strong>UI Status Panel:</strong> The Document Status tab in the UI shows current processing status of all documents.</li>
+          <li><strong>API Status Endpoint:</strong> The status API endpoint provides programmatic access to document processing status.</li>
+          <li><strong>CloudWatch Logs:</strong> Each Lambda function logs detailed information about processing steps.</li>
+          <li><strong>CloudWatch Metrics:</strong> Standard metrics are available for all components of the system.</li>
+        </ul>
+
+        <p class="govuk-body">
+          Document status transitions through the following states:
+        </p>
+        
+        <ul class="govuk-list govuk-list--bullet">
+          <li><strong>PROCESSING:</strong> Document is being processed through the pipeline.</li>
+          <li><strong>COMPLETED:</strong> Document has been fully processed and indexed.</li>
+          <li><strong>CANCELLED:</strong> Processing was cancelled, typically because a newer version was uploaded.</li>
+          <li><strong>ERROR:</strong> An error occurred during processing.</li>
+        </ul>
+
+        <h3 class="govuk-heading-m" id="searching-policies">4.4 Searching Policies</h3>
+        
+        <p class="govuk-body">
+          Users can search for policies using natural language queries through:
+        </p>
+        
+        <ul class="govuk-list govuk-list--bullet">
+          <li><strong>UI Search Interface:</strong> Enter questions or keywords in the search box.</li>
+          <li><strong>API Search Endpoint:</strong> Submit queries programmatically through the API.</li>
+        </ul>
+
+        <p class="govuk-body">
+          The search process works as follows:
+        </p>
+        
+        <img src="images/search_query.png" alt="Search Query Process" class="documentation-image">
+        
+        <ol class="govuk-list govuk-list--number">
+          <li>The user's query is converted to a vector embedding using AWS Bedrock.</li>
+          <li>OpenSearch performs a k-NN similarity search to find the most relevant text chunks.</li>
+          <li>The most relevant chunks are retrieved and sent to AWS Bedrock Claude to generate a comprehensive answer.</li>
+          <li>The answer is returned to the user with citations to the source documents.</li>
+        </ol>
+
+        <div class="callout callout--info">
+          <h3 class="callout__title">Authentication Requirement</h3>
+          <p class="govuk-body">
+            API searches require a valid JWT token for authentication. Tokens can be generated with the appropriate permissions and provided in the Authorization header.
+          </p>
+        </div>
+      </section>
+
+      <section>
+        <h2 class="govuk-heading-l" id="development">5. Development</h2>
+        
+        <h3 class="govuk-heading-m" id="local-development">5.1 Local Development</h3>
+        
+        <p class="govuk-body">
+          The project supports local development for various components:
+        </p>
+        
+        <ul class="govuk-list govuk-list--bullet">
+          <li><strong>Lambda Functions:</strong> Can be developed and tested locally using tools like AWS SAM or by invoking handlers directly.</li>
+          <li><strong>UI:</strong> The UI is a static website that can be served locally for development.</li>
+          <li><strong>Infrastructure:</strong> Terraform configurations can be validated and planned locally.</li>
+        </ul>
+
+        <div class="code-block">
+# Set up local Python environment
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements-dev.txt
+
+# Run tests
+pytest
+
+# Run linting
+flake8 src && black --check src tests
+
+# Validate Terraform configurations
+cd terraform/app
+terraform validate
+        </div>
+
+        <h3 class="govuk-heading-m" id="code-structure">5.2 Code Structure</h3>
+        
+        <p class="govuk-body">
+          The codebase is organized as follows:
+        </p>
+        
+        <ul class="govuk-list govuk-list--bullet">
+          <li><strong>src/</strong>: Source code for Lambda functions and utilities</li>
+          <li><strong>src/lambda_functions/</strong>: Individual Lambda function implementations</li>
+          <li><strong>src/utils/</strong>: Shared utility modules</li>
+          <li><strong>terraform/</strong>: Terraform configuration files</li>
+          <li><strong>terraform/admin-setup/</strong>: Foundational infrastructure configuration</li>
+          <li><strong>terraform/app/</strong>: Application infrastructure configuration</li>
+          <li><strong>ui/</strong>: User interface files</li>
+          <li><strong>tests/</strong>: Test cases for Lambda functions and utilities</li>
+          <li><strong>scripts/</strong>: Utility scripts for building and deployment</li>
+          <li><strong>diagrams/</strong>: Architecture diagrams and documentation</li>
+        </ul>
+
+        <h3 class="govuk-heading-m" id="testing">5.3 Testing</h3>
+        
+        <p class="govuk-body">
+          The project includes comprehensive testing:
+        </p>
+        
+        <ul class="govuk-list govuk-list--bullet">
+          <li><strong>Unit Tests:</strong> For Lambda function handlers and utility modules.</li>
+          <li><strong>Integration Tests:</strong> For interactions between components.</li>
+          <li><strong>Code Coverage:</strong> Measured and enforced for Python code.</li>
+          <li><strong>Linting:</strong> Using flake8 and black for code quality.</li>
+          <li><strong>Pre-commit Hooks:</strong> Automatically run tests and linting before commits.</li>
+        </ul>
+
+        <div class="callout callout--success">
+          <h3 class="callout__title">Test Coverage Requirement</h3>
+          <p class="govuk-body">
+            The project enforces a minimum test coverage of 80% for all Python code. This helps ensure high code quality and reduces the risk of bugs in production.
+          </p>
+        </div>
+
+        <h3 class="govuk-heading-m" id="contribution-guidelines">5.4 Contribution Guidelines</h3>
+        
+        <p class="govuk-body">
+          Contributions to the project should follow these guidelines:
+        </p>
+        
+        <ul class="govuk-list govuk-list--bullet">
+          <li>Fork the repository and create a feature branch for your changes.</li>
+          <li>Ensure all tests pass and code meets quality standards.</li>
+          <li>Include appropriate tests for new features or bug fixes.</li>
+          <li>Update documentation to reflect changes.</li>
+          <li>Submit a pull request with a clear description of the changes.</li>
+        </ul>
+
+        <p class="govuk-body">
+          The CI/CD pipeline will automatically run tests and linting checks on pull requests to ensure code quality.
+        </p>
+      </section>
+
+      <section>
+        <h2 class="govuk-heading-l" id="security">6. Security</h2>
+        
+        <h3 class="govuk-heading-m" id="authentication">6.1 Authentication</h3>
+        
+        <p class="govuk-body">
+          The solution implements the following authentication mechanisms:
+        </p>
+        
+        <ul class="govuk-list govuk-list--bullet">
+          <li><strong>API Authentication:</strong> JWT tokens validated by a Lambda authorizer.</li>
+          <li><strong>Token Signing:</strong> KMS for secure token signing and verification.</li>
+          <li><strong>UI Access:</strong> Secured via CloudFront with HTTPS.</li>
+          <li><strong>AWS Service Authentication:</strong> IAM roles with least privilege.</li>
+        </ul>
+
+        <h3 class="govuk-heading-m" id="data-protection">6.2 Data Protection</h3>
+        
+        <p class="govuk-body">
+          Data is protected throughout the system using:
+        </p>
+        
+        <ul class="govuk-list govuk-list--bullet">
+          <li><strong>Encryption at Rest:</strong> All S3 buckets, DynamoDB tables, and OpenSearch domains use encryption.</li>
+          <li><strong>Encryption in Transit:</strong> HTTPS enforcement for all communication.</li>
+          <li><strong>IAM Policies:</strong> Fine-grained access control for AWS resources.</li>
+          <li><strong>Secrets Management:</strong> Sensitive credentials stored in AWS Secrets Manager.</li>
+          <li><strong>S3 Bucket Policies:</strong> Restrict access to authorized principals only.</li>
+        </ul>
+
+        <h3 class="govuk-heading-m" id="compliance">6.3 Compliance</h3>
+        
+        <p class="govuk-body">
+          The solution is designed with compliance in mind:
+        </p>
+        
+        <ul class="govuk-list govuk-list--bullet">
+          <li><strong>Logging:</strong> Comprehensive logging for audit and compliance requirements.</li>
+          <li><strong>Resource Tagging:</strong> All resources are tagged for cost allocation and governance.</li>
+          <li><strong>IAM Roles:</strong> Least privilege principle applied to all service roles.</li>
+          <li><strong>Encryption:</strong> Consistent encryption across all data stores.</li>
+          <li><strong>Monitoring:</strong> CloudWatch alarms and metrics for operational visibility.</li>
+        </ul>
+
+        <div class="callout callout--warning">
+          <h3 class="callout__title">Regulatory Compliance</h3>
+          <p class="govuk-body">
+            While the solution implements best practices for security, specific regulatory requirements (GDPR, HIPAA, etc.) may require additional controls or modifications.
+          </p>
+        </div>
+      </section>
+
+      <section>
+        <h2 class="govuk-heading-l" id="performance">7. Performance & Scaling</h2>
+        
+        <h3 class="govuk-heading-m" id="performance-considerations">7.1 Performance Considerations</h3>
+        
+        <p class="govuk-body">
+          The solution is designed for performance in key areas:
+        </p>
+        
+        <ul class="govuk-list govuk-list--bullet">
+          <li><strong>Document Processing:</strong> Asynchronous, event-driven architecture for parallel processing.</li>
+          <li><strong>Search Latency:</strong> OpenSearch optimized for fast vector searches.</li>
+          <li><strong>UI Responsiveness:</strong> CloudFront distribution for low-latency content delivery.</li>
+          <li><strong>API Performance:</strong> Serverless architecture allows automatic scaling based on load.</li>
+        </ul>
+
+        <h3 class="govuk-heading-m" id="scaling-strategies">7.2 Scaling Strategies</h3>
+        
+        <p class="govuk-body">
+          The solution scales automatically in several ways:
+        </p>
+        
+        <ul class="govuk-list govuk-list--bullet">
+          <li><strong>Lambda Functions:</strong> Automatically scale based on concurrent invocations.</li>
+          <li><strong>S3 Buckets:</strong> Virtually unlimited storage and high throughput.</li>
+          <li><strong>DynamoDB:</strong> Auto-scaling for read and write capacity.</li>
+          <li><strong>OpenSearch:</strong> Can be scaled by adjusting instance type and count.</li>
+          <li><strong>API Gateway:</strong> Handles thousands of concurrent requests.</li>
+        </ul>
+
+        <p class="govuk-body">
+          For high-volume scenarios, consider:
+        </p>
+        
+        <ul class="govuk-list govuk-list--bullet">
+          <li>Increasing Lambda memory allocations for better performance.</li>
+          <li>Scaling OpenSearch domain with more instances or larger instance types.</li>
+          <li>Implementing batching for large document processing jobs.</li>
+          <li>Setting appropriate concurrency limits on Lambda functions.</li>
+        </ul>
+
+        <h3 class="govuk-heading-m" id="cost-optimization">7.3 Cost Optimization</h3>
+        
+        <p class="govuk-body">
+          The serverless architecture helps optimize costs, but consider these strategies:
+        </p>
+        
+        <ul class="govuk-list govuk-list--bullet">
+          <li><strong>S3 Lifecycle Policies:</strong> Automatically transition old objects to cheaper storage tiers.</li>
+          <li><strong>Lambda Optimization:</strong> Balance memory allocation and execution time for cost efficiency.</li>
+          <li><strong>CloudFront Caching:</strong> Reduce origin requests by optimizing cache settings.</li>
+          <li><strong>Reserved Capacity:</strong> For predictable workloads, consider reserved capacity for services like OpenSearch.</li>
+          <li><strong>Monitoring and Alerting:</strong> Set up cost anomaly detection to identify unexpected charges.</li>
+        </ul>
+
+        <table class="govuk-table">
+          <caption class="govuk-heading-s">Estimated Monthly Costs (Low-Volume Usage)</caption>
+          <thead>
+            <tr>
+              <th scope="col" class="govuk-table__header">Service</th>
+              <th scope="col" class="govuk-table__header">Typical Cost</th>
+              <th scope="col" class="govuk-table__header">Cost Factors</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="govuk-table__cell">Lambda Functions</td>
+              <td class="govuk-table__cell">$10-30</td>
+              <td class="govuk-table__cell">Invocations, memory, duration</td>
+            </tr>
+            <tr>
+              <td class="govuk-table__cell">S3 Storage</td>
+              <td class="govuk-table__cell">$1-5</td>
+              <td class="govuk-table__cell">Storage volume, requests</td>
+            </tr>
+            <tr>
+              <td class="govuk-table__cell">OpenSearch</td>
+              <td class="govuk-table__cell">$80-200</td>
+              <td class="govuk-table__cell">Instance type, number of instances</td>
+            </tr>
+            <tr>
+              <td class="govuk-table__cell">DynamoDB</td>
+              <td class="govuk-table__cell">$5-15</td>
+              <td class="govuk-table__cell">Read/write capacity units, storage</td>
+            </tr>
+            <tr>
+              <td class="govuk-table__cell">API Gateway</td>
+              <td class="govuk-table__cell">$5-20</td>
+              <td class="govuk-table__cell">Number of requests</td>
+            </tr>
+            <tr>
+              <td class="govuk-table__cell">CloudFront</td>
+              <td class="govuk-table__cell">$1-5</td>
+              <td class="govuk-table__cell">Data transfer, requests</td>
+            </tr>
+            <tr>
+              <td class="govuk-table__cell">AWS Textract</td>
+              <td class="govuk-table__cell">$10-30</td>
+              <td class="govuk-table__cell">Number of pages processed</td>
+            </tr>
+            <tr>
+              <td class="govuk-table__cell">AWS Bedrock</td>
+              <td class="govuk-table__cell">$20-100</td>
+              <td class="govuk-table__cell">Input/output tokens, embedding generation</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2 class="govuk-heading-l" id="troubleshooting">8. Troubleshooting</h2>
+        
+        <h3 class="govuk-heading-m" id="common-issues">8.1 Common Issues</h3>
+        
+        <p class="govuk-body">
+          Common issues and their solutions:
+        </p>
+        
+        <ul class="govuk-list govuk-list--bullet">
+          <li><strong>Documents Stuck in PROCESSING State:</strong> Check the Document Tracking Lambda logs for race conditions or incomplete processing.</li>
+          <li><strong>Lambda Invocation Failures:</strong> Check IAM permissions, code errors, and timeout settings.</li>
+          <li><strong>API Gateway 403 Errors:</strong> Verify JWT token validity and authorizer configuration.</li>
+          <li><strong>OpenSearch Connectivity Issues:</strong> Check security group settings and IAM permissions.</li>
+          <li><strong>CloudFront Access Denied:</strong> Verify bucket policy and Origin Access Control configuration.</li>
+        </ul>
+
+        <div class="callout callout--info">
+          <h3 class="callout__title">Debugging Race Conditions</h3>
+          <p class="govuk-body">
+            Document processing involves multiple asynchronous steps that can experience race conditions. The solution uses atomic operations in DynamoDB and proper condition expressions to minimize these issues.
+          </p>
+        </div>
+
+        <h3 class="govuk-heading-m" id="logging-monitoring">8.2 Logging & Monitoring</h3>
+        
+        <p class="govuk-body">
+          The solution provides comprehensive logging and monitoring:
+        </p>
+        
+        <ul class="govuk-list govuk-list--bullet">
+          <li><strong>CloudWatch Logs:</strong> All Lambda functions and API Gateway log to CloudWatch.</li>
+          <li><strong>CloudWatch Metrics:</strong> Standard metrics for Lambda, API Gateway, S3, etc.</li>
+          <li><strong>Custom Metrics:</strong> Document processing times, success rates, etc.</li>
+          <li><strong>Alerts:</strong> Can be configured for error conditions and performance issues.</li>
+          <li><strong>Distributed Tracing:</strong> X-Ray integration for tracing requests across services.</li>
+        </ul>
+
+        <h3 class="govuk-heading-m" id="support">8.3 Support</h3>
+        
+        <p class="govuk-body">
+          For support with the solution:
+        </p>
+        
+        <ul class="govuk-list govuk-list--bullet">
+          <li>File issues on the GitHub repository.</li>
+          <li>Consult the documentation for common issues and solutions.</li>
+          <li>Check CloudWatch Logs for detailed error information.</li>
+          <li>Contact the development team for enterprise support options.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2 class="govuk-heading-l" id="references">9. References</h2>
+        
+        <ul class="govuk-list govuk-list--bullet">
+          <li><a href="https://aws.amazon.com/s3/" class="govuk-link">Amazon S3 Documentation</a></li>
+          <li><a href="https://aws.amazon.com/lambda/" class="govuk-link">AWS Lambda Documentation</a></li>
+          <li><a href="https://aws.amazon.com/opensearch-service/" class="govuk-link">Amazon OpenSearch Service Documentation</a></li>
+          <li><a href="https://aws.amazon.com/dynamodb/" class="govuk-link">Amazon DynamoDB Documentation</a></li>
+          <li><a href="https://aws.amazon.com/api-gateway/" class="govuk-link">Amazon API Gateway Documentation</a></li>
+          <li><a href="https://aws.amazon.com/cloudfront/" class="govuk-link">Amazon CloudFront Documentation</a></li>
+          <li><a href="https://aws.amazon.com/textract/" class="govuk-link">Amazon Textract Documentation</a></li>
+          <li><a href="https://aws.amazon.com/bedrock/" class="govuk-link">Amazon Bedrock Documentation</a></li>
+          <li><a href="https://www.terraform.io/docs/" class="govuk-link">Terraform Documentation</a></li>
+          <li><a href="https://github.com/langchain-ai/langchain" class="govuk-link">LangChain Documentation</a></li>
+        </ul>
+      </section>
+    </main>
+  </div>
+
+  <footer class="govuk-footer" role="contentinfo">
+    <div class="govuk-footer__container">
+      <div class="govuk-footer__meta">
+        <div class="govuk-footer__meta-item govuk-footer__meta-item--grow">
+          <h2 class="govuk-visually-hidden">Support links</h2>
+          <ul class="govuk-footer__inline-list">
+            <li class="govuk-footer__inline-list-item">
+              <a class="govuk-footer__link" href="#">Help</a>
+            </li>
+            <li class="govuk-footer__inline-list-item">
+              <a class="govuk-footer__link" href="#">Privacy</a>
+            </li>
+            <li class="govuk-footer__inline-list-item">
+              <a class="govuk-footer__link" href="#">Terms and conditions</a>
+            </li>
+          </ul>
+
+          <div class="govuk-footer__meta-custom">
+            EE-AI-RAG-MCP-Demo - Version 1.0.0
+          </div>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // Simple script to highlight the current section in the sidebar
+    document.addEventListener('DOMContentLoaded', function() {
+      // Get all section headings
+      const headings = document.querySelectorAll('h2[id], h3[id]');
+      const navLinks = document.querySelectorAll('.documentation-sidebar__link');
+      
+      // Function to update active section in sidebar
+      function updateActiveSection() {
+        // Get current scroll position
+        const scrollPosition = window.scrollY;
+        
+        // Find the current section
+        let currentSection = null;
+        
+        headings.forEach(heading => {
+          const sectionTop = heading.offsetTop - 100;
+          if (scrollPosition >= sectionTop) {
+            currentSection = heading.id;
+          }
+        });
+        
+        // Update active class in sidebar
+        if (currentSection) {
+          navLinks.forEach(link => {
+            link.parentElement.classList.remove('documentation-sidebar__list-item--active');
+            const href = link.getAttribute('href').substring(1);
+            if (href === currentSection) {
+              link.parentElement.classList.add('documentation-sidebar__list-item--active');
+            }
+          });
+        }
+      }
+      
+      // Listen for scroll events
+      window.addEventListener('scroll', updateActiveSection);
+      
+      // Initial check
+      updateActiveSection();
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+@startuml status_query
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam sequenceArrowThickness 1
+
+actor User
+participant "API Gateway" as APIGateway
+participant "Auth Authorizer\nLambda" as Authorizer
+participant "Document Status\nLambda" as StatusLambda
+participant "DynamoDB\nTracking Table" as DynamoDB
+
+User -> APIGateway: GET /status
+APIGateway -> Authorizer: Validate Authorization token
+Authorizer --> APIGateway: Authorization result
+APIGateway -> StatusLambda: Forward request
+StatusLambda -> DynamoDB: Query for document statuses
+DynamoDB --> StatusLambda: Return document status records
+StatusLambda --> APIGateway: Return list of documents with status
+APIGateway --> User: JSON response with document statuses
+@enduml

@@ -1,0 +1,20 @@
+@startuml text_chunking
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam sequenceArrowThickness 1
+
+participant "S3 Extracted Text" as S3_Extracted
+participant "Text Chunker\nLambda" as Chunker
+participant "S3 Chunked Text" as S3_Chunked
+participant "SNS Topic" as SNS
+participant "Document Tracking\nLambda" as DocTrack
+participant "DynamoDB\nTracking Table" as DynamoDB
+
+S3_Extracted -> Chunker: S3 Event - Object Created
+Chunker -> Chunker: Split text into chunks
+Chunker -> S3_Chunked: Store chunks and manifest
+Chunker -> SNS: Publish "Document Chunking Completed" event
+SNS -> DocTrack: Forward event
+DocTrack -> DynamoDB: Update document tracking record\n(chunking_completed: true)
+@enduml

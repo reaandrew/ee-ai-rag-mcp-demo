@@ -1,0 +1,63 @@
+@startuml architecture_overview
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam componentStyle rectangle
+
+package "Document Processing Pipeline" {
+  [S3 Raw PDFs Bucket] as S3Raw
+  [Text Extractor Lambda] as TextExtractor
+  [S3 Extracted Text Bucket] as S3Extracted
+  [Text Chunker Lambda] as TextChunker
+  [S3 Chunked Text Bucket] as S3Chunked
+  [Vector Generator Lambda] as VectorGen
+  [DynamoDB Tracking Table] as DynamoDB
+  [SNS Document Events] as SNS
+}
+
+package "Vector Storage & Search" {
+  [OpenSearch] as OpenSearch
+}
+
+package "API Layer" {
+  [API Gateway] as APIGateway
+  [Auth Authorizer Lambda] as AuthLambda
+  [Document Status Lambda] as StatusLambda
+  [Policy Search Lambda] as SearchLambda
+}
+
+package "AWS Bedrock" {
+  [Titan Embeddings] as TitanEmbed
+  [Claude 3 Sonnet] as Claude
+}
+
+package "Web Interface" {
+  [Policy Search UI] as WebUI
+}
+
+' Document Processing Pipeline Flow
+S3Raw --> TextExtractor : Event Trigger
+TextExtractor --> S3Extracted : Store text
+S3Extracted --> TextChunker : Event Trigger
+TextChunker --> S3Chunked : Store chunks
+S3Chunked --> VectorGen : Event Trigger
+TextExtractor --> SNS : Progress Events
+TextChunker --> SNS : Progress Events
+VectorGen --> SNS : Progress Events
+SNS --> DynamoDB : Update status
+
+' Vector Generation Flow
+VectorGen --> TitanEmbed : Generate embeddings
+TitanEmbed --> VectorGen : Return vectors
+VectorGen --> OpenSearch : Store vectors
+
+' API Flow
+APIGateway --> AuthLambda : Authorize requests
+APIGateway --> StatusLambda : Status queries
+APIGateway --> SearchLambda : Search queries
+StatusLambda --> DynamoDB : Query status
+SearchLambda --> TitanEmbed : Generate query embeddings
+SearchLambda --> OpenSearch : Vector search
+SearchLambda --> Claude : Generate responses
+WebUI --> APIGateway : User queries
+@enduml

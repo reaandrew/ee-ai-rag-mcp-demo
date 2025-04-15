@@ -1,0 +1,32 @@
+@startuml vector_generation
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam sequenceArrowThickness 1
+
+participant "S3 Chunked Text" as S3_Chunked
+participant "Vector Generator\nLambda" as VectorGen
+participant "Bedrock\nTitan Embeddings" as BedrockTitan
+participant "OpenSearch" as Search
+participant "SNS Topic" as SNS
+participant "Document Tracking\nLambda" as DocTrack
+participant "DynamoDB\nTracking Table" as DynamoDB
+
+S3_Chunked -> VectorGen: S3 Event - Object Created
+VectorGen -> BedrockTitan: Request embeddings for text chunk
+BedrockTitan --> VectorGen: Return vector embeddings
+VectorGen -> Search: Index chunk with vector embedding
+VectorGen -> SNS: Publish "Document Chunk Indexed" event
+SNS -> DocTrack: Forward event
+DocTrack -> DynamoDB: Increment indexed_chunks counter
+
+note over VectorGen
+  VectorGen processes each chunk 
+  separately and updates progress
+  via SNS for each chunk
+end note
+
+VectorGen -> SNS: Publish "Document Indexing Completed" event
+SNS -> DocTrack: Forward event
+DocTrack -> DynamoDB: Update document status to "COMPLETED"
+@enduml

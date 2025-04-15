@@ -158,7 +158,13 @@ resource "aws_s3_bucket_policy" "ui_policy_cloudfront" {
           Service = "cloudfront.amazonaws.com"
         }
         Action    = "s3:GetObject"
-        Resource  = "${aws_s3_bucket.ui.arn}/*"
+        Resource  = [
+            "${aws_s3_bucket.ui.arn}/index.html",
+            "${aws_s3_bucket.ui.arn}/images/*",
+            "${aws_s3_bucket.ui.arn}/css/*",
+            "${aws_s3_bucket.ui.arn}/js/*",
+            "${aws_s3_bucket.ui.arn}/documentation.html"
+          ]
         Condition = {
           StringEquals = {
             "AWS:SourceArn" = aws_cloudfront_distribution.ui_distribution.arn

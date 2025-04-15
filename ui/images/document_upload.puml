@@ -1,0 +1,23 @@
+@startuml document_upload
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam sequenceArrowThickness 1
+
+actor User
+participant "S3 Raw PDFs\nBucket" as S3_Raw
+participant "Text Extractor\nLambda" as Extractor
+participant "SNS Topic" as SNS
+participant "Document Tracking\nLambda" as DocTrack
+participant "DynamoDB\nTracking Table" as DynamoDB
+participant "S3 Extracted Text" as S3_Extracted
+
+User -> S3_Raw: Upload PDF document
+S3_Raw -> Extractor: S3 Event - Object Created
+Extractor -> Extractor: Extract text from PDF using Textract
+Extractor -> S3_Raw: Delete original PDF (optional)
+Extractor -> S3_Extracted: Store extracted text
+Extractor -> SNS: Publish "Document Processing Started" event
+SNS -> DocTrack: Forward event
+DocTrack -> DynamoDB: Create document tracking record\n(status: "PROCESSING")
+@enduml
