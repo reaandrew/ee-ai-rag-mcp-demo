@@ -42,17 +42,20 @@ resource "aws_s3_bucket_acl" "ui_acl" {
   acl    = "public-read"
 }
 
-# Block public access settings - allow read but block write
+# Configure public access settings - required for website hosting but restricted to read-only
+# This configuration is intentionally permissive for S3 website hosting purposes
+# Note: For production, consider using CloudFront with OAC or OAI for better security
 resource "aws_s3_bucket_public_access_block" "ui_public_access" {
   bucket = aws_s3_bucket.ui.id
 
-  block_public_acls       = false
-  block_public_policy     = false
-  ignore_public_acls      = false
-  restrict_public_buckets = false
+  # These settings are required for S3 static website hosting to work properly
+  block_public_acls       = false  # Allow ACLs that grant public access
+  block_public_policy     = false  # Allow policies that grant public access
+  ignore_public_acls      = false  # Don't ignore public ACLs
+  restrict_public_buckets = false  # Don't restrict public policies
 }
 
-# Set bucket policy to allow public read access
+# Set bucket policy to allow public read access only (required for S3 website hosting)
 resource "aws_s3_bucket_policy" "ui_policy" {
   depends_on = [
     aws_s3_bucket_public_access_block.ui_public_access
@@ -67,10 +70,25 @@ resource "aws_s3_bucket_policy" "ui_policy" {
         Sid       = "PublicReadGetObject"
         Effect    = "Allow"
         Principal = "*"
-        Action    = "s3:GetObject"
+        Action    = "s3:GetObject"  # Restrict to read-only operations
         Resource  = [
           "${aws_s3_bucket.ui.arn}/*"
         ]
+      },
+      {
+        Sid       = "DenyNonHttpsAccess"
+        Effect    = "Deny"
+        Principal = "*"
+        Action    = "s3:*"
+        Resource  = [
+          aws_s3_bucket.ui.arn,
+          "${aws_s3_bucket.ui.arn}/*"
+        ]
+        Condition = {
+          Bool = {
+            "aws:SecureTransport" = "false"
+          }
+        }
       }
     ]
   })
