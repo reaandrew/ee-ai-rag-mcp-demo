@@ -122,15 +122,6 @@ def update_indexing_progress(message_data):
         page_number = message_data.get("page_number")
         progress = message_data.get("progress", "0/0")
 
-        # Try to parse progress to get current and total chunks
-        current_chunks = 0
-        try:
-            if "/" in progress:
-                parts = progress.split("/")
-                current_chunks = int(parts[0])
-        except (ValueError, IndexError):
-            logger.warning(f"Could not parse progress value: {progress}")
-
         # Validate required fields
         if not all([document_id, page_number]):
             return {"status": "error", "message": "Missing required fields in message data"}
@@ -141,13 +132,45 @@ def update_indexing_progress(message_data):
         # Update DynamoDB record with progress
         dynamodb = boto3.resource("dynamodb", region_name=region)
         tracking_table = dynamodb.Table(TRACKING_TABLE)
-        # Update indexed_chunks counter and progress info
+
+        # First get the current item to check total_chunks and indexed_chunks
+        item_response = tracking_table.get_item(Key={"document_id": document_id})
+        current_item = item_response.get("Item", {})
+        total_chunks = current_item.get("total_chunks", 0)
+        indexed_chunks = current_item.get("indexed_chunks", 0)
+
+        # Increment indexed_chunks by 1
+        new_indexed_chunks = indexed_chunks + 1
+
+        # Update with the incremented value
+        progress_str = f"{new_indexed_chunks}/{total_chunks}"
         update_result = tracking_table.update_item(
             Key={"document_id": document_id},
             UpdateExpression="SET indexed_chunks = :indexed_chunks, progress_info = :progress",
-            ExpressionAttributeValues={":indexed_chunks": current_chunks, ":progress": progress},
+            ExpressionAttributeValues={
+                ":indexed_chunks": new_indexed_chunks,
+                ":progress": progress_str,
+            },
             ReturnValues="UPDATED_NEW",
         )
+
+        # Check if we've completed all chunks and should mark as completed
+        if total_chunks > 0 and new_indexed_chunks >= total_chunks:
+            logger.info(f"All chunks processed for {document_id}, setting status to COMPLETED")
+            completion_time = datetime.now().isoformat()
+            complete_result = tracking_table.update_item(
+                Key={"document_id": document_id},
+                UpdateExpression="SET #status = :status, completion_time = :completion_time",
+                ExpressionAttributeNames={"#status": "status"},
+                ExpressionAttributeValues={
+                    ":status": "COMPLETED",
+                    ":completion_time": completion_time,
+                },
+                ReturnValues="UPDATED_NEW",
+            )
+            logger.info(
+                f"Completion update result: {json.dumps(complete_result, cls=DecimalEncoder)}"
+            )
         logger.info(f"DynamoDB update result: {json.dumps(update_result, cls=DecimalEncoder)}")
 
         return {
