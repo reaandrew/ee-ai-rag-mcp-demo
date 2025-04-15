@@ -558,6 +558,8 @@ resource "aws_iam_policy" "app_specific_policy" {
           "arn:aws:s3:::ee-ai-rag-mcp-demo-vectors*/*",
           "arn:aws:s3:::ee-ai-rag-mcp-demo-ui*",
           "arn:aws:s3:::ee-ai-rag-mcp-demo-ui*/*",
+          # CloudFront distribution permissions
+          "arn:aws:cloudfront::${var.aws_account_id}:distribution/*",
           "arn:aws:s3:::${var.terraform_state_bucket}-logs",
           "arn:aws:s3:::${var.terraform_state_bucket}-logs/*"
         ]
