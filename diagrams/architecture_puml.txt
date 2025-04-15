@@ -1,0 +1,88 @@
+@startuml EE_AI_RAG_MCP_Demo
+!define AWSPuml https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/v14.0/dist
+!include AWSPuml/AWSCommon.puml
+!include AWSPuml/General/User.puml
+!include AWSPuml/Storage/SimpleStorageService.puml
+!include AWSPuml/Compute/Lambda.puml
+!include AWSPuml/Database/DynamoDB.puml
+!include AWSPuml/Analytics/OpenSearchService.puml
+!include AWSPuml/ApplicationIntegration/SimpleNotificationService.puml
+!include AWSPuml/MachineLearning/Textract.puml
+!include AWSPuml/MachineLearning/Comprehend.puml
+!include AWSPuml/SecurityIdentityCompliance/KeyManagementService.puml
+!include AWSPuml/NetworkingContentDelivery/APIGateway.puml
+!include AWSPuml/NetworkingContentDelivery/CloudFront.puml
+
+skinparam linetype ortho
+skinparam backgroundColor white
+skinparam componentStyle uml2
+
+title EE AI RAG MCP Demo Architecture
+
+' Define components with aliases
+User(user, "User", "")
+CloudFront(cloudfront, "CloudFront Distribution", "")
+SimpleStorageService(ui_bucket, "UI S3 Bucket", "")
+APIGateway(api_gateway, "API Gateway", "")
+Lambda(auth_authorizer, "Auth Authorizer", "")
+KeyManagementService(kms, "Token Signing Key", "")
+Lambda(policy_search, "Policy Search", "")
+
+' Document Processing Pipeline
+package "Document Processing Pipeline" {
+  ' Storage buckets
+  SimpleStorageService(raw_pdfs, "Raw PDFs Bucket", "")
+  SimpleStorageService(extracted_text, "Extracted Text Bucket", "")
+  SimpleStorageService(chunked_text, "Chunked Text Bucket", "")
+
+  ' Lambda functions
+  Lambda(text_extractor, "Text Extractor", "")
+  Lambda(text_chunker, "Text Chunker", "")
+  Lambda(vector_generator, "Vector Generator", "")
+  Lambda(document_status, "Document Status", "")
+  Lambda(document_tracking, "Document Tracking", "")
+
+  ' Services
+  Textract(textract, "AWS Textract", "")
+  Comprehend(bedrock, "AWS Bedrock", "")
+  SimpleNotificationService(sns, "Document Indexing Topic", "")
+}
+
+' Storage layer
+package "Storage Layer" {
+  OpenSearchService(opensearch, "OpenSearch Vector Store", "")
+  DynamoDB(tracking_db, "Document Tracking DB", "")
+}
+
+' Define connections
+user --> cloudfront
+cloudfront --> ui_bucket
+
+user --> api_gateway
+api_gateway --> auth_authorizer
+auth_authorizer --> kms
+api_gateway --> policy_search
+api_gateway --> document_status
+
+user --> raw_pdfs
+raw_pdfs --> text_extractor
+text_extractor --> textract
+text_extractor --> extracted_text
+
+extracted_text --> text_chunker
+text_chunker --> chunked_text
+chunked_text --> vector_generator
+vector_generator --> bedrock
+
+text_chunker --> sns
+vector_generator --> sns
+sns --> document_tracking
+
+vector_generator --> opensearch
+policy_search --> opensearch
+policy_search --> bedrock
+
+document_status --> tracking_db
+document_tracking --> tracking_db
+
+@enduml
