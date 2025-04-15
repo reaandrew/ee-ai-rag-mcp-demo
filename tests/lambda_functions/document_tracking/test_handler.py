@@ -123,7 +123,7 @@ class TestDocumentTrackingHandler(unittest.TestCase):
         self.assertEqual(response["body"]["results"][0]["status"], "success")
         self.assertEqual(response["body"]["results"][0]["document_id"], message_data["document_id"])
         # Progress is now calculated internally, not taken from message
-        self.assertTrue("progress" in response["body"]["results"][0])  # Just verify it exists
+        self.assertIn("progress", response["body"]["results"][0])  # Just verify it exists
 
     def test_lambda_handler_with_completion_message(self):
         """Test handler with a Document Indexing Completed message."""
@@ -267,7 +267,7 @@ class TestDocumentTrackingHandler(unittest.TestCase):
         self.assertEqual(result["status"], "success")
         self.assertEqual(result["document_id"], message_data["document_id"])
         # Progress is now calculated internally, not taken from message
-        self.assertTrue("progress" in result)  # Just verify it exists
+        self.assertIn("progress", result)  # Just verify it exists
 
     def test_update_indexing_progress_error(self):
         """Test update_indexing_progress with missing required fields."""

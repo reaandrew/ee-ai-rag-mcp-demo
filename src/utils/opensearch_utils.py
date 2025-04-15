@@ -160,6 +160,65 @@ def search_opensearch(query_embedding, top_k=5):
         raise e
 
 
+def get_index_body():
+    """
+    Get the OpenSearch index configuration with correct mappings for vector search.
+    Extracted to separate function to reduce cognitive complexity.
+    Returns:
+        dict: The index configuration body
+    """
+    return {
+        "settings": {
+            "index": {
+                "number_of_shards": 2,
+                "number_of_replicas": 1,
+                "knn": True,
+                "knn.algo_param.ef_search": 100,
+            }
+        },
+        "mappings": {
+            "properties": {
+                "embedding": {
+                    "type": "knn_vector",
+                    "dimension": 1024,  # Dimension for Titan embeddings
+                    "method": {
+                        "name": "hnsw",
+                        "space_type": "cosinesimil",  # Correct value for cosine similarity
+                        "engine": "nmslib",
+                        "parameters": {"ef_construction": 128, "m": 16},
+                    },
+                },
+                "text": {"type": "text"},
+                "metadata": {"type": "object"},
+                "source_key": {"type": "keyword"},
+                "embedding_model": {"type": "keyword"},
+                "embedding_dimension": {"type": "integer"},
+                # Use keyword type for page_number to support formats like "1-2"
+                "page_number": {"type": "keyword"},
+                "document_name": {"type": "keyword"},
+            }
+        },
+    }
+
+
+def handle_auth_error(error):
+    """
+    Handle authorization errors with detailed logging.
+    Extracted to separate function to reduce cognitive complexity.
+    Args:
+        error: The exception that was raised
+    """
+    logger.error("Authorization failure. Check IAM permissions and OpenSearch policy.")
+    logger.error(f"Using endpoint: {OPENSEARCH_ENDPOINT}")
+    try:
+        # Try to get IAM role info for debugging
+        sts_client = boto3.client("sts")
+        identity = sts_client.get_caller_identity()
+        logger.error(f"Lambda execution identity: {identity.get('Arn')}")
+    except Exception as sts_error:
+        logger.error(f"Could not get caller identity: {str(sts_error)}")
+
+
 def create_index_if_not_exists(client, index_name=None):
     """
     Create OpenSearch index with embedding mapping if it doesn't exist.
@@ -176,12 +235,12 @@ def create_index_if_not_exists(client, index_name=None):
     if index_name is None:
         index_name = OPENSEARCH_INDEX
 
-    try:
-        # Check if OpenSearch client is available
-        if not client:
-            logger.warning("OpenSearch client not available, skipping index creation")
-            return False
+    # Check if OpenSearch client is available
+    if not client:
+        logger.warning("OpenSearch client not available, skipping index creation")
+        return False
 
+    try:
         # Check if index already exists
         if client.indices.exists(index=index_name):
             logger.info(f"Index {index_name} already exists")
@@ -189,73 +248,20 @@ def create_index_if_not_exists(client, index_name=None):
 
         # Index doesn't exist, create it
         logger.info(f"Creating OpenSearch index: {index_name}")
-
-        # Define mappings for vector search
-        index_body = {
-            "settings": {
-                "index": {
-                    "number_of_shards": 2,
-                    "number_of_replicas": 1,
-                    "knn": True,
-                    "knn.algo_param.ef_search": 100,
-                }
-            },
-            "mappings": {
-                "properties": {
-                    "embedding": {
-                        "type": "knn_vector",
-                        "dimension": 1024,  # Dimension for Titan embeddings
-                        "method": {
-                            "name": "hnsw",
-                            "space_type": "cosinesimil",  # Correct value for cosine similarity
-                            "engine": "nmslib",
-                            "parameters": {"ef_construction": 128, "m": 16},
-                        },
-                    },
-                    "text": {"type": "text"},
-                    "metadata": {"type": "object"},
-                    "source_key": {"type": "keyword"},
-                    "embedding_model": {"type": "keyword"},
-                    "embedding_dimension": {"type": "integer"},
-                    # Use keyword type for page_number to support formats like "1-2"
-                    "page_number": {"type": "keyword"},
-                    "document_name": {"type": "keyword"},
-                }
-            },
-        }
-
-        try:
-            # Create the index
-            client.indices.create(index=index_name, body=index_body)
-            logger.info(f"Created OpenSearch index: {index_name}")
-            return True
-        except Exception as create_error:
-            # Check if this is just a "resource already exists" error, which we can ignore
-            if "resource_already_exists_exception" in str(create_error):
-                logger.info(f"Index {index_name} already exists, continuing.")
-                return True
-            else:
-                # For other errors, log and propagate
-                raise create_error
-
+        # Get the index configuration
+        index_body = get_index_body()
+        # Create the index
+        client.indices.create(index=index_name, body=index_body)
+        logger.info(f"Created OpenSearch index: {index_name}")
+        return True
     except Exception as e:
-        logger.error(f"Error creating OpenSearch index: {str(e)}")
-        # Add more detailed error logging for debugging
-        if "403" in str(e) or "AuthorizationException" in str(e):
-            logger.error("Authorization failure. Check IAM permissions and OpenSearch policy.")
-            logger.error(f"Using endpoint: {OPENSEARCH_ENDPOINT}")
-            try:
-                # Try to get IAM role info for debugging
-                sts_client = boto3.client("sts")
-                identity = sts_client.get_caller_identity()
-                logger.error(f"Lambda execution identity: {identity.get('Arn')}")
-            except Exception as sts_error:
-                logger.error(f"Could not get caller identity: {str(sts_error)}")
-
-        # For index already exists errors, don't propagate the error
-        if "resource_already_exists_exception" in str(e):
+        error_message = str(e)
+        logger.error(f"Error creating OpenSearch index: {error_message}")
+        # Handle specific error types
+        if "resource_already_exists_exception" in error_message:
             logger.info(f"Index {index_name} already exists, continuing without error.")
             return True
-
+        if "403" in error_message or "AuthorizationException" in error_message:
+            handle_auth_error(e)
         # For all other errors
         return False

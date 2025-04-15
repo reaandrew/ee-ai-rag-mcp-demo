@@ -7,6 +7,26 @@ import re
 import secrets
 from urllib.parse import unquote_plus
 
+
+# Custom exceptions
+class TextractJobExhaustedException(Exception):
+    """Exception raised when all retries to start a Textract job have been exhausted."""
+
+    pass
+
+
+class TextractJobFailedException(Exception):
+    """Exception raised when Textract reports a job failure."""
+
+    pass
+
+
+class TextractResponseExhaustedException(Exception):
+    """Exception raised when all retries to get Textract results have been exhausted."""
+
+    pass
+
+
 # Constants
 CONTENT_TYPE_PLAIN = "text/plain"
 
@@ -173,21 +193,32 @@ def extract_text_from_pdf(bucket_name, file_key):
         raise e
 
 
-def process_document_async(bucket_name, file_key):
+def calculate_backoff_delay(attempt, base_delay=1.0, max_delay=30):
     """
-    Process a document asynchronously using Textract.
+    Calculate exponential backoff delay with jitter.
+    Args:
+        attempt (int): The current attempt number (0-based)
+        base_delay (float): Base delay in seconds
+        max_delay (float): Maximum delay in seconds
+    Returns:
+        float: Calculated delay in seconds
+    """
+    jitter = secrets.randbelow(200) / 100  # generates value between 0.0 and 1.99
+    delay = min(max_delay, (2**attempt) * base_delay + (2 * base_delay * jitter))
+    return delay
 
+
+def start_textract_job(bucket_name, file_key):
+    """
+    Start an asynchronous Textract job with retry logic.
     Args:
         bucket_name (str): The S3 bucket name
         file_key (str): The S3 object key
-
     Returns:
-        tuple: (extracted_text, page_count)
+        str: The Textract job ID
     """
-    # Start the asynchronous document text detection with exponential backoff
     max_retries = 10
     base_delay = 1  # Base delay in seconds
-    job_id = None
     for attempt in range(max_retries):
         try:
             response = textract_client.start_document_text_detection(
@@ -195,11 +226,9 @@ def process_document_async(bucket_name, file_key):
             )
             job_id = response["JobId"]
             logger.info(f"Started async Textract job {job_id} for {file_key}")
-            break  # Success, exit retry loop
+            return job_id
         except textract_client.exceptions.ProvisionedThroughputExceededException:
-            # Calculate exponential backoff delay with secure jitter
-            jitter = secrets.randbelow(200) / 100  # generates value between 0.0 and 1.99
-            delay = min(30, (2**attempt) * base_delay + (2 * base_delay * jitter))
+            delay = calculate_backoff_delay(attempt, base_delay, 30)
             if attempt < max_retries - 1:  # Don't log on the last attempt
                 logger.warning(
                     f"Textract rate limit exceeded. Retrying in {delay:.2f}s. "
@@ -214,10 +243,56 @@ def process_document_async(bucket_name, file_key):
         except Exception as e:
             logger.error(f"Unexpected error starting Textract job: {str(e)}")
             raise
-    if not job_id:
-        raise Exception("Failed to start Textract job after retries")
+    msg = f"Failed to start Textract job for {file_key}"
+    msg += f" after {max_retries} retries"
+    raise TextractJobExhaustedException(msg)
 
-    # Wait for the job to complete
+
+def get_textract_response_with_retry(job_id, next_token=None):
+    """
+    Get Textract job results with retry logic.
+    Args:
+        job_id (str): The Textract job ID
+        next_token (str, optional): Token for paginated results
+    Returns:
+        dict: The Textract response
+    """
+    max_get_retries = 15
+    for retry_count in range(max_get_retries):
+        try:
+            params = {"JobId": job_id}
+            if next_token:
+                params["NextToken"] = next_token
+            return textract_client.get_document_text_detection(**params)
+        except textract_client.exceptions.ProvisionedThroughputExceededException:
+            if retry_count >= max_get_retries - 1:
+                logger.error("Rate limit exceeded when getting document text detection")
+                raise
+            delay = calculate_backoff_delay(retry_count, 1.0, 60)
+            logger.warning(
+                f"Rate limit getting results. Retrying in {delay:.2f}s. "
+                f"Attempt {retry_count+1}/{max_get_retries}"
+            )
+            time.sleep(delay)
+        except Exception as e:
+            logger.error(f"Error getting Textract results: {str(e)}")
+            raise
+    raise TextractResponseExhaustedException(
+        f"Failed to get Textract results for job {job_id} after {max_get_retries} retries"
+    )
+
+
+def wait_for_job_completion(job_id, file_key):
+    """
+    Wait for a Textract job to complete.
+    Args:
+        job_id (str): The Textract job ID
+        file_key (str): The S3 object key for error reporting
+    Returns:
+        tuple: (status, empty_text_if_timeout)
+        - status (str): The job status
+        - empty_text_if_timeout (str or None): Text to return if timeout
+    """
     status = "IN_PROGRESS"
     max_tries = 60  # Allow up to 5 minutes polling time (60 * 5 = 300 seconds)
     wait_seconds = 5
@@ -226,40 +301,17 @@ def process_document_async(bucket_name, file_key):
     while status == "IN_PROGRESS" and total_tries < max_tries:
         total_tries += 1
         try:
-            # Add retry logic for get_document_text_detection with more retries
-            retry_count = 0
-            max_get_retries = 15  # Increased from 5 to 15 for higher throughput scenarios
-            while retry_count < max_get_retries:
-                try:
-                    response = textract_client.get_document_text_detection(JobId=job_id)
-                    break  # Success, exit retry loop
-                except textract_client.exceptions.ProvisionedThroughputExceededException:
-                    retry_count += 1
-                    if retry_count >= max_get_retries:
-                        logger.error("Rate limit exceeded when getting document text detection")
-                        raise
-                    # Enhanced exponential backoff with secure jitter
-                    jitter = secrets.randbelow(200) / 100  # generates value between 0.0 and 1.99
-                    # Increased base delay and max delay
-                    delay = min(60, (2**retry_count) * 1.0 + jitter)
-                    logger.warning(
-                        f"Rate limit getting results. Retrying in {delay:.2f}s. "
-                        f"Attempt {retry_count}/{max_get_retries}"
-                    )
-                    time.sleep(delay)
-                except Exception as e:
-                    logger.error(f"Error getting Textract results: {str(e)}")
-                    raise
+            response = get_textract_response_with_retry(job_id)
             status = response["JobStatus"]
 
             if status == "SUCCEEDED":
-                break
+                return status, None
 
             if status == "FAILED":
-                error_message = "No error details available"
-                if "StatusMessage" in response:
-                    error_message = response["StatusMessage"]
-                raise Exception(f"Textract job failed for {file_key}: {error_message}")
+                error_message = response.get("StatusMessage", "No error details available")
+                msg = f"Textract job failed for {file_key}"
+                msg += f": {error_message}"
+                raise TextractJobFailedException(msg)
 
             logger.info(
                 f"Textract job {job_id} is {status}. "
@@ -271,80 +323,87 @@ def process_document_async(bucket_name, file_key):
             logger.error(f"Error checking Textract job status: {str(e)}")
             raise e
 
+    # Handle timeout case
     if total_tries >= max_tries and status == "IN_PROGRESS":
         seconds_waited = total_tries * wait_seconds
         error_msg = f"Textract job timed out after {seconds_waited} seconds "
-        error_msg += f"(max timeout: {max_tries * wait_seconds} seconds)"
-        job_msg = f" for job {job_id}. Job may still complete but Lambda timeout reached."
+        max_timeout = max_tries * wait_seconds
+        error_msg += f"(max timeout: {max_timeout} seconds)"
+        job_msg = f" for job {job_id}."
+        job_msg += " Job may still complete but Lambda timeout reached."
         logger.warning(error_msg + job_msg)
         # Instead of raising an exception, we'll store the job ID for future retrieval
-        # Create an empty text file with the job ID to process later
         empty_text = (
             f"INCOMPLETE_TEXTRACT_JOB: {job_id}\n"
             f"File: {file_key}\n"
             f"Timeout after {seconds_waited} seconds"
         )
-        return empty_text, 0
+        return status, empty_text
+    return status, None
 
-    # Get the results
+
+def extract_text_from_blocks(blocks, current_page, page_delimiter):
+    """
+    Extract text from Textract blocks.
+    Args:
+        blocks (list): List of Textract blocks
+        current_page (int): Current page number
+        page_delimiter (str): Page delimiter template
+    Returns:
+        tuple: (extracted_text, updated_current_page)
+    """
     extracted_text = ""
-    # Format for storing page info in the extracted text
+    for item in blocks:
+        if item["BlockType"] == "LINE":
+            # Check if this is a new page
+            block_page = item.get("Page", current_page)
+            if block_page > current_page:
+                # Add page delimiter before starting new page content
+                extracted_text += page_delimiter.format(page_num=block_page)
+                current_page = block_page
+
+            # Add the line of text
+            extracted_text += item["Text"] + "\n"
+    return extracted_text, current_page
+
+
+def process_document_async(bucket_name, file_key):
+    """
+    Process a document asynchronously using Textract.
+    Args:
+        bucket_name (str): The S3 bucket name
+        file_key (str): The S3 object key
+    Returns:
+        tuple: (extracted_text, page_count)
+    """
+    # Start the job
+    job_id = start_textract_job(bucket_name, file_key)
+
+    # Wait for completion
+    status, timeout_text = wait_for_job_completion(job_id, file_key)
+    if timeout_text:
+        return timeout_text, 0
+
+    # Get and process results
+    extracted_text = ""
     page_delimiter = "\n--- PAGE {page_num} ---\n"
     page_count = 0
     next_token = None
     current_page = 1
 
+    # Process all result pages
     while True:
-        # Add retry logic for getting results with exponential backoff and increased retries
-        retry_count = 0
-        max_get_retries = 15  # Increased from 5 to 15 for higher throughput scenarios
-        success = False
-        while not success and retry_count < max_get_retries:
-            try:
-                if next_token:
-                    response = textract_client.get_document_text_detection(
-                        JobId=job_id, NextToken=next_token
-                    )
-                else:
-                    response = textract_client.get_document_text_detection(JobId=job_id)
-                success = True
-            except textract_client.exceptions.ProvisionedThroughputExceededException:
-                retry_count += 1
-                if retry_count >= max_get_retries:
-                    logger.error("Rate limit exceeded when getting document text detection")
-                    raise
-                # Enhanced exponential backoff with secure jitter
-                jitter = secrets.randbelow(200) / 100  # generates value between 0.0 and 1.99
-                # Increased base delay and max delay
-                delay = min(60, (2**retry_count) * 1.0 + jitter)
-                logger.warning(
-                    f"Rate limit getting results. Retrying in {delay:.2f}s. "
-                    f"Attempt {retry_count}/{max_get_retries}"
-                )
-                time.sleep(delay)
-            except Exception as e:
-                logger.error(f"Error getting Textract results: {str(e)}")
-                raise
-        if not success:
-            raise Exception("Failed to get Textract results after multiple retries")
+        response = get_textract_response_with_retry(job_id, next_token)
 
-        # Update the page count
-        # Each page in the response increases the DocumentMetadata.Pages count
+        # Update the page count if available
         if "DocumentMetadata" in response:
             page_count = response["DocumentMetadata"]["Pages"]
 
-        # Process blocks, tracking page changes
-        for item in response["Blocks"]:
-            if item["BlockType"] == "LINE":
-                # Check if this is a new page
-                block_page = item.get("Page", current_page)
-                if block_page > current_page:
-                    # Add page delimiter before starting new page content
-                    extracted_text += page_delimiter.format(page_num=block_page)
-                    current_page = block_page
-
-                # Add the line of text
-                extracted_text += item["Text"] + "\n"
+        # Process text blocks
+        text_segment, current_page = extract_text_from_blocks(
+            response["Blocks"], current_page, page_delimiter
+        )
+        extracted_text += text_segment
 
         # Check if there are more pages to process
         if "NextToken" in response:
