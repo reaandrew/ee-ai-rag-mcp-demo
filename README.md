@@ -1,5 +1,12 @@
 # ee-ai-rag-mcp-demo
 
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=reaandrew_ee-ai-rag-mcp-demo&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=reaandrew_ee-ai-rag-mcp-demo)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=reaandrew_ee-ai-rag-mcp-demo&metric=coverage)](https://sonarcloud.io/summary/new_code?id=reaandrew_ee-ai-rag-mcp-demo)
+[![Bugs](https://sonarcloud.io/api/project_badges/measure?project=reaandrew_ee-ai-rag-mcp-demo&metric=bugs)](https://sonarcloud.io/summary/new_code?id=reaandrew_ee-ai-rag-mcp-demo)
+[![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=reaandrew_ee-ai-rag-mcp-demo&metric=code_smells)](https://sonarcloud.io/summary/new_code?id=reaandrew_ee-ai-rag-mcp-demo)
+[![Duplicated Lines (%)](https://sonarcloud.io/api/project_badges/measure?project=reaandrew_ee-ai-rag-mcp-demo&metric=duplicated_lines_density)](https://sonarcloud.io/summary/new_code?id=reaandrew_ee-ai-rag-mcp-demo)
+[![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=reaandrew_ee-ai-rag-mcp-demo&metric=reliability_rating)](https://sonarcloud.io/summary/new_code?id=reaandrew_ee-ai-rag-mcp-demo)
+
 A repository with conventional commit enforcement, automatic versioning, and SonarQube code quality checks. This project implements a RAG (Retrieval Augmented Generation) pattern using AWS Services including Lambda, OpenSearch, and Amazon Bedrock.
 
 ## Quality Gates with SonarQube
