@@ -82,3 +82,9 @@ variable "opensearch_master_user" {
 }
 
 # OpenSearch master password is now handled by random_password resource and stored in Secrets Manager
+
+variable "ui_bucket_name" {
+  description = "Name of the S3 bucket for hosting the static website UI"
+  type        = string
+  default     = "ee-ai-rag-mcp-demo-ui"
+}
