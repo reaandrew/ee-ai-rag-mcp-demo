@@ -9,7 +9,7 @@ import json
 import boto3
 import logging
 import decimal
-from datetime import datetime
+from datetime import datetime, timedelta
 from boto3.dynamodb.conditions import Key
 
 
@@ -39,7 +39,6 @@ SNS_TOPIC_ARN = os.environ.get("SNS_TOPIC_ARN", None)
 def initialize_document_tracking(bucket_name, document_key, document_name, total_chunks):
     """
     Initialize document tracking for a newly processed document.
-    This now only publishes to SNS - the SNS subscriber will update DynamoDB.
 
     Args:
         bucket_name (str): The S3 bucket name
@@ -51,7 +50,8 @@ def initialize_document_tracking(bucket_name, document_key, document_name, total
         str: The document_id for this tracking record
     """
     try:
-        # Initialize SNS client
+        # Initialize clients
+        dynamodb = boto3.resource("dynamodb", region_name=region)
         sns_client = boto3.client("sns", region_name=region)
 
         # Generate timestamp-based version and IDs
@@ -62,16 +62,39 @@ def initialize_document_tracking(bucket_name, document_key, document_name, total
         base_document_id = f"{bucket_name}/{document_key}"
         document_id = f"{base_document_id}/{document_version}"
 
-        # Get existing document history to check for reuploads
-        is_reupload = False
-        try:
-            # Just check if any previous version exists
-            is_reupload = len(get_document_history(base_document_id)) > 0
-        except Exception as e:
-            logger.warning(f"Could not determine if document is a reupload: {str(e)}")
+        # Initialize DynamoDB tracking record
+        tracking_table = dynamodb.Table(TRACKING_TABLE)
 
-        # Prepare start time
-        start_time = datetime.now().isoformat()
+        # Check if there are any existing versions of this document in processing state
+        existing_docs = get_document_history(base_document_id)
+        for doc in existing_docs:
+            if doc.get("status") == "PROCESSING":
+                # Clean up processing records for the same document
+                logger.info(
+                    f"Found existing processing record for {base_document_id}. Cleaning up."
+                )
+                tracking_table.update_item(
+                    Key={"document_id": doc.get("document_id")},
+                    UpdateExpression="SET #status = :status",
+                    ExpressionAttributeNames={"#status": "status"},
+                    ExpressionAttributeValues={":status": "CANCELLED"},
+                )
+
+        item = {
+            "document_id": document_id,  # Compound ID with version
+            "base_document_id": base_document_id,  # Original document path
+            "document_name": document_name,
+            "upload_timestamp": upload_timestamp,
+            "document_version": document_version,
+            "total_chunks": total_chunks,
+            "indexed_chunks": 0,
+            "status": "PROCESSING",
+            "start_time": datetime.now().isoformat(),
+            "ttl": int((datetime.now() + timedelta(days=30)).timestamp()),  # 30-day TTL
+        }
+
+        # Create initial tracking record
+        tracking_table.put_item(Item=item)
 
         # Publish notification for document processing started
         if SNS_TOPIC_ARN:
@@ -87,15 +110,12 @@ def initialize_document_tracking(bucket_name, document_key, document_name, total
                         "upload_timestamp": upload_timestamp,
                         "total_chunks": total_chunks,
                         "status": "PROCESSING",
-                        "start_time": start_time,
-                        "is_reupload": is_reupload,
+                        "start_time": item["start_time"],
+                        "is_reupload": len(get_document_history(base_document_id)) > 1,
                     },
                     cls=DecimalEncoder,
                 ),
             )
-            logger.info(f"Published SNS notification for document tracking: {document_id}")
-        else:
-            logger.warning("SNS_TOPIC_ARN not configured, skipping notification")
 
         return document_id
 
@@ -107,8 +127,7 @@ def initialize_document_tracking(bucket_name, document_key, document_name, total
 
 def update_indexing_progress(document_id, document_name, page_number):
     """
-    Update the indexing progress by publishing to SNS.
-    This now only publishes to SNS - the SNS subscriber will update DynamoDB.
+    Update the indexing progress in DynamoDB and notify if complete.
 
     Args:
         document_id (str): The document ID
@@ -119,42 +138,55 @@ def update_indexing_progress(document_id, document_name, page_number):
         bool: True if successful, False otherwise
     """
     try:
-        # Initialize SNS client
+        # Initialize clients
+        dynamodb = boto3.resource("dynamodb", region_name=region)
         sns_client = boto3.client("sns", region_name=region)
 
-        # Optional: Get document metadata for the SNS message
-        # Initialize this with default values in case we can't get the actual data
-        base_document_id = ""
-        document_version = ""
-        upload_timestamp = 0
-        total_chunks = 0
-        current_chunks = 0
+        tracking_table = dynamodb.Table(TRACKING_TABLE)
 
-        try:
-            # This check is not essential but provides better info in the SNS message
-            dynamodb = boto3.resource("dynamodb", region_name=region)
-            tracking_table = dynamodb.Table(TRACKING_TABLE)
-            doc_response = tracking_table.get_item(Key={"document_id": document_id})
-            item = doc_response.get("Item", {})
-            base_document_id = item.get("base_document_id", "")
-            document_version = item.get("document_version", "")
-            upload_timestamp = item.get("upload_timestamp", 0)
-            total_chunks = item.get("total_chunks", 0)
-            current_chunks = item.get("indexed_chunks", 0)
-        except Exception as e:
-            logger.warning(f"Could not get document metadata: {str(e)}")
+        # First get the current document to check total chunks and current count
+        doc_response = tracking_table.get_item(Key={"document_id": document_id})
+        item = doc_response.get("Item", {})
+        total_chunks = item.get("total_chunks", 0)
+        current_chunks = item.get("indexed_chunks", 0)
 
-        # Expected update - only used for logging
-        expected_updated_count = (
-            min(current_chunks + 1, total_chunks) if total_chunks > 0 else current_chunks + 1
-        )
-        expected_progress = (
-            f"{expected_updated_count}/{total_chunks}"
-            if total_chunks > 0
-            else f"{expected_updated_count}/?"
-        )
+        # Check if we would exceed total_chunks - if so, don't increment
+        if current_chunks >= total_chunks:
+            # Log warning for documents that already have all chunks indexed
+            logger.warning(
+                f"Document {document_id} has {current_chunks}/{total_chunks} chunks indexed. "
+                f"Skipping increment."
+            )
+            response = {"Attributes": {"indexed_chunks": current_chunks}}
+        else:
+            # Use a conditional update to ensure we don't exceed total_chunks
+            # This uses a condition expression to only increment if the current value
+            # is less than the total chunks
+            try:
+                response = tracking_table.update_item(
+                    Key={"document_id": document_id},
+                    UpdateExpression="ADD indexed_chunks :val",
+                    ConditionExpression="indexed_chunks < :total",
+                    ExpressionAttributeValues={":val": 1, ":total": total_chunks},
+                    ReturnValues="UPDATED_NEW",
+                )
+            except tracking_table.meta.client.exceptions.ConditionalCheckFailedException:
+                # If condition fails (indexed already >= total), don't increment
+                logger.warning(
+                    f"Concurrent update prevented excess increment for {document_id}. "
+                    f"Current chunks {current_chunks}/{total_chunks}."
+                )
+                response = {"Attributes": {"indexed_chunks": current_chunks}}
 
-        # Publish individual chunk notification
+        # Check if this was the last chunk
+        updated_count = int(response.get("Attributes", {}).get("indexed_chunks", 0))
+
+        # We already have the document info, so no need to query again
+        base_document_id = item.get("base_document_id", "")
+        document_version = item.get("document_version", "")
+        upload_timestamp = item.get("upload_timestamp", 0)
+
+        # Individual chunk notification (optional)
         if SNS_TOPIC_ARN:
             sns_client.publish(
                 TopicArn=SNS_TOPIC_ARN,
@@ -166,26 +198,35 @@ def update_indexing_progress(document_id, document_name, page_number):
                         "document_name": document_name,
                         "page_number": page_number,
                         "document_version": document_version,
-                        "progress": expected_progress,
-                        "current_chunks": current_chunks,
-                        "total_chunks": total_chunks,
+                        "progress": f"{updated_count}/{total_chunks}",
                         "status": "indexed",
                         "timestamp": datetime.now().isoformat(),
                     },
                     cls=DecimalEncoder,
                 ),
             )
-            logger.info(
-                f"Published chunk indexed notification for {document_id}, page {page_number}"
+
+        # If all chunks are now indexed
+        if total_chunks > 0 and updated_count >= total_chunks:
+            completion_time = datetime.now().isoformat()
+
+            # Update status to COMPLETED and ensure indexed_chunks = total_chunks
+            # This fixes any inconsistencies where indexed > total
+            tracking_table.update_item(
+                Key={"document_id": document_id},
+                UpdateExpression=(
+                    "SET #status = :status, completion_time = :time, indexed_chunks = :total"
+                ),
+                ExpressionAttributeNames={"#status": "status"},
+                ExpressionAttributeValues={
+                    ":status": "COMPLETED",
+                    ":time": completion_time,
+                    ":total": total_chunks,
+                },
             )
 
-            # If we think this might be the last chunk (based on our check),
-            # send a completion notification. The document_tracking lambda will
-            # verify this with the actual data in DynamoDB
-            if total_chunks > 0 and expected_updated_count >= total_chunks:
-                completion_time = datetime.now().isoformat()
-
-                # Send completion notification
+            # Send completion notification
+            if SNS_TOPIC_ARN:
                 sns_client.publish(
                     TopicArn=SNS_TOPIC_ARN,
                     Subject="Document Indexing Completed",
@@ -198,14 +239,13 @@ def update_indexing_progress(document_id, document_name, page_number):
                             "upload_timestamp": upload_timestamp,
                             "total_chunks": total_chunks,
                             "status": "COMPLETED",
+                            "start_time": item.get("start_time"),
                             "completion_time": completion_time,
+                            "is_reupload": len(get_document_history(base_document_id)) > 1,
                         },
                         cls=DecimalEncoder,
                     ),
                 )
-                logger.info(f"Published completion notification for {document_id}")
-        else:
-            logger.warning("SNS_TOPIC_ARN not configured, skipping notification")
 
         return True
 
