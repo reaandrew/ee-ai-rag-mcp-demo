@@ -529,6 +529,7 @@ resource "aws_iam_policy" "app_specific_policy" {
         Effect   = "Allow"
         Resource = "arn:aws:apigateway:${var.aws_region}::/*"
       },
+# Removing CloudFront permissions - moved to dedicated policy
       {
         # Terraform state bucket permissions
         Action = [
@@ -558,8 +559,7 @@ resource "aws_iam_policy" "app_specific_policy" {
           "arn:aws:s3:::ee-ai-rag-mcp-demo-vectors*/*",
           "arn:aws:s3:::ee-ai-rag-mcp-demo-ui*",
           "arn:aws:s3:::ee-ai-rag-mcp-demo-ui*/*",
-          # CloudFront distribution permissions
-          "arn:aws:cloudfront::${var.aws_account_id}:distribution/*",
+          # S3 buckets with no CloudFront (CloudFront permissions in separate policy)
           "arn:aws:s3:::${var.terraform_state_bucket}-logs",
           "arn:aws:s3:::${var.terraform_state_bucket}-logs/*"
         ]
@@ -639,6 +639,55 @@ resource "aws_iam_policy" "app_specific_policy" {
         Action = [
           "sns:ListTopics",
           "sns:ListSubscriptions"
+        ]
+        Effect   = "Allow"
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+# Create CloudFront policy
+resource "aws_iam_policy" "cloudfront_policy" {
+  name        = "${var.ci_role_name}-cloudfront-policy"
+  description = "CloudFront permissions for the CI role"
+  
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        # CloudFront permissions
+        Action = [
+          # Distribution management
+          "cloudfront:CreateDistribution",
+          "cloudfront:DeleteDistribution",
+          "cloudfront:GetDistribution",
+          "cloudfront:UpdateDistribution",
+          "cloudfront:GetDistributionConfig",
+          "cloudfront:ListDistributions",
+          
+          # Origin access control
+          "cloudfront:CreateOriginAccessControl",
+          "cloudfront:GetOriginAccessControl",
+          "cloudfront:UpdateOriginAccessControl",
+          "cloudfront:DeleteOriginAccessControl",
+          "cloudfront:ListOriginAccessControls",
+          
+          # Origin access identity (legacy)
+          "cloudfront:CreateCloudFrontOriginAccessIdentity",
+          "cloudfront:GetCloudFrontOriginAccessIdentity",
+          "cloudfront:DeleteCloudFrontOriginAccessIdentity",
+          "cloudfront:ListCloudFrontOriginAccessIdentities",
+          
+          # Invalidations
+          "cloudfront:CreateInvalidation",
+          "cloudfront:GetInvalidation",
+          "cloudfront:ListInvalidations",
+          
+          # Tagging
+          "cloudfront:TagResource",
+          "cloudfront:UntagResource",
+          "cloudfront:ListTagsForResource"
         ]
         Effect   = "Allow"
         Resource = "*"
@@ -751,6 +800,12 @@ resource "aws_iam_role_policy_attachment" "opensearch_secretsmanager_attachment"
 resource "aws_iam_role_policy_attachment" "dynamodb_tracking_attachment" {
   role       = aws_iam_role.ci_role.name
   policy_arn = aws_iam_policy.dynamodb_tracking_policy.arn
+}
+
+# Attach CloudFront policy to the CI role
+resource "aws_iam_role_policy_attachment" "cloudfront_attachment" {
+  role       = aws_iam_role.ci_role.name
+  policy_arn = aws_iam_policy.cloudfront_policy.arn
 }
 
 # Output the role ARN for use in CI setup
