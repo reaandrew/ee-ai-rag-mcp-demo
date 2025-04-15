@@ -57,15 +57,58 @@ resource "aws_s3_bucket_public_access_block" "ui_public_access" {
 
 # This policy is now replaced by ui_policy_cloudfront which restricts access to CloudFront only
 
-# Upload index.html file to the bucket
+# Upload all UI files using the for_each approach with file path lookup
+locals {
+  ui_dir_path = "${path.module}/../../ui"
+  content_types = {
+    ".html" = "text/html",
+    ".css"  = "text/css",
+    ".js"   = "application/javascript",
+    ".json" = "application/json",
+    ".png"  = "image/png",
+    ".jpg"  = "image/jpeg",
+    ".svg"  = "image/svg+xml",
+    ".ico"  = "image/x-icon",
+    ".puml" = "text/plain",
+  }
+}
+
+# Create a file set with all files in the UI directory including subdirectories
+resource "terraform_data" "ui_files" {
+  provisioner "local-exec" {
+    command = "find ${local.ui_dir_path} -type f | sort > ${path.module}/ui_files.txt"
+  }
+}
+
+# Upload index.html file to the bucket - keeping explicit for clarity
 resource "aws_s3_object" "index_html" {
   bucket       = aws_s3_bucket.ui.id
   key          = "index.html"
-  source       = "${path.module}/../../ui/index.html"
+  source       = "${local.ui_dir_path}/index.html"
   content_type = "text/html"
-  etag         = filemd5("${path.module}/../../ui/index.html")
+  etag         = filemd5("${local.ui_dir_path}/index.html")
+  acl          = "public-read"
+}
 
-  # Make the object publicly readable
+# Upload documentation.html file to the bucket
+resource "aws_s3_object" "documentation_html" {
+  bucket       = aws_s3_bucket.ui.id
+  key          = "documentation.html"
+  source       = "${local.ui_dir_path}/documentation.html"
+  content_type = "text/html"
+  etag         = filemd5("${local.ui_dir_path}/documentation.html")
+  acl          = "public-read"
+}
+
+# Upload all image files
+resource "aws_s3_object" "image_files" {
+  for_each     = fileset(local.ui_dir_path, "images/**")
+  
+  bucket       = aws_s3_bucket.ui.id
+  key          = each.value
+  source       = "${local.ui_dir_path}/${each.value}"
+  content_type = lookup(local.content_types, regex("\\.[^.]+$", each.value), "application/octet-stream")
+  etag         = filemd5("${local.ui_dir_path}/${each.value}")
   acl          = "public-read"
 }
 
