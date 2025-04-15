@@ -86,13 +86,37 @@ def complete_document_indexing(message_data):
         # Update DynamoDB record to mark document as COMPLETED
         dynamodb = boto3.resource("dynamodb", region_name=region)
         tracking_table = dynamodb.Table(TRACKING_TABLE)
-        update_result = tracking_table.update_item(
-            Key={"document_id": document_id},
-            UpdateExpression="SET #status = :status, completion_time = :completion_time",
-            ExpressionAttributeNames={"#status": "status"},
-            ExpressionAttributeValues={":status": "COMPLETED", ":completion_time": completion_time},
-            ReturnValues="UPDATED_NEW",
-        )
+        try:
+            # Only update if status isn't already COMPLETED (avoid race conditions)
+            update_result = tracking_table.update_item(
+                Key={"document_id": document_id},
+                UpdateExpression=(
+                    "SET #status = :status, "
+                    "completion_time = :completion_time, "
+                    "indexed_chunks = :total_chunks"
+                ),
+                ConditionExpression="#status <> :completed_status",
+                ExpressionAttributeNames={"#status": "status"},
+                ExpressionAttributeValues={
+                    ":status": "COMPLETED",
+                    ":completion_time": completion_time,
+                    ":completed_status": "COMPLETED",
+                    ":total_chunks": total_chunks,  # Ensure indexed_chunks equals total_chunks
+                },
+                ReturnValues="UPDATED_NEW",
+            )
+            logger.info(f"Marked document {document_id} as COMPLETED via explicit message")
+        except Exception as e:
+            if "ConditionalCheckFailedException" in str(e):
+                logger.info(f"Document {document_id} already marked as COMPLETED")
+                # Get the current status for logging
+                item_response = tracking_table.get_item(Key={"document_id": document_id})
+                current_item = item_response.get("Item", {})
+                logger.info(f"Current state: {json.dumps(current_item, cls=DecimalEncoder)}")
+                update_result = {"Attributes": current_item}
+            else:
+                logger.warning(f"Error marking document {document_id} as COMPLETED: {str(e)}")
+                raise
         logger.info(f"DynamoDB update result: {json.dumps(update_result, cls=DecimalEncoder)}")
 
         return {
@@ -120,64 +144,102 @@ def update_indexing_progress(message_data):
         # Extract data from the message
         document_id = message_data.get("document_id")
         page_number = message_data.get("page_number")
-        progress = message_data.get("progress", "0/0")
+        # We don't use the progress value from the message as we calculate it ourselves
+        message_data.get("progress", "0/0")  # Accessing but not storing the value
+
+        # Extract document name for debugging problematic documents
+        document_name = message_data.get("document_name", "Unknown")
+
+        # Enhanced logging for problematic documents
+        problematic_docs = ["internet_usage_policy.txt", "Remote_Access_Policy.txt"]
+        is_problematic = any(doc in document_name for doc in problematic_docs)
 
         # Validate required fields
         if not all([document_id, page_number]):
             return {"status": "error", "message": "Missing required fields in message data"}
 
-        msg = f"Updating progress: doc={document_id}, page={page_number}, prog={progress}"
-        logger.info(msg)
+        logger.info(f"Updating: doc={document_id}, name={document_name}, page={page_number}")
 
         # Update DynamoDB record with progress
         dynamodb = boto3.resource("dynamodb", region_name=region)
         tracking_table = dynamodb.Table(TRACKING_TABLE)
 
-        # First get the current item to check total_chunks and indexed_chunks
+        # First get the current item to check total_chunks (we need this for progress reporting)
         item_response = tracking_table.get_item(Key={"document_id": document_id})
         current_item = item_response.get("Item", {})
         total_chunks = current_item.get("total_chunks", 0)
         indexed_chunks = current_item.get("indexed_chunks", 0)
 
-        # Increment indexed_chunks by 1
-        new_indexed_chunks = indexed_chunks + 1
+        if is_problematic:
+            logger.info(
+                f"PROBLEMATIC: {document_name} - indexed={indexed_chunks}, total={total_chunks}"
+            )
 
-        # Update with the incremented value
-        progress_str = f"{new_indexed_chunks}/{total_chunks}"
+        # Use DynamoDB's atomic counter increment instead of read-then-write pattern
+        # This avoids race conditions when multiple chunks are processed simultaneously
         update_result = tracking_table.update_item(
             Key={"document_id": document_id},
-            UpdateExpression="SET indexed_chunks = :indexed_chunks, progress_info = :progress",
+            UpdateExpression="ADD indexed_chunks :inc",
             ExpressionAttributeValues={
-                ":indexed_chunks": new_indexed_chunks,
-                ":progress": progress_str,
+                ":inc": 1,  # Increment by 1 atomically
             },
             ReturnValues="UPDATED_NEW",
         )
 
+        # Get the new incremented value from the update result
+        new_indexed_chunks = update_result["Attributes"].get("indexed_chunks", 0)
+        progress_str = f"{new_indexed_chunks}/{total_chunks}"
+
+        # Update the progress_info field with the actual incremented value
+        tracking_table.update_item(
+            Key={"document_id": document_id},
+            UpdateExpression="SET progress_info = :progress",
+            ExpressionAttributeValues={
+                ":progress": progress_str,
+            },
+        )
+
         # Check if we've completed all chunks and should mark as completed
         if total_chunks > 0 and new_indexed_chunks >= total_chunks:
-            logger.info(f"All chunks processed for {document_id}, setting status to COMPLETED")
+            logger.info(f"All chunks processed for {document_name}, setting to COMPLETED")
             completion_time = datetime.now().isoformat()
-            complete_result = tracking_table.update_item(
-                Key={"document_id": document_id},
-                UpdateExpression="SET #status = :status, completion_time = :completion_time",
-                ExpressionAttributeNames={"#status": "status"},
-                ExpressionAttributeValues={
-                    ":status": "COMPLETED",
-                    ":completion_time": completion_time,
-                },
-                ReturnValues="UPDATED_NEW",
-            )
+            try:
+                # Only update if status isn't already COMPLETED (avoid race conditions)
+                tracking_table.update_item(
+                    Key={"document_id": document_id},
+                    UpdateExpression="SET #status = :status, completion_time = :completion_time",
+                    ConditionExpression="#status <> :completed_status",
+                    ExpressionAttributeNames={"#status": "status"},
+                    ExpressionAttributeValues={
+                        ":status": "COMPLETED",
+                        ":completion_time": completion_time,
+                        ":completed_status": "COMPLETED",
+                    },
+                )
+                logger.info(f"Successfully marked {document_name} as COMPLETED")
+            except Exception as e:
+                # If condition fails or other error, log but don't fail
+                if "ConditionalCheckFailedException" in str(e):
+                    logger.info(f"Document {document_name} already marked as COMPLETED")
+                else:
+                    logger.warning(f"Error marking document {document_name} as COMPLETED: {str(e)}")
+        elif is_problematic:
+            # Extra logging for problematic documents
             logger.info(
-                f"Completion update result: {json.dumps(complete_result, cls=DecimalEncoder)}"
+                (
+                    f"PROGRESS CHECK: {document_name} - "
+                    f"indexed={new_indexed_chunks}, total={total_chunks}, "
+                    f"should_complete={(total_chunks > 0 and new_indexed_chunks >= total_chunks)}"
+                )
             )
         logger.info(f"DynamoDB update result: {json.dumps(update_result, cls=DecimalEncoder)}")
 
         return {
             "status": "success",
             "document_id": document_id,
-            "progress": progress,
-            "message": f"Document indexing progress updated for {document_id}",
+            "document_name": document_name,
+            "progress": progress_str,
+            "message": f"Document indexing progress updated for {document_id} ({document_name})",
         }
 
     except Exception as e:

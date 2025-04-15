@@ -47,8 +47,8 @@ class TestDocumentTrackingHandler(unittest.TestCase):
 
         # Set up default return values
         self.mock_table.put_item.return_value = {}
-        self.mock_table.update_item.return_value = {"Attributes": {}}
-        self.mock_table.get_item.return_value = {"Item": {}}
+        self.mock_table.update_item.return_value = {"Attributes": {"indexed_chunks": 1}}
+        self.mock_table.get_item.return_value = {"Item": {"total_chunks": 5, "indexed_chunks": 0}}
         self.mock_table.query.return_value = {"Items": []}
 
     def tearDown(self):
@@ -122,7 +122,8 @@ class TestDocumentTrackingHandler(unittest.TestCase):
         self.assertEqual(len(response["body"]["results"]), 1)
         self.assertEqual(response["body"]["results"][0]["status"], "success")
         self.assertEqual(response["body"]["results"][0]["document_id"], message_data["document_id"])
-        self.assertEqual(response["body"]["results"][0]["progress"], message_data["progress"])
+        # Progress is now calculated internally, not taken from message
+        self.assertTrue("progress" in response["body"]["results"][0])  # Just verify it exists
 
     def test_lambda_handler_with_completion_message(self):
         """Test handler with a Document Indexing Completed message."""
@@ -265,7 +266,8 @@ class TestDocumentTrackingHandler(unittest.TestCase):
         # Verify the result
         self.assertEqual(result["status"], "success")
         self.assertEqual(result["document_id"], message_data["document_id"])
-        self.assertEqual(result["progress"], message_data["progress"])
+        # Progress is now calculated internally, not taken from message
+        self.assertTrue("progress" in result)  # Just verify it exists
 
     def test_update_indexing_progress_error(self):
         """Test update_indexing_progress with missing required fields."""
