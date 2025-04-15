@@ -116,7 +116,7 @@ def create_claude_prompt(query, formatted_results):
        - First line: The policy text (quoted or paraphrased if needed).
        - Second line: The citation line prefixed with `CITATION:`, followed by the document name, section number (if applicable), and page number exactly (e.g., `CITATION: Employee Handbook, Section 4.3.1, Page 12`).
        - Third line: A commentary line explaining how the excerpt addresses the query. (If no commentary is needed, still provide a brief statement; do not leave it blank.)
-    4. **Do not include** any extra aggregated sources or sections, such as a “Sources:” list at the end.
+    4. You must NOT including any extra aggregated sources or sections, such as a “Sources:” list at the end.  
     5. Do not adjust page numbers or section identifiers.
     6. Only include citations from documents directly relevant to the answer.
 
@@ -132,7 +132,8 @@ def create_claude_prompt(query, formatted_results):
     - Line 1: Policy detail.
     - Line 2: `CITATION:` line, exactly as specified.
     - Line 3: Commentary explaining how this excerpt answers the question.
-    If multiple excerpts differ, note this appropriately, and do not include any extra sections such as an aggregated 'Sources:' list."""
+    
+    If multiple excerpts differ, note this appropriatelyI."""
 
     # fmt: on
     # flake8: noqa: E501
