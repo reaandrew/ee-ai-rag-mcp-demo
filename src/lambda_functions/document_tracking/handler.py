@@ -5,7 +5,10 @@ This Lambda subscribes to SNS topics and updates DynamoDB with tracking informat
 import json
 import logging
 import os
+import boto3
 import decimal
+from datetime import datetime
+from boto3.dynamodb.conditions import Key
 
 
 # Helper class to convert Decimal objects to int/float for JSON serialization
@@ -42,10 +45,20 @@ def get_document_history(base_document_id):
     Returns:
         list: Processing records sorted by timestamp
     """
-    # In a real environment, this would query DynamoDB
-    # For testing, we'll return an empty list
-    logger.info(f"Would retrieve document history for: {base_document_id}")
-    return []
+    try:
+        dynamodb = boto3.resource("dynamodb", region_name=region)
+        tracking_table = dynamodb.Table(TRACKING_TABLE)
+
+        response = tracking_table.query(
+            IndexName="BaseDocumentIndex",
+            KeyConditionExpression=Key("base_document_id").eq(base_document_id),
+            ScanIndexForward=False,  # Newest first
+        )
+
+        return response.get("Items", [])
+    except Exception as e:
+        logger.error(f"Error getting document history: {str(e)}")
+        return []
 
 
 def complete_document_indexing(message_data):
@@ -61,17 +74,26 @@ def complete_document_indexing(message_data):
     try:
         # Extract data from the message
         document_id = message_data.get("document_id")
-        document_name = message_data.get("document_name")
         total_chunks = message_data.get("total_chunks")
+        completion_time = message_data.get("completion_time", datetime.now().isoformat())
 
         # Validate required fields
-        if not all([document_id, document_name, total_chunks]):
+        if not all([document_id, total_chunks]):
             return {"status": "error", "message": "Missing required fields in message data"}
 
         logger.info(f"Completing indexing for document: {document_id}")
 
-        # In test environments, we'll just log the operation without making DynamoDB calls
-        # In a real environment, this would update a DynamoDB record to mark it as complete
+        # Update DynamoDB record to mark document as COMPLETED
+        dynamodb = boto3.resource("dynamodb", region_name=region)
+        tracking_table = dynamodb.Table(TRACKING_TABLE)
+        update_result = tracking_table.update_item(
+            Key={"document_id": document_id},
+            UpdateExpression="SET #status = :status, completion_time = :completion_time",
+            ExpressionAttributeNames={"#status": "status"},
+            ExpressionAttributeValues={":status": "COMPLETED", ":completion_time": completion_time},
+            ReturnValues="UPDATED_NEW",
+        )
+        logger.info(f"DynamoDB update result: {json.dumps(update_result, cls=DecimalEncoder)}")
 
         return {
             "status": "success",
@@ -97,19 +119,36 @@ def update_indexing_progress(message_data):
     try:
         # Extract data from the message
         document_id = message_data.get("document_id")
-        document_name = message_data.get("document_name")
         page_number = message_data.get("page_number")
         progress = message_data.get("progress", "0/0")
 
+        # Try to parse progress to get current and total chunks
+        current_chunks = 0
+        try:
+            if "/" in progress:
+                parts = progress.split("/")
+                current_chunks = int(parts[0])
+        except (ValueError, IndexError):
+            logger.warning(f"Could not parse progress value: {progress}")
+
         # Validate required fields
-        if not all([document_id, document_name, page_number]):
+        if not all([document_id, page_number]):
             return {"status": "error", "message": "Missing required fields in message data"}
 
         msg = f"Updating progress: doc={document_id}, page={page_number}, prog={progress}"
         logger.info(msg)
 
-        # In test environments, we'll just log the operation without making DynamoDB calls
-        # In a real environment, this would update a DynamoDB record
+        # Update DynamoDB record with progress
+        dynamodb = boto3.resource("dynamodb", region_name=region)
+        tracking_table = dynamodb.Table(TRACKING_TABLE)
+        # Update indexed_chunks counter and progress info
+        update_result = tracking_table.update_item(
+            Key={"document_id": document_id},
+            UpdateExpression="SET indexed_chunks = :indexed_chunks, progress_info = :progress",
+            ExpressionAttributeValues={":indexed_chunks": current_chunks, ":progress": progress},
+            ReturnValues="UPDATED_NEW",
+        )
+        logger.info(f"DynamoDB update result: {json.dumps(update_result, cls=DecimalEncoder)}")
 
         return {
             "status": "success",
@@ -137,18 +176,38 @@ def initialize_document_tracking(message_data):
         # Extract data from the message
         document_id = message_data.get("document_id")
         base_document_id = message_data.get("base_document_id")
-        document_name = message_data.get("document_name")
+        document_name = message_data.get("document_name", "Unknown")
         total_chunks = message_data.get("total_chunks")
+        document_version = message_data.get("document_version", "v1")
+
+        # Calculate upload timestamp if not provided
+        upload_timestamp = message_data.get("upload_timestamp", int(datetime.now().timestamp()))
+        start_time = message_data.get("start_time", datetime.now().isoformat())
 
         # Validate required fields
-        if not all([document_id, base_document_id, document_name, total_chunks]):
+        if not all([document_id, base_document_id, total_chunks]):
             return {"status": "error", "message": "Missing required fields in message data"}
 
         logger.info(f"Initializing tracking for document: {document_id}, chunks: {total_chunks}")
 
-        # In test environments, we'll just log the operation without making DynamoDB calls
-        # This helps test the message parsing without needing actual AWS resources
-        # In a real environment, this would create a DynamoDB record
+        # Create new record in DynamoDB
+        dynamodb = boto3.resource("dynamodb", region_name=region)
+        tracking_table = dynamodb.Table(TRACKING_TABLE)
+        # Prepare item for DynamoDB
+        tracking_item = {
+            "document_id": document_id,
+            "base_document_id": base_document_id,
+            "document_name": document_name,
+            "document_version": document_version,
+            "upload_timestamp": upload_timestamp,
+            "total_chunks": total_chunks,
+            "indexed_chunks": 0,
+            "status": "PROCESSING",
+            "start_time": start_time,
+        }
+        # Write to DynamoDB
+        put_result = tracking_table.put_item(Item=tracking_item)
+        logger.info(f"DynamoDB put_item result: {json.dumps(put_result, cls=DecimalEncoder)}")
 
         return {
             "status": "success",

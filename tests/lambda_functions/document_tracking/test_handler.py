@@ -33,6 +33,28 @@ class TestDecimalEncoder(unittest.TestCase):
 class TestDocumentTrackingHandler(unittest.TestCase):
     """Test cases for the document_tracking Lambda handler."""
 
+    def setUp(self):
+        """Set up test fixtures."""
+        # Create a patcher for boto3 resource
+        self.boto3_resource_patcher = mock.patch("boto3.resource")
+        self.mock_boto3_resource = self.boto3_resource_patcher.start()
+
+        # Mock the DynamoDB resource and table
+        self.mock_table = mock.MagicMock()
+        self.mock_dynamodb = mock.MagicMock()
+        self.mock_boto3_resource.return_value = self.mock_dynamodb
+        self.mock_dynamodb.Table.return_value = self.mock_table
+
+        # Set up default return values
+        self.mock_table.put_item.return_value = {}
+        self.mock_table.update_item.return_value = {"Attributes": {}}
+        self.mock_table.get_item.return_value = {"Item": {}}
+        self.mock_table.query.return_value = {"Items": []}
+
+    def tearDown(self):
+        """Tear down test fixtures."""
+        self.boto3_resource_patcher.stop()
+
     def test_lambda_handler_with_empty_event(self):
         """Test handler with an empty event."""
         event = {"Records": []}
