@@ -5,14 +5,14 @@
 data "archive_file" "document_tracking_zip" {
   type        = "zip"
   source_dir  = "${path.module}/../../src/lambda_functions/document_tracking"
-  output_path = "${path.module}/../../package/document_tracking.zip"
+  output_path = "${path.module}/../../build/document-tracking.zip"
 }
 
 # Lambda layer for dependencies
 resource "aws_lambda_layer_version" "document_tracking_layer" {
   layer_name          = "ee-ai-rag-mcp-demo-document-tracking-layer"
-  filename            = "${path.module}/../../package/document_tracking_layer.zip"
-  source_code_hash    = filebase64sha256("${path.module}/../../package/document_tracking_layer.zip")
+  filename            = "${path.module}/../../build/document-tracking-layer.zip"
+  source_code_hash    = filebase64sha256("${path.module}/../../build/document-tracking-layer.zip")
   compatible_runtimes = ["python3.9"]
   description         = "Dependencies for document tracking Lambda function"
 }
