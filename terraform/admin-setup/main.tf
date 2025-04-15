@@ -690,7 +690,11 @@ resource "aws_iam_policy" "cloudfront_policy" {
           "cloudfront:ListTagsForResource"
         ]
         Effect   = "Allow"
-        Resource = "*"
+        Resource = [
+          "arn:aws:cloudfront::${var.aws_account_id}:distribution/*",
+          "arn:aws:cloudfront::${var.aws_account_id}:origin-access-control/*",
+          "arn:aws:cloudfront::${var.aws_account_id}:origin-access-identity/*"
+        ]
       }
     ]
   })
