@@ -1,63 +1,77 @@
-# Event-Driven Architecture for Document Tracking
+# Event-Driven Architecture
 
-This document explains the new event-driven architecture implemented for document tracking.
+This document describes the event-driven architecture for document tracking in the EE AI RAG MCP Demo project.
 
 ## Overview
 
-The document processing pipeline has been refactored to follow a more decoupled, event-driven approach:
+The system has been enhanced to use an event-driven architecture for document tracking. This approach provides several benefits:
 
-1. Processing lambdas (`text_chunker`, `vector_generator`) now only publish events to SNS topics
-2. A dedicated `document_tracking` lambda subscribes to these events and handles DynamoDB updates
-3. Existing API endpoints continue to work unchanged, reading from the same DynamoDB table
+1. **Decoupling**: Service components are decoupled from the data store, reducing tight dependencies
+2. **Scalability**: Services can scale independently and don't need to wait for database operations
+3. **Resilience**: Processing continues even if the tracking system experiences issues
+4. **Centralization**: Document tracking logic is centralized in one service
 
-## Benefits
+## Components
 
-This architectural change provides several advantages:
+### SNS Topic
 
-- **Better separation of concerns**: Processing lambdas focus solely on their data processing tasks
-- **Improved scalability**: SNS provides fan-out capabilities if more subscribers are added later
-- **Enhanced reliability**: Document tracking failures don't impact the main processing pipeline
-- **Easier monitoring**: SNS metrics provide visibility into event flow
-- **Simplified maintenance**: Changes to document tracking logic are isolated to a single lambda
+A central Amazon SNS topic (`document_indexing`) serves as the messaging backbone of the system. It receives notifications about document processing events and distributes them to subscribers.
 
-## Implementation
+### Document Processing Lambdas
 
-### Components
+Lambda functions that process documents (text_chunker, text_extractor, vector_generator) publish events to the SNS topic instead of directly updating DynamoDB. They publish events for:
 
-1. **SNS Topic**: `ee-ai-rag-mcp-demo-document-indexing`
-   - Receives all document tracking events
+- Document processing started
+- Document chunk indexed 
+- Document indexing completed
 
-2. **Document Tracking Lambda**: `ee-ai-rag-mcp-demo-document-tracking`
-   - Subscribes to the SNS topic
-   - Processes three types of events:
-     - `Document Processing Started`: Initializes tracking records
-     - `Document Chunk Indexed`: Updates progress counters
-     - `Document Indexing Completed`: Marks documents as complete
+### Document Tracking Lambda
 
-3. **Modified Tracking Utils**: `tracking_utils.py`
-   - No longer updates DynamoDB directly
-   - Only publishes events to SNS
+A dedicated Lambda function (`document_tracking`) subscribes to the SNS topic and handles all DynamoDB operations. This Lambda:
 
-### Event Flow
+- Processes incoming SNS messages
+- Updates the DynamoDB tracking table
+- Ensures data consistency and state management
 
-1. Document uploaded → `text_chunker` lambda:
-   - Processes document into chunks
-   - Publishes `Document Processing Started` event
+### Tracking Utils Module
 
-2. Chunks processed → `vector_generator` lambda:
-   - Generates vector embeddings
-   - Publishes `Document Chunk Indexed` event for each chunk
-   - Publishes `Document Indexing Completed` event when all chunks are done
+The `tracking_utils.py` module has been modified to:
+- Publish events to SNS instead of directly updating DynamoDB
+- Maintain backward compatibility with existing code
 
-3. Events → `document_tracking` lambda:
-   - Subscribes to all events
-   - Updates DynamoDB tracking table based on event type
+## Event Types
 
-## Future Enhancements
+Three types of events flow through the system:
 
-Possible future improvements to this architecture:
+1. **Document Processing Started**
+   - Published when a document begins processing
+   - Contains metadata about the document and processing parameters
 
-1. Add DLQ (Dead Letter Queue) for failed SNS message processing
-2. Implement more granular event types for better monitoring
-3. Add CloudWatch alarms for tracking failures
-4. Create dashboard for document processing visualization
+2. **Document Chunk Indexed**
+   - Published when an individual chunk is processed
+   - Contains progress information
+
+3. **Document Indexing Completed**
+   - Published when all chunks have been processed
+   - Marks the document as fully indexed
+
+## Implementation Details
+
+### Terraform Configuration
+
+A new Terraform module (`document_tracking.tf`) defines:
+- The Document Tracking Lambda
+- Required IAM permissions
+- SNS subscription
+- Lambda layer for dependencies
+
+### Testing
+
+Comprehensive unit tests validate the behavior of:
+- SNS message parsing
+- Error handling
+- DynamoDB update logic
+
+## Migration Strategy
+
+This architecture change is backward compatible. If issues occur with the new SNS-based approach, the system can revert to direct DynamoDB updates without affecting API users or requiring data migration.

@@ -1,31 +1,28 @@
 # Document Tracking Lambda
 
-This Lambda function subscribes to SNS notifications from the document processing pipeline
-and updates DynamoDB with document status information.
+This Lambda function subscribes to SNS topics and updates DynamoDB with document tracking information.
 
 ## Purpose
 
-This Lambda implements a more decoupled, event-driven architecture by:
+The Document Tracking Lambda serves as a centralized service for maintaining document processing state in DynamoDB. It works with the event-driven architecture by:
 
-1. Subscribing to SNS topics instead of having processing lambdas write directly to DynamoDB
-2. Processing different types of document events:
-   - Document Processing Started
-   - Document Chunk Indexed 
-   - Document Indexing Completed
+1. Receiving SNS notifications about document processing events
+2. Updating the DynamoDB tracking table based on these events
+3. Ensuring data consistency and proper state management
 
-## Environment Variables
+## Event Types
 
-- `TRACKING_TABLE`: The DynamoDB table name for document tracking (default: "ee-ai-rag-mcp-demo-doc-tracking")
-- `AWS_REGION`: The AWS region (provided by Lambda runtime)
+The Lambda processes three types of SNS events:
 
-## Input
+1. **Document Processing Started**: Initializes tracking for a new document
+2. **Document Chunk Indexed**: Updates progress as chunks are processed
+3. **Document Indexing Completed**: Marks document processing as complete
 
-This Lambda processes SNS messages with the following subjects:
+## Architecture
 
-- `Document Processing Started`: Initialize tracking for a new document
-- `Document Chunk Indexed`: Update indexing progress for a document
-- `Document Indexing Completed`: Mark document processing as complete
+This Lambda is part of an event-driven architecture where:
 
-## Output
-
-The Lambda returns a response with the count of processed events.
+- Document processing lambdas (text_chunker, text_extractor, vector_generator) publish events to SNS
+- The document_tracking Lambda subscribes to these events
+- DynamoDB is updated by this Lambda rather than directly by processing lambdas
+- This centralization improves scalability and reduces tight coupling
