@@ -33,6 +33,9 @@ region = os.environ.get("AWS_REGION", "eu-west-2")
 # Get environment variables
 TRACKING_TABLE = os.environ.get("TRACKING_TABLE", "ee-ai-rag-mcp-demo-doc-tracking")
 
+# Constants
+ERROR_MISSING_REQUIRED_FIELDS = "Missing required fields in message data"
+
 
 def get_document_history(base_document_id):
     """
@@ -79,7 +82,7 @@ def complete_document_indexing(message_data):
 
         # Validate required fields
         if not all([document_id, total_chunks]):
-            return {"status": "error", "message": "Missing required fields in message data"}
+            return {"status": "error", "message": ERROR_MISSING_REQUIRED_FIELDS}
 
         logger.info(f"Completing indexing for document: {document_id}")
 
@@ -156,7 +159,7 @@ def update_indexing_progress(message_data):
 
         # Validate required fields
         if not all([document_id, page_number]):
-            return {"status": "error", "message": "Missing required fields in message data"}
+            return {"status": "error", "message": ERROR_MISSING_REQUIRED_FIELDS}
 
         logger.info(f"Updating: doc={document_id}, name={document_name}, page={page_number}")
 
@@ -271,7 +274,7 @@ def initialize_document_tracking(message_data):
 
         # Validate required fields
         if not all([document_id, base_document_id, total_chunks]):
-            return {"status": "error", "message": "Missing required fields in message data"}
+            return {"status": "error", "message": ERROR_MISSING_REQUIRED_FIELDS}
 
         logger.info(f"Initializing tracking for document: {document_id}, chunks: {total_chunks}")
 
