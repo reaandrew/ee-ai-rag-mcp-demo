@@ -201,12 +201,10 @@ def get_index_body():
     }
 
 
-def handle_auth_error(error):
+def handle_auth_error():
     """
     Handle authorization errors with detailed logging.
     Extracted to separate function to reduce cognitive complexity.
-    Args:
-        error: The exception that was raised
     """
     logger.error("Authorization failure. Check IAM permissions and OpenSearch policy.")
     logger.error(f"Using endpoint: {OPENSEARCH_ENDPOINT}")
@@ -262,6 +260,6 @@ def create_index_if_not_exists(client, index_name=None):
             logger.info(f"Index {index_name} already exists, continuing without error.")
             return True
         if "403" in error_message or "AuthorizationException" in error_message:
-            handle_auth_error(e)
+            handle_auth_error()
         # For all other errors
         return False

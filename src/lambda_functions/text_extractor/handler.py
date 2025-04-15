@@ -380,7 +380,7 @@ def process_document_async(bucket_name, file_key):
     job_id = start_textract_job(bucket_name, file_key)
 
     # Wait for completion
-    status, timeout_text = wait_for_job_completion(job_id, file_key)
+    _, timeout_text = wait_for_job_completion(job_id, file_key)
     if timeout_text:
         return timeout_text, 0
 
