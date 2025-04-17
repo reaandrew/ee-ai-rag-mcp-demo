@@ -338,13 +338,27 @@ resource "aws_iam_policy" "app_specific_policy" {
     Version = "2012-10-17"
     Statement = [
       {
-        # CloudWatch permissions for dashboards
+        # CloudWatch dashboard permissions
         Action = [
           "cloudwatch:PutDashboard",
           "cloudwatch:GetDashboard",
-          "cloudwatch:DeleteDashboards",
-          "cloudwatch:ListDashboards",
-          "cloudwatch:PutMetricData",
+          "cloudwatch:DeleteDashboards"
+        ]
+        Effect   = "Allow"
+        Resource = "arn:aws:cloudwatch::${var.aws_account_id}:dashboard/EE-AI-RAG-Dashboard"
+      },
+      {
+        # CloudWatch actions that require resource-level permissions - scoped to our dashboard
+        Action = [
+          "cloudwatch:ListDashboards"
+        ]
+        Effect   = "Allow"
+        Resource = "arn:aws:cloudwatch::${var.aws_account_id}:dashboard/*"
+      },
+      {
+        # CloudWatch metrics permissions - these actions don't support resource-level permissions
+        # but we'll restrict them to read operations only
+        Action = [
           "cloudwatch:GetMetricData",
           "cloudwatch:GetMetricStatistics"
         ]
