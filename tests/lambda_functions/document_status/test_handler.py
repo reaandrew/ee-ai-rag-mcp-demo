@@ -39,54 +39,33 @@ mock_documents = [
 ]
 
 
-# Function to test different import scenarios
-def test_imports():
-    """Test different import paths for tracking_utils"""
-    # Save original modules
-    original_modules = dict(sys.modules)
+class TestImportScenarios(unittest.TestCase):
+    """Test the handler's ability to handle different import scenarios."""
 
-    try:
-        # Case 1: First import succeeds
-        import_mock = mock.MagicMock(side_effect=ImportError())
-        with mock.patch("builtins.__import__", import_mock):
-            try:
-                from utils import tracking_utils
-            except ImportError:
-                pass
+    def test_no_tracking_utils(self):
+        """Test the handler when tracking_utils is None."""
+        # Import the handler module
+        from src.lambda_functions.document_status import handler
 
-        # Case 2: Second import succeeds
-        import_mock = mock.MagicMock(side_effect=[ImportError(), None])
-        with mock.patch("builtins.__import__", import_mock):
-            try:
-                from utils import tracking_utils
-                from src.utils import tracking_utils
-            except ImportError:
-                pass
+        # Save the original tracking_utils
+        original_tracking_utils = handler.tracking_utils
 
-        # Case 3: Third import succeeds
-        import_mock = mock.MagicMock(side_effect=[ImportError(), ImportError(), None])
-        with mock.patch("builtins.__import__", import_mock):
-            try:
-                from utils import tracking_utils
-                from src.utils import tracking_utils
-                import utils.tracking_utils
-            except ImportError:
-                pass
+        try:
+            # Set tracking_utils to None to simulate import failure
+            handler.tracking_utils = None
 
-        # Case 4: All imports fail
-        import_mock = mock.MagicMock(side_effect=ImportError())
-        with mock.patch("builtins.__import__", import_mock):
-            try:
-                from utils import tracking_utils
-                from src.utils import tracking_utils
-                import utils.tracking_utils
-            except ImportError:
-                # This should set tracking_utils to None and log an error
-                pass
+            # Test a GET request
+            event = {"httpMethod": "GET"}
+            response = handler.lambda_handler(event, {})
 
-    finally:
-        # Restore original modules
-        sys.modules = original_modules
+            # Verify the response
+            self.assertEqual(response["statusCode"], 500)
+            body = json.loads(response["body"])
+            self.assertIn("Document tracking is not available", body["error"])
+
+        finally:
+            # Restore tracking_utils
+            handler.tracking_utils = original_tracking_utils
 
 
 # Configure the mock to return the documents list
