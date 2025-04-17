@@ -6,10 +6,10 @@ from urllib.parse import unquote_plus
 
 # datetime imported but used only in tracking_utils
 
-try:
+try:  # pragma: no cover
     # Try to import tracking utils
     from utils import tracking_utils
-except ImportError:
+except ImportError:  # pragma: no cover
     try:
         # When running locally or in tests with src structure
         from src.utils import tracking_utils
@@ -25,10 +25,10 @@ except ImportError:
             )
 
 # Try to import from different locations depending on the context
-try:
+try:  # pragma: no cover
     # When running in the Lambda environment with utils copied locally
     from utils import opensearch_utils, bedrock_utils
-except ImportError:
+except ImportError:  # pragma: no cover
     try:
         # When running locally or in tests with src structure
         from src.utils import opensearch_utils, bedrock_utils
