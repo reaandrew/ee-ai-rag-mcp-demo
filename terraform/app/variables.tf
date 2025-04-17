@@ -63,6 +63,36 @@ variable "vector_prefix" {
   default     = "ee-ai-rag-mcp-demo"
 }
 
+variable "prefix" {
+  description = "Prefix for resource naming"
+  type        = string
+  default     = "ee-ai-rag-mcp-demo"
+}
+
+variable "raw_pdfs_bucket" {
+  description = "Name of the S3 bucket for storing raw PDFs"
+  type        = string
+  default     = "ee-ai-rag-mcp-demo-raw-pdfs"
+}
+
+variable "extracted_text_bucket" {
+  description = "Name of the S3 bucket for storing extracted text"
+  type        = string
+  default     = "ee-ai-rag-mcp-demo-extracted-text"
+}
+
+variable "chunked_text_bucket" {
+  description = "Name of the S3 bucket for storing chunked text"
+  type        = string
+  default     = "ee-ai-rag-mcp-demo-chunked-text"
+}
+
+variable "vectors_bucket" {
+  description = "Name of the S3 bucket for storing vectors"
+  type        = string
+  default     = "ee-ai-rag-mcp-demo-vectors"
+}
+
 variable "bedrock_model_id" {
   description = "AWS Bedrock model ID to use for generating embeddings"
   type        = string
