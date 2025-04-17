@@ -65,13 +65,31 @@ def lambda_handler(event, context):
     try:
         logger.info(f"Received event: {json.dumps(event)}")
 
+        # Validate httpMethod exists
+        if "httpMethod" not in event:
+            return {
+                "statusCode": 400,
+                "headers": CORS_HEADERS,
+                "body": json.dumps({"error": "Missing httpMethod in event"}, cls=DecimalEncoder),
+            }
+
         # Handle OPTIONS method for CORS preflight requests
-        if event.get("httpMethod") == "OPTIONS":
+        if event["httpMethod"] == "OPTIONS":
             return {
                 "statusCode": 200,
                 "headers": CORS_HEADERS,
                 "body": json.dumps(
                     {"message": "CORS preflight request successful"}, cls=DecimalEncoder
+                ),
+            }
+
+        # We only support GET for document status
+        if event["httpMethod"] != "GET":
+            return {
+                "statusCode": 400,
+                "headers": CORS_HEADERS,
+                "body": json.dumps(
+                    {"error": f"Unsupported method: {event['httpMethod']}"}, cls=DecimalEncoder
                 ),
             }
 

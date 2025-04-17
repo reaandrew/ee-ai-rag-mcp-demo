@@ -2,6 +2,7 @@ import json
 import unittest
 from unittest import mock
 import sys
+import decimal
 
 # Create a mock tracking_utils module
 tracking_utils_mock = mock.MagicMock()
@@ -40,7 +41,42 @@ sys.modules["src.utils.tracking_utils"] = tracking_utils_mock
 sys.modules["utils.tracking_utils"] = tracking_utils_mock
 
 # Now import the handler module
-from src.lambda_functions.document_status.handler import lambda_handler
+from src.lambda_functions.document_status.handler import lambda_handler, DecimalEncoder
+
+
+class TestDecimalEncoder(unittest.TestCase):
+    """Test cases for the DecimalEncoder class."""
+
+    def test_decimal_encoder_integer(self):
+        """Test that DecimalEncoder correctly converts integer Decimal objects."""
+        test_decimal = decimal.Decimal("10")
+        result = json.dumps(test_decimal, cls=DecimalEncoder)
+        self.assertEqual(result, "10")
+
+    def test_decimal_encoder_float(self):
+        """Test that DecimalEncoder correctly converts float Decimal objects."""
+        test_decimal = decimal.Decimal("10.5")
+        result = json.dumps(test_decimal, cls=DecimalEncoder)
+        self.assertEqual(result, "10.5")
+
+    def test_decimal_encoder_nested(self):
+        """Test that DecimalEncoder correctly handles nested structures with Decimals."""
+        test_data = {
+            "int_value": decimal.Decimal("10"),
+            "float_value": decimal.Decimal("10.5"),
+            "nested": {"decimal_value": decimal.Decimal("5.25")},
+        }
+        result = json.dumps(test_data, cls=DecimalEncoder)
+        self.assertEqual(
+            json.loads(result),
+            {"int_value": 10, "float_value": 10.5, "nested": {"decimal_value": 5.25}},
+        )
+
+    def test_decimal_encoder_non_decimal(self):
+        """Test that DecimalEncoder correctly handles non-Decimal objects."""
+        test_data = {"string": "test", "number": 42, "bool": True, "list": [1, 2, 3]}
+        result = json.dumps(test_data, cls=DecimalEncoder)
+        self.assertEqual(json.loads(result), test_data)
 
 
 class TestDocumentStatusHandler(unittest.TestCase):
@@ -94,6 +130,46 @@ class TestDocumentStatusHandler(unittest.TestCase):
         self.assertIn("Access-Control-Allow-Origin", response["headers"])
         body = json.loads(response["body"])
         self.assertIn("CORS preflight", body["message"])
+
+    def test_lambda_handler_with_unsupported_method(self):
+        """
+        Test the lambda_handler function with an unsupported HTTP method.
+        """
+        # Reset all mocks before test
+        tracking_utils_mock.reset_mock()
+
+        # Create mock event with unsupported method
+        event = {
+            "httpMethod": "POST",
+        }
+
+        # Call the function
+        response = lambda_handler(event, {})
+
+        # Verify the response
+        self.assertEqual(response["statusCode"], 400)
+        body = json.loads(response["body"])
+        self.assertIn("error", body)
+        self.assertIn("Unsupported method", body["error"])
+
+    def test_lambda_handler_missing_method(self):
+        """
+        Test the lambda_handler function when httpMethod is missing.
+        """
+        # Reset all mocks before test
+        tracking_utils_mock.reset_mock()
+
+        # Create mock event without httpMethod
+        event = {}
+
+        # Call the function
+        response = lambda_handler(event, {})
+
+        # Verify the response
+        self.assertEqual(response["statusCode"], 400)
+        body = json.loads(response["body"])
+        self.assertIn("error", body)
+        self.assertIn("Missing httpMethod in event", body["error"])
 
     def test_when_tracking_utils_is_none(self):
         """
