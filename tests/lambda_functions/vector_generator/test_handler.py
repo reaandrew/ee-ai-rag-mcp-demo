@@ -280,3 +280,109 @@ def test_lambda_handler_handles_error(mock_environment):
         # Assert the response
         assert response["statusCode"] == 500
         assert "Error" in response["body"]["message"]
+
+
+def test_process_chunk_file_with_tracking_utils(mock_environment):
+    """Test process_chunk_file with tracking_utils functionality."""
+    # Create a mock tracking_utils
+    mock_tracking_utils = MagicMock()
+
+    with patch("src.lambda_functions.vector_generator.handler.s3_client") as mock_s3, patch(
+        "src.lambda_functions.vector_generator.handler.generate_embedding"
+    ) as mock_generate_embedding, patch(
+        "src.lambda_functions.vector_generator.handler.tracking_utils", mock_tracking_utils
+    ):
+        # Setup mocks
+        mock_generate_embedding.return_value = [0.1, 0.2, 0.3]
+
+        # Create test data with document_id in metadata
+        test_chunk = SAMPLE_CHUNK.copy()
+        test_chunk["metadata"] = {
+            "document_id": "test-doc-id-123",
+            "source_bucket": "test-bucket",
+            "source_key": "test-key",
+        }
+
+        # Setup S3 response
+        mock_s3.get_object.return_value = {
+            "Body": MagicMock(read=MagicMock(return_value=json.dumps(test_chunk).encode()))
+        }
+
+        # Call the function
+        result = process_chunk_file("test-bucket", "test-chunk.json")
+
+        # Verify tracking was updated
+        mock_tracking_utils.update_indexing_progress.assert_called_once_with(
+            document_id="test-doc-id-123",
+            document_name=test_chunk["document_name"],
+            page_number=str(test_chunk["page_number"]),
+        )
+
+        # Verify the result
+        assert result["status"] == "success"
+
+
+def test_process_chunk_file_with_tracking_utils_no_document_id(mock_environment):
+    """Test process_chunk_file with tracking_utils but missing document_id."""
+    # Create a mock tracking_utils
+    mock_tracking_utils = MagicMock()
+
+    with patch("src.lambda_functions.vector_generator.handler.s3_client") as mock_s3, patch(
+        "src.lambda_functions.vector_generator.handler.generate_embedding"
+    ) as mock_generate_embedding, patch(
+        "src.lambda_functions.vector_generator.handler.tracking_utils", mock_tracking_utils
+    ), patch(
+        "src.lambda_functions.vector_generator.handler.logger"
+    ) as mock_logger:
+        # Setup mocks
+        mock_generate_embedding.return_value = [0.1, 0.2, 0.3]
+
+        # Create test data without document_id in metadata
+        test_chunk = SAMPLE_CHUNK.copy()
+        test_chunk["metadata"] = {"source_bucket": "test-bucket", "source_key": "test-key"}
+
+        # Setup S3 response
+        mock_s3.get_object.return_value = {
+            "Body": MagicMock(read=MagicMock(return_value=json.dumps(test_chunk).encode()))
+        }
+
+        # Call the function
+        result = process_chunk_file("test-bucket", "test-chunk.json")
+
+        # Verify tracking was not updated
+        mock_tracking_utils.update_indexing_progress.assert_not_called()
+
+        # Verify warning was logged
+        mock_logger.warning.assert_any_call(
+            "No document_id found in metadata, tracking not updated"
+        )
+
+        # Verify the result
+        assert result["status"] == "success"
+
+
+def test_process_chunk_file_no_opensearch_client(mock_environment):
+    """Test process_chunk_file when OpenSearch client is not available."""
+    with patch("src.lambda_functions.vector_generator.handler.s3_client") as mock_s3, patch(
+        "src.lambda_functions.vector_generator.handler.generate_embedding"
+    ) as mock_generate_embedding, patch(
+        "src.lambda_functions.vector_generator.handler.opensearch_client", None
+    ), patch(
+        "src.lambda_functions.vector_generator.handler.logger"
+    ) as mock_logger:
+        # Setup mocks
+        mock_generate_embedding.return_value = [0.1, 0.2, 0.3]
+
+        # Setup S3 response
+        mock_s3.get_object.return_value = {
+            "Body": MagicMock(read=MagicMock(return_value=json.dumps(SAMPLE_CHUNK).encode()))
+        }
+
+        # Call the function
+        result = process_chunk_file("test-bucket", "test-chunk.json")
+
+        # Verify warning was logged
+        mock_logger.warning.assert_any_call("OpenSearch client not available, skipping indexing")
+
+        # Verify the result
+        assert result["status"] == "success"
