@@ -263,3 +263,8 @@ output "document_status_api_url" {
   value       = "${aws_apigatewayv2_stage.policy_search_stage.invoke_url}/status"
   description = "The URL of the document status API endpoint (using the same API Gateway as policy search)"
 }
+
+output "cloudwatch_dashboard_url" {
+  description = "URL to the RAG system's CloudWatch dashboard"
+  value       = "https://${var.aws_region}.console.aws.amazon.com/cloudwatch/home?region=${var.aws_region}#dashboards:name=${aws_cloudwatch_dashboard.ee_ai_rag_dashboard.dashboard_name}"
+}
