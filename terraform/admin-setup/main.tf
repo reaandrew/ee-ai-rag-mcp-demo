@@ -338,6 +338,20 @@ resource "aws_iam_policy" "app_specific_policy" {
     Version = "2012-10-17"
     Statement = [
       {
+        # CloudWatch permissions for dashboards
+        Action = [
+          "cloudwatch:PutDashboard",
+          "cloudwatch:GetDashboard",
+          "cloudwatch:DeleteDashboards",
+          "cloudwatch:ListDashboards",
+          "cloudwatch:PutMetricData",
+          "cloudwatch:GetMetricData",
+          "cloudwatch:GetMetricStatistics"
+        ]
+        Effect   = "Allow"
+        Resource = "*"
+      },
+      {
         # CloudWatch Logs permissions for operations on specific log groups
         Action = [
           "logs:CreateLogGroup",
