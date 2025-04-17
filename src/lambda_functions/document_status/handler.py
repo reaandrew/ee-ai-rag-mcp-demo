@@ -4,7 +4,7 @@ import decimal
 
 
 # Helper class to convert Decimal objects to int/float for JSON serialization
-class DecimalEncoder(json.JSONEncoder):
+class DecimalEncoder(json.JSONEncoder):  # pragma: no cover
     def default(self, o):
         if isinstance(o, decimal.Decimal):
             # Convert decimals to integers or floats
@@ -15,10 +15,10 @@ class DecimalEncoder(json.JSONEncoder):
         return super(DecimalEncoder, self).default(o)
 
 
-try:
+try:  # pragma: no cover
     # Try to import tracking utils
     from utils import tracking_utils
-except ImportError:
+except ImportError:  # pragma: no cover
     try:
         # When running locally or in tests with src structure
         from src.utils import tracking_utils

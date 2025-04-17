@@ -166,6 +166,97 @@ class TestDocumentStatusHandler(unittest.TestCase):
         tracking_utils_mock.get_all_documents.side_effect = None
         tracking_utils_mock.get_all_documents.return_value = mock_documents
 
+    def test_lambda_handler_with_different_http_method(self):
+        """
+        Test the lambda_handler function with a different HTTP method (not OPTIONS).
+        Document status handler treats all methods except OPTIONS the same.
+        """
+        # Reset all mocks before test
+        tracking_utils_mock.reset_mock()
+
+        # Create mock event with POST method
+        event = {
+            "httpMethod": "POST",
+        }
+
+        # Call the function
+        response = lambda_handler(event, {})
+
+        # Verify the response is successful (handler doesn't check for method type except OPTIONS)
+        self.assertEqual(response["statusCode"], 200)
+        body = json.loads(response["body"])
+        self.assertIn("documents", body)
+
+    def test_lambda_handler_with_event_missing_httpmethod(self):
+        """
+        Test lambda_handler with an event structure missing httpMethod.
+        The handler will process this as a regular request since it only checks for OPTIONS.
+        """
+        # Reset all mocks before test
+        tracking_utils_mock.reset_mock()
+
+        # Create an event without the httpMethod field
+        event = {
+            "resource": "/status",
+            "path": "/status",
+            "headers": {"Content-Type": "application/json"},
+        }
+
+        # Call the function
+        response = lambda_handler(event, {})
+
+        # Verify the response (handler doesn't validate httpMethod presence)
+        self.assertEqual(response["statusCode"], 200)
+        body = json.loads(response["body"])
+        self.assertIn("documents", body)
+
+    def test_lambda_handler_with_request_context_format(self):
+        """
+        Test lambda_handler with API Gateway v2 format.
+        """
+        # Reset mocks before test
+        tracking_utils_mock.get_all_documents.reset_mock()
+
+        # Create event with API Gateway v2 format
+        event = {"requestContext": {"http": {"method": "GET"}}}
+
+        # Call the function
+        response = lambda_handler(event, {})
+
+        # Verify the response
+        self.assertEqual(response["statusCode"], 200)
+        body = json.loads(response["body"])
+        self.assertIn("documents", body)
+        self.assertEqual(len(body["documents"]), 2)
+
+        # Verify tracking_utils was called correctly
+        tracking_utils_mock.get_all_documents.assert_called_once()
+
+    def test_lambda_handler_with_empty_documents_list(self):
+        """
+        Test lambda_handler when the documents list is empty.
+        """
+        # Reset mocks before test
+        tracking_utils_mock.get_all_documents.reset_mock()
+
+        # Set get_all_documents to return an empty list
+        tracking_utils_mock.get_all_documents.return_value = []
+
+        # Create event
+        event = {"httpMethod": "GET"}
+
+        # Call the function
+        response = lambda_handler(event, {})
+
+        # Verify the response
+        self.assertEqual(response["statusCode"], 200)
+        body = json.loads(response["body"])
+        self.assertIn("documents", body)
+        self.assertEqual(len(body["documents"]), 0)
+
+        # Reset the mock for other tests
+        tracking_utils_mock.get_all_documents.return_value = mock_documents
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -387,3 +387,78 @@ def test_extract_query_no_body():
 
     with pytest.raises(ValueError, match="Invalid request format"):
         handler.extract_query_from_event(event)
+
+
+def test_lambda_handler_with_options_method():
+    """Test lambda_handler with OPTIONS method for CORS preflight request"""
+    event = {"httpMethod": "OPTIONS", "headers": {"Origin": "http://example.com"}}
+
+    response = handler.lambda_handler(event, {})
+
+    # Verify response for OPTIONS method
+    assert response["statusCode"] == 200
+    assert "Access-Control-Allow-Origin" in response["headers"]
+    assert "Access-Control-Allow-Methods" in response["headers"]
+    assert "Access-Control-Allow-Headers" in response["headers"]
+    response_body = json.loads(response["body"])
+    assert "message" in response_body
+    assert "CORS preflight request successful" in response_body["message"]
+
+
+def test_duplicate_sources_are_removed():
+    """Test that duplicate sources are removed from the response"""
+    # Create search results with duplicate document/page combinations
+    search_results = [
+        {"document_name": "Test Doc", "page_number": 1, "text": "First occurrence"},
+        {"document_name": "Test Doc", "page_number": 1, "text": "Same document and page"},
+        {"document_name": "Different Doc", "page_number": 2, "text": "Different document"},
+    ]
+
+    sources = handler.extract_sources(search_results)
+
+    # There should be only 2 unique sources
+    assert len(sources) == 2
+    assert sources[0]["document_name"] == "Test Doc"
+    assert sources[0]["page_number"] == 1
+    assert sources[1]["document_name"] == "Different Doc"
+    assert sources[1]["page_number"] == 2
+
+
+def test_format_results_with_empty_list():
+    """Test formatting an empty results list"""
+    formatted = handler.format_results_for_prompt([])
+
+    # Should return an empty string
+    assert formatted == ""
+
+
+def test_format_results_with_missing_fields():
+    """Test formatting results with missing fields"""
+    # Create results with missing fields
+    results = [
+        {
+            # Missing document_name
+            "page_number": 5,
+            "text": "Some text",
+        },
+        {
+            "document_name": "Test Doc",
+            # Missing page_number
+            "text": "More text",
+        },
+        {
+            "document_name": "Another Doc",
+            "page_number": 10,
+            # Missing text
+        },
+    ]
+
+    formatted = handler.format_results_for_prompt(results)
+
+    # Should handle missing fields gracefully
+    assert "Unknown Document" in formatted
+    assert "Page 5" in formatted
+    assert "Test Doc" in formatted
+    assert "page_number" not in formatted  # page_number should be 0 when missing
+    assert "Another Doc" in formatted
+    assert "Page 10" in formatted
