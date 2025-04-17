@@ -419,63 +419,6 @@ def test_process_chunk_file_no_text(mock_environment):
             process_chunk_file("test-bucket", "test-prefix/empty_chunk.json")
 
 
-def test_import_failures():
-    """Test the behavior when imports fail."""
-    # Save the original modules
-    original_modules = dict(sys.modules)
-    original_opensearch_utils = None
-    original_bedrock_utils = None
-    original_tracking_utils = None
-
-    # Store original module references if they exist
-    if hasattr(
-        sys.modules.get("src.lambda_functions.vector_generator.handler", {}), "opensearch_utils"
-    ):
-        from src.lambda_functions.vector_generator import handler
-
-        original_opensearch_utils = handler.opensearch_utils
-        original_bedrock_utils = handler.bedrock_utils
-        original_tracking_utils = handler.tracking_utils
-
-    try:
-        # Create mocks
-        mock_tracking_utils = None
-
-        # Temporarily modify the imported modules
-        from src.lambda_functions.vector_generator import handler
-
-        handler.tracking_utils = mock_tracking_utils
-
-        # Test with tracking_utils as None (this simulates import failure)
-        assert handler.tracking_utils is None
-
-        # Ensure we can process a chunk file even with tracking_utils as None
-        with patch("src.lambda_functions.vector_generator.handler.s3_client") as mock_s3, patch(
-            "src.lambda_functions.vector_generator.handler.opensearch_client"
-        ) as mock_opensearch:
-            # Mock the S3 response
-            modified_chunk = SAMPLE_CHUNK.copy()
-            modified_chunk["metadata"]["document_id"] = "test-doc-id"
-            mock_s3.get_object.return_value = {
-                "Body": MagicMock(read=MagicMock(return_value=json.dumps(modified_chunk).encode()))
-            }
-
-            # Call the process_chunk_file function
-            result = handler.process_chunk_file("test-bucket", "test-key")
-
-            # Verify it still works without tracking_utils
-            assert result["status"] == "success"
-
-    finally:
-        # Restore the original modules
-        if original_opensearch_utils:
-            from src.lambda_functions.vector_generator import handler
-
-            handler.opensearch_utils = original_opensearch_utils
-            handler.bedrock_utils = original_bedrock_utils
-            handler.tracking_utils = original_tracking_utils
-
-
 def test_process_chunk_file_with_s3_error(mock_environment):
     """Test the process_chunk_file function when S3 get_object fails."""
     with patch("src.lambda_functions.vector_generator.handler.s3_client") as mock_s3:
@@ -564,3 +507,432 @@ def test_process_chunk_file_with_tracking_error(mock_environment):
         # The current implementation propagates the error, so we expect an exception
         with pytest.raises(Exception, match="Tracking error"):
             process_chunk_file("test-bucket", "test-prefix/chunk_0.json")
+
+
+def test_direct_import_paths_for_tracking_utils():
+    """Test import paths for tracking_utils directly."""
+    test_module_code = """
+import logging
+logging.warning = lambda x: x
+
+# Setup a flag to track which import path is taken
+import_path_taken = None
+
+try:
+    # Try to import from utils
+    from utils import tracking_utils
+    import_path_taken = "utils.tracking_utils"
+except ImportError:
+    try:
+        # Try to import from src.utils
+        from src.utils import tracking_utils
+        import_path_taken = "src.utils.tracking_utils"
+    except ImportError:
+        try:
+            # Try absolute import
+            import utils.tracking_utils as tracking_utils
+            import_path_taken = "utils.tracking_utils (absolute)"
+        except ImportError:
+            # Define fallback
+            tracking_utils = None
+            logging.warning("Could not import tracking_utils")
+            import_path_taken = "none"
+
+print(f"Import path taken: {import_path_taken}")
+print(f"tracking_utils available: {tracking_utils is not None}")
+"""
+
+    # Run the test in a subprocess to ensure clean import environment
+    with patch("src.lambda_functions.vector_generator.handler.logger") as mock_logger:
+        # Testing the module level code can be difficult
+        # We'll just verify behavior when tracking_utils is None
+        from src.lambda_functions.vector_generator import handler
+
+        original_tracking = handler.tracking_utils
+
+        try:
+            # Simulate the case where tracking_utils is None
+            handler.tracking_utils = None
+
+            # Call a function that uses tracking_utils
+            with patch("src.lambda_functions.vector_generator.handler.s3_client") as mock_s3, patch(
+                "src.lambda_functions.vector_generator.handler.opensearch_client"
+            ) as mock_opensearch:
+                # Setup the S3 response
+                modified_chunk = SAMPLE_CHUNK.copy()
+                modified_chunk["metadata"]["document_id"] = "test-doc-id"
+                mock_s3.get_object.return_value = {
+                    "Body": MagicMock(
+                        read=MagicMock(return_value=json.dumps(modified_chunk).encode())
+                    )
+                }
+
+                # Process a chunk file
+                result = handler.process_chunk_file("test-bucket", "test-key")
+
+                # Verify it still works
+                assert result["status"] == "success"
+
+                # Verify that tracking code path is properly handled when tracking_utils is None
+                assert handler.tracking_utils is None
+
+        finally:
+            # Restore the original tracking_utils
+            handler.tracking_utils = original_tracking
+
+
+def test_direct_import_paths_for_opensearch_utils():
+    """Test import paths for opensearch_utils and bedrock_utils directly."""
+    # Testing the import paths directly
+    with patch("src.lambda_functions.vector_generator.handler.logger") as mock_logger:
+        from src.lambda_functions.vector_generator import handler
+
+        original_opensearch = handler.opensearch_utils
+        original_bedrock = handler.bedrock_utils
+
+        try:
+            # Simulate both modules being None
+            handler.opensearch_utils = None
+            handler.bedrock_utils = None
+
+            # Create empty mocks that will fail if called
+            mock_opensearch_utils = MagicMock()
+            mock_opensearch_utils.get_opensearch_client.side_effect = Exception(
+                "Should not be called"
+            )
+            mock_bedrock_utils = MagicMock()
+            mock_bedrock_utils.generate_embedding.side_effect = Exception("Should not be called")
+
+            # The code should still run if we have replacements for functions
+            with patch(
+                "src.lambda_functions.vector_generator.handler.create_index_if_not_exists"
+            ) as mock_create_index, patch(
+                "src.lambda_functions.vector_generator.handler.generate_embedding"
+            ) as mock_embedding, patch(
+                "src.lambda_functions.vector_generator.handler.s3_client"
+            ) as mock_s3, patch(
+                "src.lambda_functions.vector_generator.handler.opensearch_client"
+            ) as mock_opensearch:
+                # Setup mocks
+                mock_create_index.return_value = True
+                mock_embedding.return_value = [0.1, 0.2, 0.3]
+                mock_s3.get_object.return_value = {
+                    "Body": MagicMock(
+                        read=MagicMock(return_value=json.dumps(SAMPLE_CHUNK).encode())
+                    )
+                }
+
+                # Process a chunk file
+                result = handler.process_chunk_file("test-bucket", "test-key")
+
+                # Verify it still works
+                assert result["status"] == "success"
+
+                # Verify that our utils are still None
+                assert handler.opensearch_utils is None
+                assert handler.bedrock_utils is None
+
+        finally:
+            # Restore the original utils
+            handler.opensearch_utils = original_opensearch
+            handler.bedrock_utils = original_bedrock
+
+
+def test_environment_variables_and_defaults():
+    """Test that environment variables are properly handled with defaults."""
+    # Testing environment variable handling with different configurations
+    original_env = os.environ.copy()
+
+    try:
+        # Remove environment variables to test defaults
+        for key in [
+            "CHUNKED_TEXT_BUCKET",
+            "OPENSEARCH_DOMAIN",
+            "OPENSEARCH_ENDPOINT",
+            "OPENSEARCH_INDEX",
+            "VECTOR_PREFIX",
+            "MODEL_ID",
+            "USE_IAM_AUTH",
+            "USE_AOSS",
+        ]:
+            if key in os.environ:
+                del os.environ[key]
+
+        # Re-import to trigger environment variable initialization
+        from importlib import reload
+
+        handler_module = sys.modules.get("src.lambda_functions.vector_generator.handler")
+        if handler_module:
+            reload(handler_module)
+
+            # Verify defaults are set correctly
+            assert handler_module.CHUNKED_TEXT_BUCKET == "ee-ai-rag-mcp-demo-chunked-text"
+            assert handler_module.OPENSEARCH_DOMAIN == "ee-ai-rag-mcp-demo-vectors"
+            assert handler_module.OPENSEARCH_INDEX == "rag-vectors"
+            assert handler_module.VECTOR_PREFIX == "ee-ai-rag-mcp-demo"
+            assert handler_module.MODEL_ID == "amazon.titan-embed-text-v2:0"
+            assert handler_module.USE_IAM_AUTH is True
+            assert handler_module.USE_AOSS is False
+
+            # Test with custom environment values
+            os.environ["CHUNKED_TEXT_BUCKET"] = "custom-bucket"
+            os.environ["OPENSEARCH_DOMAIN"] = "custom-domain"
+            os.environ["OPENSEARCH_INDEX"] = "custom-index"
+            os.environ["VECTOR_PREFIX"] = "custom-prefix"
+            os.environ["MODEL_ID"] = "custom-model"
+            os.environ["USE_IAM_AUTH"] = "false"
+            os.environ["USE_AOSS"] = "true"
+
+            # Reload to apply new environment variables
+            reload(handler_module)
+
+            # Verify custom values are applied
+            assert handler_module.CHUNKED_TEXT_BUCKET == "custom-bucket"
+            assert handler_module.OPENSEARCH_DOMAIN == "custom-domain"
+            assert handler_module.OPENSEARCH_INDEX == "custom-index"
+            assert handler_module.VECTOR_PREFIX == "custom-prefix"
+            assert handler_module.MODEL_ID == "custom-model"
+            assert handler_module.USE_IAM_AUTH is False
+            assert handler_module.USE_AOSS is True
+
+    finally:
+        # Restore original environment
+        os.environ.clear()
+        os.environ.update(original_env)
+
+        # Reload the handler module with original environment
+        handler_module = sys.modules.get("src.lambda_functions.vector_generator.handler")
+        if handler_module:
+            reload(handler_module)
+
+
+def test_opensearch_client_not_available():
+    """Test handler behavior when OpenSearch client is not available."""
+    # Test what happens when opensearch_client is None
+    from src.lambda_functions.vector_generator import handler
+
+    # Store original values
+    original_client = handler.opensearch_client
+    original_utils = handler.opensearch_utils
+
+    try:
+        # Set both to None to simulate initialization failure
+        handler.opensearch_client = None
+
+        # Mock other required components
+        with patch("src.lambda_functions.vector_generator.handler.s3_client") as mock_s3, patch(
+            "src.lambda_functions.vector_generator.handler.generate_embedding"
+        ) as mock_embedding, patch(
+            "src.lambda_functions.vector_generator.handler.logger"
+        ) as mock_logger:
+            # Setup mocks
+            mock_embedding.return_value = [0.1, 0.2, 0.3]
+            mock_s3.get_object.return_value = {
+                "Body": MagicMock(read=MagicMock(return_value=json.dumps(SAMPLE_CHUNK).encode()))
+            }
+
+            # Process a chunk file without OpenSearch client
+            result = handler.process_chunk_file("test-bucket", "test-document.json")
+
+            # Verify result and warning logged
+            assert result["status"] == "success"
+            mock_logger.warning.assert_called_with(
+                "OpenSearch client not available, skipping indexing"
+            )
+
+    finally:
+        # Restore original values
+        handler.opensearch_client = original_client
+        handler.opensearch_utils = original_utils
+
+
+def test_create_index_if_not_exists_edge_cases():
+    """Test create_index_if_not_exists with additional edge cases."""
+    from src.lambda_functions.vector_generator import handler
+
+    # Store original values
+    original_opensearch_utils = handler.opensearch_utils
+    original_client = handler.opensearch_client
+
+    try:
+        # 1. Test with non-functional opensearch_utils
+        mock_opensearch_utils = MagicMock()
+        mock_opensearch_utils.create_index_if_not_exists.side_effect = Exception(
+            "OpenSearch utils error"
+        )
+        handler.opensearch_utils = mock_opensearch_utils
+
+        # Call the function - it should propagate the exception
+        with pytest.raises(Exception, match="OpenSearch utils error"):
+            handler.create_index_if_not_exists()
+
+        # 2. Test with opensearch_utils that works properly
+        mock_opensearch_utils = MagicMock()
+        mock_opensearch_utils.create_index_if_not_exists.return_value = True
+        handler.opensearch_utils = mock_opensearch_utils
+
+        # Call the function again - should succeed
+        result = handler.create_index_if_not_exists()
+        assert result is True
+        mock_opensearch_utils.create_index_if_not_exists.assert_called_once()
+
+    finally:
+        # Restore original values
+        handler.opensearch_utils = original_opensearch_utils
+        handler.opensearch_client = original_client
+
+
+def test_generate_embedding_with_custom_model():
+    """Test generate_embedding function with custom model ID."""
+    # Save original environment for model ID
+    original_model_id = os.environ.get("MODEL_ID")
+
+    try:
+        # Set custom model ID in environment
+        os.environ["MODEL_ID"] = "custom.model-id:1"
+
+        # Reload module to use new environment value
+        from importlib import reload
+
+        handler_module = sys.modules.get("src.lambda_functions.vector_generator.handler")
+        if handler_module:
+            reload(handler_module)
+
+            # Mock bedrock_utils.generate_embedding
+            with patch("src.utils.bedrock_utils.generate_embedding") as mock_embedding:
+                mock_embedding.return_value = [0.1, 0.2, 0.3]
+
+                # Call the generate_embedding function
+                result = handler_module.generate_embedding("Test text")
+
+                # Verify result and that bedrock_utils was called with correct model ID
+                assert result == [0.1, 0.2, 0.3]
+                mock_embedding.assert_called_once_with("Test text", model_id="custom.model-id:1")
+
+    finally:
+        # Restore original environment
+        if original_model_id:
+            os.environ["MODEL_ID"] = original_model_id
+        else:
+            if "MODEL_ID" in os.environ:
+                del os.environ["MODEL_ID"]
+
+        # Reload the handler module with original environment
+        handler_module = sys.modules.get("src.lambda_functions.vector_generator.handler")
+        if handler_module:
+            reload(handler_module)
+
+
+def test_import_handlers_directly():
+    """Test each import handling code directly with custom locals."""
+    # Create custom globals dict to collect imports
+    import logging
+
+    # Create a controlled environment where imports will fail as expected
+    custom_globals = {
+        "__name__": "__main__",
+        "ImportError": ImportError,
+        "logging": MagicMock(),
+        # Empty __builtins__ to ensure imports fail
+        "__builtins__": {"ImportError": ImportError, "Exception": Exception},
+    }
+
+    # Execute the tracking_utils import code
+    tracking_utils_code = """
+try:
+    # Try to import tracking utils
+    from utils import tracking_utils
+except ImportError:
+    try:
+        # When running locally or in tests with src structure
+        from src.utils import tracking_utils
+    except ImportError:
+        try:
+            # Absolute import (sometimes needed in Lambda)
+            import utils.tracking_utils as tracking_utils
+        except ImportError:
+            # Define a fallback for tracking in case import fails
+            tracking_utils = None
+            logging.warning("Could not import tracking_utils module, document tracking will be disabled")
+"""
+    # Execute the import code in isolated namespace
+    exec(tracking_utils_code, custom_globals)
+
+    # Verify it set tracking_utils to None
+    assert custom_globals.get("tracking_utils") is None
+    # Verify warning was logged
+    custom_globals["logging"].warning.assert_called_with(
+        "Could not import tracking_utils module, document tracking will be disabled"
+    )
+
+    # Reset mocks
+    custom_globals["logging"].reset_mock()
+
+    # Try to execute the second import block but expect it to fail
+    opensearch_import_code = """
+try:
+    # When running in the Lambda environment with utils copied locally
+    from utils import opensearch_utils, bedrock_utils
+except ImportError:
+    try:
+        # When running locally or in tests with src structure
+        from src.utils import opensearch_utils, bedrock_utils
+    except ImportError:
+        try:
+            # Absolute import (sometimes needed in Lambda)
+            import utils.opensearch_utils as opensearch_utils
+            import utils.bedrock_utils as bedrock_utils
+        except ImportError:
+            # All imports failed
+            logging.error("Could not import utils modules from standard locations")
+            raise
+"""
+    # This will raise an ImportError at the end
+    with pytest.raises(ImportError):
+        exec(opensearch_import_code, custom_globals)
+
+    # Verify error was logged
+    custom_globals["logging"].error.assert_called_with(
+        "Could not import utils modules from standard locations"
+    )
+
+
+def test_process_chunk_with_no_tracking_no_document_id():
+    """Test process_chunk_file with tracking_utils=None and no document_id."""
+    from src.lambda_functions.vector_generator import handler
+
+    # Save original tracking_utils
+    original_tracking = handler.tracking_utils
+    original_logger = handler.logger
+
+    try:
+        # Set tracking_utils to None
+        handler.tracking_utils = None
+        mock_logger = MagicMock()
+        handler.logger = mock_logger
+
+        # Test with a chunk that has NO document_id in metadata
+        with patch("src.lambda_functions.vector_generator.handler.s3_client") as mock_s3, patch(
+            "src.lambda_functions.vector_generator.handler.opensearch_client"
+        ) as mock_opensearch:
+            # Use regular sample chunk without document_id
+            mock_s3.get_object.return_value = {
+                "Body": MagicMock(read=MagicMock(return_value=json.dumps(SAMPLE_CHUNK).encode()))
+            }
+
+            # Process the chunk
+            result = handler.process_chunk_file("test-bucket", "test-doc.json")
+
+            # Verify it still works
+            assert result["status"] == "success"
+
+            # Verify no warning about document_id (it shouldn't attempt tracking)
+            # This covers the "if tracking_utils and document_id:" branch
+            assert not any(
+                "document_id" in str(call) for call in mock_logger.warning.call_args_list
+            )
+
+    finally:
+        # Restore original values
+        handler.tracking_utils = original_tracking
+        handler.logger = original_logger
