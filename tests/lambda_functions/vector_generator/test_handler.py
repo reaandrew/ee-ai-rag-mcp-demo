@@ -1,6 +1,7 @@
 import json
 import os
 import sys
+import importlib
 import pytest
 from unittest.mock import patch, MagicMock
 
@@ -15,6 +16,9 @@ class MockOpenSearch:
     def index(self, **kwargs):
         return {"_id": kwargs.get("id", "test_id"), "result": "created"}
 
+    def info(self):
+        return {"status": "green", "cluster_name": "test-cluster"}
+
 
 class MockRequestsHttpConnection:
     pass
@@ -23,6 +27,14 @@ class MockRequestsHttpConnection:
 class MockAWS4Auth:
     pass
 
+
+# Mock tracking utils
+tracking_utils_mock = MagicMock()
+tracking_utils_mock.update_indexing_progress.return_value = {
+    "status": "success",
+    "document_id": "test-doc-id",
+    "progress": "1/5",
+}
 
 # Set up module mocks before importing the handler
 opensearch_mock = MagicMock()
@@ -45,6 +57,8 @@ sys.modules["opensearchpy"] = opensearch_mock
 sys.modules["requests_aws4auth"] = requests_aws4auth_mock
 sys.modules["src.utils.opensearch_utils"] = opensearch_utils_mock
 sys.modules["src.utils.bedrock_utils"] = bedrock_utils_mock
+sys.modules["src.utils.tracking_utils"] = tracking_utils_mock
+sys.modules["utils.tracking_utils"] = tracking_utils_mock
 
 # Now we can import the handler module
 from src.lambda_functions.vector_generator.handler import (
@@ -280,3 +294,88 @@ def test_lambda_handler_handles_error(mock_environment):
         # Assert the response
         assert response["statusCode"] == 500
         assert "Error" in response["body"]["message"]
+
+
+def test_process_chunk_file_with_tracking(mock_environment):
+    """Test the process_chunk_file function with document tracking."""
+    with patch("src.lambda_functions.vector_generator.handler.s3_client") as mock_s3, patch(
+        "src.lambda_functions.vector_generator.handler.opensearch_client"
+    ) as mock_opensearch:
+        # Mock the S3 get_object response - include a document_id in metadata
+        modified_chunk = SAMPLE_CHUNK.copy()
+        modified_chunk["metadata"]["document_id"] = "test-doc-id"
+        mock_s3.get_object.return_value = {
+            "Body": MagicMock(read=MagicMock(return_value=json.dumps(modified_chunk).encode()))
+        }
+
+        # Call the function
+        result = process_chunk_file("test-bucket", "test-prefix/chunk_0.json")
+
+        # Verify that tracking_utils.update_indexing_progress was called
+        tracking_utils_mock.update_indexing_progress.assert_called_once_with(
+            document_id="test-doc-id",
+            document_name="test-file.txt",
+            page_number="1",
+        )
+
+        # Assert the result
+        assert result["status"] == "success"
+
+
+def test_process_chunk_file_without_opensearch_client(mock_environment):
+    """Test the process_chunk_file function when OpenSearch client is not available."""
+    with patch("src.lambda_functions.vector_generator.handler.s3_client") as mock_s3, patch(
+        "src.lambda_functions.vector_generator.handler.opensearch_client", None
+    ), patch(
+        "src.lambda_functions.vector_generator.handler.generate_embedding"
+    ) as mock_generate_embedding:
+        # Mock the S3 get_object response
+        mock_s3.get_object.return_value = {
+            "Body": MagicMock(read=MagicMock(return_value=json.dumps(SAMPLE_CHUNK).encode()))
+        }
+
+        # Mock the generate_embedding function
+        mock_generate_embedding.return_value = SAMPLE_EMBEDDING
+
+        # Call the function
+        result = process_chunk_file("test-bucket", "test-prefix/chunk_0.json")
+
+        # Assert the result still contains the source info
+        assert result["status"] == "success"
+        assert result["source"]["bucket"] == "test-bucket"
+        assert result["source"]["file_key"] == "test-prefix/chunk_0.json"
+
+
+def test_process_chunk_file_no_text(mock_environment):
+    """Test the process_chunk_file function with a chunk that has no text."""
+    with patch("src.lambda_functions.vector_generator.handler.s3_client") as mock_s3:
+        # Create a chunk with no text
+        empty_chunk = SAMPLE_CHUNK.copy()
+        empty_chunk["text"] = ""
+        mock_s3.get_object.return_value = {
+            "Body": MagicMock(read=MagicMock(return_value=json.dumps(empty_chunk).encode()))
+        }
+
+        # Call the function and expect an exception
+        with pytest.raises(ValueError, match="No text found in chunk file"):
+            process_chunk_file("test-bucket", "test-prefix/empty_chunk.json")
+
+
+# Skip this test as it requires more complex module manipulation
+@pytest.mark.skip(reason="Complex module import testing requires more setup")
+def test_import_paths():
+    """Test the import fallback paths."""
+    # This test is skipped because it requires complex module manipulation
+    # that can interfere with other tests
+    pass
+
+
+def test_process_chunk_file_with_s3_error(mock_environment):
+    """Test the process_chunk_file function when S3 get_object fails."""
+    with patch("src.lambda_functions.vector_generator.handler.s3_client") as mock_s3:
+        # Mock S3 get_object to raise an exception
+        mock_s3.get_object.side_effect = Exception("S3 access denied")
+
+        # Call the function and expect the exception to be raised
+        with pytest.raises(Exception, match="S3 access denied"):
+            process_chunk_file("test-bucket", "test-prefix/chunk_0.json")

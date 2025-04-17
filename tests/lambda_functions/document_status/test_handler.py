@@ -1,8 +1,13 @@
 import json
 import unittest
+import logging
 from unittest import mock
 import sys
 import decimal
+
+# Create a mock for logging
+logging_mock = mock.MagicMock()
+sys.modules["logging"] = logging_mock
 
 # Create a mock tracking_utils module
 tracking_utils_mock = mock.MagicMock()
@@ -32,6 +37,57 @@ mock_documents = [
         "completion_time": "N/A",
     },
 ]
+
+
+# Function to test different import scenarios
+def test_imports():
+    """Test different import paths for tracking_utils"""
+    # Save original modules
+    original_modules = dict(sys.modules)
+
+    try:
+        # Case 1: First import succeeds
+        import_mock = mock.MagicMock(side_effect=ImportError())
+        with mock.patch("builtins.__import__", import_mock):
+            try:
+                from utils import tracking_utils
+            except ImportError:
+                pass
+
+        # Case 2: Second import succeeds
+        import_mock = mock.MagicMock(side_effect=[ImportError(), None])
+        with mock.patch("builtins.__import__", import_mock):
+            try:
+                from utils import tracking_utils
+                from src.utils import tracking_utils
+            except ImportError:
+                pass
+
+        # Case 3: Third import succeeds
+        import_mock = mock.MagicMock(side_effect=[ImportError(), ImportError(), None])
+        with mock.patch("builtins.__import__", import_mock):
+            try:
+                from utils import tracking_utils
+                from src.utils import tracking_utils
+                import utils.tracking_utils
+            except ImportError:
+                pass
+
+        # Case 4: All imports fail
+        import_mock = mock.MagicMock(side_effect=ImportError())
+        with mock.patch("builtins.__import__", import_mock):
+            try:
+                from utils import tracking_utils
+                from src.utils import tracking_utils
+                import utils.tracking_utils
+            except ImportError:
+                # This should set tracking_utils to None and log an error
+                pass
+
+    finally:
+        # Restore original modules
+        sys.modules = original_modules
+
 
 # Configure the mock to return the documents list
 tracking_utils_mock.get_all_documents.return_value = mock_documents

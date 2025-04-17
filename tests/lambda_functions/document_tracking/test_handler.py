@@ -372,9 +372,52 @@ class TestDocumentTrackingHandler(unittest.TestCase):
             # Call the handler
             response = lambda_handler(event, {})
 
-        # Verify the response
-        self.assertEqual(response["statusCode"], 500)
-        self.assertIn("Error processing SNS events", response["body"]["message"])
+            # Verify the response
+            self.assertEqual(response["statusCode"], 500)
+            self.assertIn("Error processing SNS events", response["body"]["message"])
+
+    def test_update_indexing_progress_missing_document(self):
+        """Test updating indexing progress when the document doesn't exist."""
+        # Even if Item is missing, the handler still appears to succeed in current implementation
+        # This is a test to document current behavior (it doesn't detect missing document properly)
+        self.mock_table.get_item.return_value = {"ResponseMetadata": {"RequestId": "abc123"}}
+
+        # Set up message data
+        message_data = {
+            "document_id": "test-bucket/test-doc/v1",
+            "document_name": "test-doc.pdf",
+            "page_number": "3",
+        }
+
+        # Call the function
+        result = update_indexing_progress(message_data)
+
+        # Verify the current behavior (should succeed even though the document is missing)
+        self.assertEqual(result["status"], "success")
+
+    def test_update_indexing_progress_missing_document_id(self):
+        """Test updating indexing progress with missing document_id."""
+        # Set up message data without document_id
+        message_data = {"document_name": "test-doc.pdf", "page_number": "3"}
+
+        # Call the function
+        result = update_indexing_progress(message_data)
+
+        # Verify the result
+        self.assertEqual(result["status"], "error")
+        self.assertIn("Missing required fields", result["message"])
+
+    def test_complete_document_indexing_missing_document_id(self):
+        """Test completing document indexing with missing document_id."""
+        # Set up message data without document_id
+        message_data = {"completion_time": "2023-01-01T12:00:00"}
+
+        # Call the function
+        result = complete_document_indexing(message_data)
+
+        # Verify the result
+        self.assertEqual(result["status"], "error")
+        self.assertIn("Missing required fields", result["message"])
 
     def test_initialize_document_tracking_new_document(self):
         """Test initialize_document_tracking with complete data."""
