@@ -1,0 +1,302 @@
+schema_version: 0.1
+repository:
+  identity:
+    name: ee-ai-rag-mcp-demo
+    description: RAG (Retrieval Augmented Generation) system on AWS for policy document search
+    primary_language: Python
+    deployment_platform: AWS
+    homepage: https://github.com/reaandrew/ee-ai-rag-mcp-demo
+    repo_url: https://github.com/reaandrew/ee-ai-rag-mcp-demo 
+    license: MIT  # Replace with actual SPDX identifier
+    default_branch: main
+    tags: [rag, aws, security, bedrock, lambda, textract, opensearch]
+
+  directories:
+    - path: src
+      type: code
+      description: Core application code
+      subdirectories:
+        - path: src/lambda_functions
+          type: code
+          description: AWS Lambda function implementations
+          files:
+            - path: src/lambda_functions/auth_authorizer
+              kind: python
+              summary: API Gateway custom authorizer for authentication
+            - path: src/lambda_functions/document_status
+              kind: python
+              summary: Tracks and reports document processing status
+            - path: src/lambda_functions/document_tracking
+              kind: python
+              summary: Manages event-driven workflow for document processing
+            - path: src/lambda_functions/policy_search
+              kind: python
+              summary: Handles search queries against vector database
+            - path: src/lambda_functions/text_chunker
+              kind: python
+              summary: Splits extracted text into semantic chunks
+            - path: src/lambda_functions/text_extractor
+              kind: python
+              summary: Extracts text from PDF documents using Amazon Textract
+            - path: src/lambda_functions/vector_generator
+              kind: python
+              summary: Creates embeddings using Amazon Bedrock Titan
+        - path: src/utils
+          type: code
+          description: Shared utility modules
+          files:
+            - path: src/utils/bedrock_utils.py
+              kind: python
+              summary: Amazon Bedrock integration utilities
+            - path: src/utils/opensearch_utils.py
+              kind: python
+              summary: OpenSearch client and operations
+            - path: src/utils/tracking_utils.py
+              kind: python
+              summary: Document tracking and status management
+
+    - path: terraform
+      type: infra
+      description: Infrastructure as Code
+      subdirectories:
+        - path: terraform/admin-setup
+          type: infra
+          description: Foundation infrastructure resources (state buckets, IAM)
+          files:
+            - path: terraform/admin-setup/main.tf
+              kind: terraform
+              summary: Admin infrastructure setup
+        - path: terraform/app
+          type: infra
+          description: Main application infrastructure
+          files:
+            - path: terraform/app/api.tf
+              kind: terraform
+              summary: API Gateway configuration
+            - path: terraform/app/document_status.tf
+              kind: terraform
+              summary: Status tracking resources
+            - path: terraform/app/document_tracking.tf
+              kind: terraform
+              summary: Document processing workflow
+            - path: terraform/app/dynamodb.tf
+              kind: terraform
+              summary: DynamoDB tables for document tracking
+            - path: terraform/app/lambda.tf
+              kind: terraform
+              summary: Lambda function resources
+            - path: terraform/app/opensearch.tf
+              kind: terraform
+              summary: Vector database configuration
+            - path: terraform/app/ui.tf
+              kind: terraform
+              summary: Frontend deployment resources
+
+    - path: tests
+      type: tests
+      description: Test suite for the application
+      files:
+        - path: tests/conftest.py
+          kind: python
+          summary: Pytest fixtures and configuration
+      subdirectories:
+        - path: tests/lambda_functions
+          type: tests
+          description: Tests for each lambda function
+        - path: tests/utils
+          type: tests
+          description: Tests for utility modules
+
+    - path: ui
+      type: assets
+      description: Static website frontend files
+      files:
+        - path: ui/index.html
+          kind: html
+          summary: Main application frontend
+        - path: ui/documentation.html
+          kind: html
+          summary: System documentation
+        - path: ui/images
+          kind: assets
+          summary: Architecture diagrams and visualizations
+
+    - path: diagrams
+      type: docs
+      description: Architecture diagrams and visualization
+      files:
+        - path: diagrams/architecture_diagram.py
+          kind: python
+          summary: Python script to generate diagrams
+        - path: diagrams/ee_ai_rag_mcp_architecture.png
+          kind: image
+          summary: Main architecture diagram
+
+    - path: scripts
+      type: code
+      description: Utility scripts for deployment and management
+      subdirectories:
+        - path: scripts/admin
+          type: code
+          description: Administrative scripts
+          files:
+            - path: scripts/admin/destroy_infrastructure.sh
+              kind: bash
+              summary: Infrastructure teardown script
+            - path: scripts/admin/truncate_dynamodb.sh
+              kind: bash
+              summary: Database cleanup utility
+
+    - path: bruno
+      type: tests
+      description: API testing collection with Bruno
+
+  architecture:
+    pattern: Event-Driven Microservices
+    components:
+      - id: document_ingestion
+        name: Document Ingestion
+        description: PDF documents uploaded to S3 buckets
+        related_paths: [terraform/app/ui.tf]
+      
+      - id: text_extraction
+        name: Text Extraction
+        description: Lambda extracts text via Amazon Textract
+        related_paths: [src/lambda_functions/text_extractor]
+      
+      - id: text_chunking
+        name: Text Chunking
+        description: Text divided into semantic chunks
+        related_paths: [src/lambda_functions/text_chunker]
+      
+      - id: vector_generation
+        name: Vector Generation
+        description: Embeddings generated using Amazon Bedrock Titan
+        related_paths: [src/lambda_functions/vector_generator]
+      
+      - id: vector_storage
+        name: Vector Storage
+        description: Embeddings stored in OpenSearch
+        related_paths: [terraform/app/opensearch.tf]
+      
+      - id: search_retrieval
+        name: Search & Retrieval
+        description: Query processing against vector database
+        related_paths: [src/lambda_functions/policy_search]
+      
+      - id: response_generation
+        name: Response Generation
+        description: Claude 3 Sonnet generates answers from context
+        related_paths: [src/utils/bedrock_utils.py]
+    
+    relations:
+      - from: document_ingestion
+        to: text_extraction
+        type: event
+        description: S3 event triggers extraction Lambda
+
+      - from: text_extraction
+        to: text_chunking
+        type: event
+        description: SNS message triggers chunking
+
+      - from: text_chunking
+        to: vector_generation
+        type: event
+        description: SNS message triggers embedding generation
+
+      - from: vector_generation
+        to: vector_storage
+        type: data
+        description: Vectors stored in OpenSearch
+
+      - from: search_retrieval
+        to: vector_storage
+        type: query
+        description: Semantic search on embeddings
+
+      - from: search_retrieval
+        to: response_generation
+        type: process
+        description: Search results provided to LLM
+
+  deployment:
+    approach: Infrastructure as Code with Terraform
+    stages:
+      - name: admin_setup
+        description: Foundation resources (state buckets, IAM)
+        path: terraform/admin-setup
+      
+      - name: application
+        description: Functional resources (lambdas, databases, APIs)
+        path: terraform/app
+    
+    backend: S3 with DynamoDB locking
+
+  ci_cd:
+    system: GitHub Actions
+    quality_checks:
+      - name: SonarQube
+        description: Code quality and test coverage
+      
+      - name: Conventional Commits
+        description: Standardized commit messages
+    
+    pre_commit:
+      commands:
+        - command: npm run lint
+          description: Code style enforcement
+        
+        - command: npm run test
+          description: Run test suite
+
+  technologies:
+    aws_services:
+      - name: Lambda
+        description: Serverless functions
+      
+      - name: S3
+        description: Document storage
+      
+      - name: OpenSearch
+        description: Vector database
+      
+      - name: DynamoDB
+        description: Document tracking
+      
+      - name: API Gateway
+        description: REST API
+      
+      - name: CloudFront
+        description: Content delivery
+      
+      - name: Bedrock
+        description: AI/ML capabilities (Claude, Titan embeddings)
+      
+      - name: Textract
+        description: Document processing
+      
+      - name: SNS
+        description: Event messaging
+    
+    development:
+      - name: Python
+        description: Lambda implementation
+      
+      - name: Terraform
+        description: Infrastructure
+      
+      - name: Jest
+        description: JavaScript testing
+      
+      - name: Pytest
+        description: Python testing
+      
+      - name: Bruno
+        description: API testing
+
+  purpose: |
+    This project implements a production-ready RAG solution that ingests PDF documents,
+    processes text using AI/ML capabilities, generates vector embeddings for semantic search,
+    and uses Claude LLM to generate comprehensive answers to natural language queries
+    about policy documents, with source citations.
