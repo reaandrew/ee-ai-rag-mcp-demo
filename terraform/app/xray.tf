@@ -17,6 +17,7 @@ resource "aws_xray_sampling_rule" "ee_ai_rag_mcp_sampling_rule" {
   http_method    = "*"
   service_name   = "ee-ai-rag-mcp-demo*"
   service_type   = "*"
+  resource_arn   = "*"  # Match all resources
   version        = 1
 }
 
