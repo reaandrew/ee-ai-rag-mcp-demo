@@ -191,6 +191,11 @@ resource "aws_lambda_function" "text_extractor" {
   timeout          = 300  # Increased to 5 minutes to handle async Textract operations
   memory_size      = 512  # Increased to handle larger documents
 
+  # Enable X-Ray tracing
+  tracing_config {
+    mode = "Active"
+  }
+
   environment {
     variables = {
       ENVIRONMENT = var.environment,
