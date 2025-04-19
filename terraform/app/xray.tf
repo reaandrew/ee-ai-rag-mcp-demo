@@ -4,8 +4,8 @@
 resource "aws_xray_sampling_rule" "ee_ai_rag_mcp_sampling_rule" {
   rule_name      = "ee-ai-rag-mcp-demo-sampling-rule"
   priority       = 1
-  reservoir_size = 5
-  fixed_rate     = 0.05
+  reservoir_size = 10  # Increased reservoir size for testing
+  fixed_rate     = 1.0  # Sample 100% of requests during testing
   url_path       = "*"
   host           = "*"
   http_method    = "*"
