@@ -1,11 +1,5 @@
 # Configure X-Ray tracing for the RAG application
 
-# X-Ray service-linked role
-resource "aws_iam_service_linked_role" "xray" {
-  aws_service_name = "xray.amazonaws.com"
-  description      = "Allows X-Ray to access AWS resources on your behalf"
-}
-
 # X-Ray sampling rule for the RAG application
 resource "aws_xray_sampling_rule" "ee_ai_rag_mcp_sampling_rule" {
   rule_name      = "ee-ai-rag-mcp-demo-sampling-rule"
@@ -18,7 +12,9 @@ resource "aws_xray_sampling_rule" "ee_ai_rag_mcp_sampling_rule" {
   service_name   = "ee-ai-rag-mcp-demo*"
   service_type   = "*"
   resource_arn   = "*"  # Match all resources
-  version        = 1
+  attributes = {
+    Environment = var.environment
+  }
 }
 
 # X-Ray encryption key for encrypted trace segments
@@ -122,86 +118,6 @@ resource "aws_iam_role_policy_attachment" "lambda_xray_policy_attachment" {
   policy_arn = aws_iam_policy.xray_lambda_policy.arn
 }
 
-# Enable X-Ray tracing on existing Lambda functions using configuration blocks
-# Instead of redefining the Lambda resources, update the existing ones using null_resource
-resource "null_resource" "enable_lambda_xray_tracing" {
-  provisioner "local-exec" {
-    command = <<-EOT
-      # Update text_extractor Lambda
-      aws lambda update-function-configuration \
-        --function-name ${aws_lambda_function.text_extractor.function_name} \
-        --tracing-config Mode=Active \
-        --region ${data.aws_region.current.name}
-      
-      # Update text_chunker Lambda
-      aws lambda update-function-configuration \
-        --function-name ${aws_lambda_function.text_chunker.function_name} \
-        --tracing-config Mode=Active \
-        --region ${data.aws_region.current.name}
-      
-      # Update vector_generator Lambda
-      aws lambda update-function-configuration \
-        --function-name ${aws_lambda_function.vector_generator.function_name} \
-        --tracing-config Mode=Active \
-        --region ${data.aws_region.current.name}
-      
-      # Update policy_search Lambda
-      aws lambda update-function-configuration \
-        --function-name ${aws_lambda_function.policy_search.function_name} \
-        --tracing-config Mode=Active \
-        --region ${data.aws_region.current.name}
-      
-      # Update document_status Lambda
-      aws lambda update-function-configuration \
-        --function-name ${aws_lambda_function.document_status.function_name} \
-        --tracing-config Mode=Active \
-        --region ${data.aws_region.current.name}
-      
-      # Update document_tracking Lambda
-      aws lambda update-function-configuration \
-        --function-name ${aws_lambda_function.document_tracking.function_name} \
-        --tracing-config Mode=Active \
-        --region ${data.aws_region.current.name}
-      
-      # Update auth_authorizer Lambda
-      aws lambda update-function-configuration \
-        --function-name ${aws_lambda_function.auth_authorizer.function_name} \
-        --tracing-config Mode=Active \
-        --region ${data.aws_region.current.name}
-    EOT
-  }
-
-  # Only run this when the Lambda functions change
-  triggers = {
-    text_extractor_arn    = aws_lambda_function.text_extractor.arn
-    text_chunker_arn      = aws_lambda_function.text_chunker.arn
-    vector_generator_arn  = aws_lambda_function.vector_generator.arn
-    policy_search_arn     = aws_lambda_function.policy_search.arn
-    document_status_arn   = aws_lambda_function.document_status.arn
-    document_tracking_arn = aws_lambda_function.document_tracking.arn
-    auth_authorizer_arn   = aws_lambda_function.auth_authorizer.arn
-  }
-}
-
-# Enable X-Ray for API Gateway using null_resource
-resource "null_resource" "enable_apigateway_xray" {
-  provisioner "local-exec" {
-    command = <<-EOT
-      aws apigatewayv2 update-stage \
-        --api-id ${aws_apigatewayv2_api.policy_search_api.id} \
-        --stage-name "$default" \
-        --region ${data.aws_region.current.name} \
-        --tracing-enabled
-    EOT
-  }
-
-  # Only run this when the API Gateway changes
-  triggers = {
-    api_id = aws_apigatewayv2_api.policy_search_api.id
-    stage  = aws_apigatewayv2_stage.policy_search_stage.id
-  }
-}
-
 # Add X-Ray Group to organize traces
 resource "aws_xray_group" "ee_ai_rag_mcp_xray_group" {
   group_name        = "ee-ai-rag-mcp-demo"
@@ -276,15 +192,11 @@ resource "aws_cloudwatch_dashboard" "xray_dashboard" {
         height = 6
         properties = {
           metrics = [
-            ["AWS/XRay", "ResponseTime", "Service", "ee-ai-rag-mcp-demo-text-extractor", { color: "#2ca02c" }],
-            ["AWS/XRay", "ResponseTime", "Service", "ee-ai-rag-mcp-demo-text-chunker", { color: "#1f77b4" }],
-            ["AWS/XRay", "ResponseTime", "Service", "ee-ai-rag-mcp-demo-vector-generator", { color: "#ff7f0e" }],
-            ["AWS/XRay", "ResponseTime", "Service", "ee-ai-rag-mcp-demo-policy-search", { color: "#d62728" }],
-            ["AWS/XRay", "ResponseTime", "Service", "ee-ai-rag-mcp-demo-document-status", { color: "#9467bd" }]
+            ["AWS/XRay", "ResponseTime", "Service", "Lambda", { color: "#2ca02c" }]
           ],
           view    = "timeSeries",
           stacked = false,
-          title   = "X-Ray Response Times",
+          title   = "X-Ray Lambda Response Times",
           region  = data.aws_region.current.name,
           period  = 300,
           stat    = "Average"
@@ -298,15 +210,13 @@ resource "aws_cloudwatch_dashboard" "xray_dashboard" {
         height = 6
         properties = {
           metrics = [
-            ["AWS/XRay", "ErrorCount", "Service", "ee-ai-rag-mcp-demo-text-extractor", { color: "#2ca02c" }],
-            ["AWS/XRay", "ErrorCount", "Service", "ee-ai-rag-mcp-demo-text-chunker", { color: "#1f77b4" }],
-            ["AWS/XRay", "ErrorCount", "Service", "ee-ai-rag-mcp-demo-vector-generator", { color: "#ff7f0e" }],
-            ["AWS/XRay", "ErrorCount", "Service", "ee-ai-rag-mcp-demo-policy-search", { color: "#d62728" }],
-            ["AWS/XRay", "ErrorCount", "Service", "ee-ai-rag-mcp-demo-document-status", { color: "#9467bd" }]
+            ["AWS/XRay", "ErrorCount", "Service", "Lambda", { color: "#d62728" }],
+            ["AWS/XRay", "FaultCount", "Service", "Lambda", { color: "#ff7f0e" }],
+            ["AWS/XRay", "ThrottleCount", "Service", "Lambda", { color: "#9467bd" }]
           ],
           view    = "timeSeries",
           stacked = false,
-          title   = "X-Ray Errors",
+          title   = "X-Ray Lambda Errors",
           region  = data.aws_region.current.name,
           period  = 300,
           stat    = "Sum"
