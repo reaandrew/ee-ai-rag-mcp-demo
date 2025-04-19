@@ -94,6 +94,17 @@ resource "aws_iam_policy" "text_extractor_policy" {
         ]
         Effect   = "Allow"
         Resource = "*"
+      },
+      {
+        Action = [
+          "xray:PutTraceSegments",
+          "xray:PutTelemetryRecords",
+          "xray:GetSamplingRules",
+          "xray:GetSamplingTargets",
+          "xray:GetSamplingStatisticSummaries"
+        ]
+        Effect   = "Allow"
+        Resource = "*"
       }
     ]
   })
@@ -138,6 +149,17 @@ resource "aws_iam_policy" "text_chunker_policy" {
           aws_s3_bucket.chunked_text.arn,
           "${aws_s3_bucket.chunked_text.arn}/*"
         ]
+      },
+      {
+        Action = [
+          "xray:PutTraceSegments",
+          "xray:PutTelemetryRecords",
+          "xray:GetSamplingRules",
+          "xray:GetSamplingTargets",
+          "xray:GetSamplingStatisticSummaries"
+        ]
+        Effect   = "Allow"
+        Resource = "*"
       }
     ]
   })
@@ -268,6 +290,11 @@ resource "aws_lambda_function" "text_chunker" {
       TRACKING_TABLE = aws_dynamodb_table.document_tracking.name,
       SNS_TOPIC_ARN = aws_sns_topic.document_indexing.arn
     }
+  }
+
+  # Enable X-Ray tracing
+  tracing_config {
+    mode = "Active"
   }
 
   tags = {

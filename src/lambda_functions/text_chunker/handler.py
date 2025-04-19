@@ -7,6 +7,25 @@ import os
 from urllib.parse import unquote_plus
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
+# pragma: no cover
+try:
+    from aws_xray_sdk.core import xray_recorder
+    from aws_xray_sdk.core import patch_all
+
+    patch_all()  # Patch all supported libraries for X-Ray tracing
+except ImportError:
+    xray_recorder = None
+    patch_all = None
+
+# pragma: no cover
+try:
+    from utils import xray_utils
+except ImportError:
+    try:
+        from src.utils import xray_utils
+    except ImportError:
+        xray_utils = None
+
 # Constants
 CONTENT_TYPE_JSON = "application/json"
 CONTENT_TYPE_PLAIN = "text/plain"
@@ -331,6 +350,7 @@ def process_text_file(bucket_name, file_key):
         raise e
 
 
+@ xray_utils.trace_lambda_handler() if xray_utils else lambda x: x
 def lambda_handler(event, context):
     """
     Lambda function handler that processes S3 object creation events.
