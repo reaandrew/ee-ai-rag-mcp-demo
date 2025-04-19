@@ -73,6 +73,23 @@ def test_lambda_handler_success(api_gateway_event):
     assert response["isAuthorized"] is True
 
 
+def test_lambda_handler_invalid_token(api_gateway_event):
+    """Test failed authorization with invalid token - covers line 148"""
+    # Mock the verify_token function to return False (invalid token)
+    with patch.object(handler, "verify_token", return_value=False):
+        # Mock logging to capture the warning
+        with patch.object(handler.logger, "info"):
+            with patch.object(handler.logger, "warning") as mock_warning:
+                response = handler.lambda_handler(api_gateway_event, {})
+
+    # Verify response structure for HTTP API v2 format
+    assert "isAuthorized" in response
+    assert response["isAuthorized"] is False
+
+    # Verify the specific warning message for failed authorization (line 148)
+    mock_warning.assert_called_with("Authorization failed - invalid token")
+
+
 def test_lambda_handler_error():
     """Test error handling"""
     # Create event that will cause an error - this will throw an exception when
@@ -147,28 +164,40 @@ def test_verify_token_empty():
 
 def test_verify_token_expired():
     """Test verify_token with expired token"""
-    with patch.object(jwt, "decode", side_effect=jwt.ExpiredSignatureError):
-        with patch.object(handler.logger, "warning"):
-            result = handler.verify_token("expired_token")
+    # Direct test of the ExpiredSignatureError exception handling (line 93-95)
+    with patch.object(jwt, "get_unverified_header", return_value={"kid": "test-key-id"}):
+        with patch.object(jwt, "decode", side_effect=jwt.ExpiredSignatureError("Token expired")):
+            with patch.object(handler.logger, "warning") as mock_warning:
+                result = handler.verify_token("expired_token")
 
+    # Verify the specific warning message for expired tokens
+    mock_warning.assert_called_with("Token has expired")
     assert result is False
 
 
 def test_verify_token_invalid():
     """Test verify_token with invalid token"""
-    with patch.object(jwt, "decode", side_effect=jwt.InvalidTokenError("Invalid token")):
-        with patch.object(handler.logger, "warning"):
-            result = handler.verify_token("invalid_token")
+    # Direct test of the InvalidTokenError exception handling (line 96-98)
+    with patch.object(jwt, "get_unverified_header", return_value={"kid": "test-key-id"}):
+        with patch.object(jwt, "decode", side_effect=jwt.InvalidTokenError("Invalid token")):
+            with patch.object(handler.logger, "warning") as mock_warning:
+                result = handler.verify_token("invalid_token")
 
+    # Verify the specific warning message for invalid tokens
+    mock_warning.assert_called_with("Invalid token: Invalid token")
     assert result is False
 
 
 def test_verify_token_unexpected_error():
     """Test verify_token with unexpected error"""
-    with patch.object(jwt, "decode", side_effect=Exception("Unexpected error")):
-        with patch.object(handler.logger, "error"):
-            result = handler.verify_token("problematic_token")
+    # Direct test of the generic exception handling (line 99-101)
+    with patch.object(jwt, "get_unverified_header", return_value={"kid": "test-key-id"}):
+        with patch.object(jwt, "decode", side_effect=Exception("Unexpected error")):
+            with patch.object(handler.logger, "error") as mock_error:
+                result = handler.verify_token("problematic_token")
 
+    # Verify the specific error message for unexpected errors
+    mock_error.assert_called_with("Unexpected error during token verification: Unexpected error")
     assert result is False
 
 
