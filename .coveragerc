@@ -16,6 +16,7 @@ omit =
     src/utils/bedrock_utils.py
     src/utils/opensearch_utils.py
     src/utils/tracking_utils.py
+    src/utils/xray_utils.py
     scripts/*
     scripts/admin/*
     */scripts/*
