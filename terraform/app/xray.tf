@@ -121,95 +121,84 @@ resource "aws_iam_role_policy_attachment" "lambda_xray_policy_attachment" {
   policy_arn = aws_iam_policy.xray_lambda_policy.arn
 }
 
-# Update Lambda functions to enable X-Ray tracing
-# These modifications extend the existing Lambda function resources
-# The format follows the established pattern in the project
+# Enable X-Ray tracing on existing Lambda functions using configuration blocks
+# Instead of redefining the Lambda resources, update the existing ones using null_resource
+resource "null_resource" "enable_lambda_xray_tracing" {
+  provisioner "local-exec" {
+    command = <<-EOT
+      # Update text_extractor Lambda
+      aws lambda update-function-configuration \
+        --function-name ${aws_lambda_function.text_extractor.function_name} \
+        --tracing-config Mode=Active \
+        --region ${data.aws_region.current.name}
+      
+      # Update text_chunker Lambda
+      aws lambda update-function-configuration \
+        --function-name ${aws_lambda_function.text_chunker.function_name} \
+        --tracing-config Mode=Active \
+        --region ${data.aws_region.current.name}
+      
+      # Update vector_generator Lambda
+      aws lambda update-function-configuration \
+        --function-name ${aws_lambda_function.vector_generator.function_name} \
+        --tracing-config Mode=Active \
+        --region ${data.aws_region.current.name}
+      
+      # Update policy_search Lambda
+      aws lambda update-function-configuration \
+        --function-name ${aws_lambda_function.policy_search.function_name} \
+        --tracing-config Mode=Active \
+        --region ${data.aws_region.current.name}
+      
+      # Update document_status Lambda
+      aws lambda update-function-configuration \
+        --function-name ${aws_lambda_function.document_status.function_name} \
+        --tracing-config Mode=Active \
+        --region ${data.aws_region.current.name}
+      
+      # Update document_tracking Lambda
+      aws lambda update-function-configuration \
+        --function-name ${aws_lambda_function.document_tracking.function_name} \
+        --tracing-config Mode=Active \
+        --region ${data.aws_region.current.name}
+      
+      # Update auth_authorizer Lambda
+      aws lambda update-function-configuration \
+        --function-name ${aws_lambda_function.auth_authorizer.function_name} \
+        --tracing-config Mode=Active \
+        --region ${data.aws_region.current.name}
+    EOT
+  }
 
-# Enable X-Ray for text_extractor Lambda
-resource "aws_lambda_function" "text_extractor" {
-  # Extend existing resource
-  function_name = "ee-ai-rag-mcp-demo-text-extractor"
-  
-  # Enable X-Ray active tracing
-  tracing_config {
-    mode = "Active"
+  # Only run this when the Lambda functions change
+  triggers = {
+    text_extractor_arn    = aws_lambda_function.text_extractor.arn
+    text_chunker_arn      = aws_lambda_function.text_chunker.arn
+    vector_generator_arn  = aws_lambda_function.vector_generator.arn
+    policy_search_arn     = aws_lambda_function.policy_search.arn
+    document_status_arn   = aws_lambda_function.document_status.arn
+    document_tracking_arn = aws_lambda_function.document_tracking.arn
+    auth_authorizer_arn   = aws_lambda_function.auth_authorizer.arn
   }
 }
 
-# Enable X-Ray for text_chunker Lambda
-resource "aws_lambda_function" "text_chunker" {
-  # Extend existing resource
-  function_name = "ee-ai-rag-mcp-demo-text-chunker"
-  
-  # Enable X-Ray active tracing
-  tracing_config {
-    mode = "Active"
+# Enable X-Ray for API Gateway using null_resource
+resource "null_resource" "enable_apigateway_xray" {
+  provisioner "local-exec" {
+    command = <<-EOT
+      aws apigatewayv2 update-stage \
+        --api-id ${aws_apigatewayv2_api.policy_search_api.id} \
+        --stage-name "$default" \
+        --region ${data.aws_region.current.name} \
+        --tracing-enabled
+    EOT
   }
-}
 
-# Enable X-Ray for vector_generator Lambda
-resource "aws_lambda_function" "vector_generator" {
-  # Extend existing resource
-  function_name = "ee-ai-rag-mcp-demo-vector-generator"
-  
-  # Enable X-Ray active tracing
-  tracing_config {
-    mode = "Active"
+  # Only run this when the API Gateway changes
+  triggers = {
+    api_id = aws_apigatewayv2_api.policy_search_api.id
+    stage  = aws_apigatewayv2_stage.policy_search_stage.id
   }
-}
-
-# Enable X-Ray for policy_search Lambda
-resource "aws_lambda_function" "policy_search" {
-  # Extend existing resource
-  function_name = "ee-ai-rag-mcp-demo-policy-search"
-  
-  # Enable X-Ray active tracing
-  tracing_config {
-    mode = "Active"
-  }
-}
-
-# Enable X-Ray for document_status Lambda
-resource "aws_lambda_function" "document_status" {
-  # Extend existing resource
-  function_name = "ee-ai-rag-mcp-demo-document-status"
-  
-  # Enable X-Ray active tracing
-  tracing_config {
-    mode = "Active"
-  }
-}
-
-# Enable X-Ray for document_tracking Lambda
-resource "aws_lambda_function" "document_tracking" {
-  # Extend existing resource
-  function_name = "ee-ai-rag-mcp-demo-document-tracking"
-  
-  # Enable X-Ray active tracing
-  tracing_config {
-    mode = "Active"
-  }
-}
-
-# Enable X-Ray for auth_authorizer Lambda
-resource "aws_lambda_function" "auth_authorizer" {
-  # Extend existing resource
-  function_name = "ee-ai-rag-mcp-demo-auth-authorizer"
-  
-  # Enable X-Ray active tracing
-  tracing_config {
-    mode = "Active"
-  }
-}
-
-# Enable X-Ray for API Gateway
-resource "aws_apigatewayv2_stage" "policy_search_stage" {
-  # Extend existing resource
-  api_id = aws_apigatewayv2_api.policy_search_api.id
-  name   = "$default"
-  
-  # Enable X-Ray tracing for API Gateway
-  xray_tracing_enabled = true
 }
 
 # Add X-Ray Group to organize traces
