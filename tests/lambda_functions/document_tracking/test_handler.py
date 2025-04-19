@@ -315,6 +315,154 @@ class TestDocumentTrackingHandler(unittest.TestCase):
         self.assertEqual(result["status"], "error")
         self.assertIn("Missing required fields", result["message"])
 
+    def test_complete_document_indexing_conditional_check_failure(self):
+        """Test complete_document_indexing with ConditionalCheckFailedException."""
+        message_data = {
+            "document_id": "test-bucket/test-doc/v1234567890",
+            "document_name": "test-doc.pdf",
+            "total_chunks": 5,
+            "completion_time": "2023-01-01T12:30:00",
+        }
+
+        # Configure mock to throw a ConditionalCheckFailedException
+        from botocore.exceptions import ClientError
+
+        error_response = {"Error": {"Code": "ConditionalCheckFailedException"}}
+        conditional_error = ClientError(error_response, "update_item")
+        self.mock_table.update_item.side_effect = conditional_error
+
+        # Mock the get_item response for the already completed document
+        self.mock_table.get_item.return_value = {
+            "Item": {
+                "document_id": "test-bucket/test-doc/v1234567890",
+                "status": "COMPLETED",
+                "total_chunks": 5,
+                "indexed_chunks": 5,
+            }
+        }
+
+        # Call the function
+        result = complete_document_indexing(message_data)
+
+        # Verify result
+        self.assertEqual(result["status"], "success")
+        self.assertEqual(result["document_id"], message_data["document_id"])
+
+        # Verify get_item was called
+        self.mock_table.get_item.assert_called_with(
+            Key={"document_id": message_data["document_id"]}
+        )
+
+    def test_get_document_history(self):
+        """Test get_document_history function."""
+        from src.lambda_functions.document_tracking.handler import get_document_history
+
+        base_document_id = "test-bucket/test-doc"
+        mock_history_items = [
+            {
+                "document_id": "test-bucket/test-doc/v1234567891",
+                "status": "COMPLETED",
+                "upload_timestamp": 1234567891,
+            },
+            {
+                "document_id": "test-bucket/test-doc/v1234567890",
+                "status": "COMPLETED",
+                "upload_timestamp": 1234567890,
+            },
+        ]
+
+        # Configure the mock to return history items
+        self.mock_table.query.return_value = {"Items": mock_history_items}
+
+        # Call the function
+        result = get_document_history(base_document_id)
+
+        # Verify result
+        self.assertEqual(result, mock_history_items)
+
+        # Verify query parameters
+        self.mock_table.query.assert_called_with(
+            IndexName="BaseDocumentIndex", KeyConditionExpression=mock.ANY, ScanIndexForward=False
+        )
+
+    def test_get_document_history_error(self):
+        """Test get_document_history when an error occurs."""
+        from src.lambda_functions.document_tracking.handler import get_document_history
+
+        base_document_id = "test-bucket/test-doc"
+
+        # Configure the mock to throw an exception
+        self.mock_table.query.side_effect = Exception("Test error")
+
+        # Call the function
+        result = get_document_history(base_document_id)
+
+        # Verify that an empty list is returned on error
+        self.assertEqual(result, [])
+
+    def test_update_indexing_progress_complete(self):
+        """Test update_indexing_progress when all chunks are processed."""
+        message_data = {
+            "document_id": "test-bucket/test-doc/v1234567890",
+            "document_name": "test-doc.pdf",
+            "page_number": 5,
+            "progress": "5/5",
+        }
+
+        # Configure the mock for a document that will be completed
+        self.mock_table.get_item.return_value = {
+            "Item": {
+                "document_id": "test-bucket/test-doc/v1234567890",
+                "total_chunks": 5,
+                "indexed_chunks": 4,
+                "status": "PROCESSING",
+            }
+        }
+
+        # Configure update_item to return new indexed_chunks value = total_chunks
+        self.mock_table.update_item.return_value = {"Attributes": {"indexed_chunks": 5}}
+
+        # Call the function
+        result = update_indexing_progress(message_data)
+
+        # Verify result
+        self.assertEqual(result["status"], "success")
+        self.assertEqual(result["document_id"], message_data["document_id"])
+        self.assertEqual(result["progress"], "5/5")
+
+        # Verify the table was updated to mark as COMPLETED
+        # The third update_item call will be for setting COMPLETED status
+        self.assertEqual(self.mock_table.update_item.call_count, 3)
+
+    def test_update_indexing_progress_for_problematic_document(self):
+        """Test update_indexing_progress with a problematic document."""
+        message_data = {
+            "document_id": "test-bucket/test-doc/v1234567890",
+            "document_name": "internet_usage_policy.txt",  # This is one of the problematic docs
+            "page_number": 2,
+            "progress": "2/5",
+        }
+
+        # Configure the mock for document status
+        self.mock_table.get_item.return_value = {
+            "Item": {
+                "document_id": "test-bucket/test-doc/v1234567890",
+                "total_chunks": 5,
+                "indexed_chunks": 1,
+                "status": "PROCESSING",
+            }
+        }
+
+        # Call the function
+        result = update_indexing_progress(message_data)
+
+        # Verify result
+        self.assertEqual(result["status"], "success")
+        self.assertEqual(result["document_id"], message_data["document_id"])
+        self.assertEqual(result["document_name"], "internet_usage_policy.txt")
+
+        # Since it's a problematic document, there should be extra logs but same functionality
+
 
 if __name__ == "__main__":
     unittest.main()
