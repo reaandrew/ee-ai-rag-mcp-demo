@@ -160,7 +160,7 @@ jobs:
           echo "✓ Outputs saved to artifacts/terraform_outputs.json"
       
       - name: Upload Terraform outputs as artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: terraform-outputs
           path: artifacts/terraform_outputs.json
