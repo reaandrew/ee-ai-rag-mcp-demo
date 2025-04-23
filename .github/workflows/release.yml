@@ -156,7 +156,7 @@ jobs:
           python -m pip install jinja2>=3.1.2
           chmod +x ./scripts/render_template.py
       
-      - name: Display Terraform Outputs and Deploy UI
+      - name: Display Terraform Outputs
         working-directory: ./terraform/app
         run: |
           echo "Terraform deployment completed successfully!"
@@ -166,11 +166,26 @@ jobs:
           echo "API URL: $(terraform output -raw policy_search_api_url)"
           echo "API Script: $(terraform output -raw api_curl_script_path)"
           
-          # Collect outputs for UI deployment
-          UI_BUCKET=$(terraform output -raw ui_bucket_name)
-          SEARCH_API_URL=$(terraform output -raw policy_search_api_url)
-          STATUS_API_URL=$(terraform output -raw document_status_api_url)
-          CLOUDFRONT_URL=$(terraform output -raw cloudfront_url)
+          # Write outputs to files for UI deployment - most reliable way
+          terraform output -raw ui_bucket_name > ui_bucket.txt
+          terraform output -raw policy_search_api_url > search_api_url.txt
+          terraform output -raw document_status_api_url > status_api_url.txt
+          terraform output -raw cloudfront_url > cloudfront_url.txt
+          
+          # Quick verification
+          cat ui_bucket.txt
+          cat search_api_url.txt
+          cat status_api_url.txt
+          cat cloudfront_url.txt
+      
+      - name: Process and Deploy UI Files
+        working-directory: ./terraform/app
+        run: |
+          # Use values from files - avoid command substitution issues
+          UI_BUCKET=$(cat ui_bucket.txt)
+          SEARCH_API_URL=$(cat search_api_url.txt)
+          STATUS_API_URL=$(cat status_api_url.txt)
+          CLOUDFRONT_URL=$(cat cloudfront_url.txt)
           
           echo "UI Bucket: $UI_BUCKET"
           echo "Search API URL: $SEARCH_API_URL"
@@ -187,14 +202,14 @@ jobs:
             --search-api "$SEARCH_API_URL" \
             --status-api "$STATUS_API_URL"
           
-          # Upload index.html
-          aws s3 cp ${GITHUB_WORKSPACE}/build/ui/index.html "s3://$UI_BUCKET/index.html" --content-type "text/html"
+          # Upload index.html - using explicit bucket name
+          aws s3 cp ${GITHUB_WORKSPACE}/build/ui/index.html s3://${UI_BUCKET}/index.html --content-type "text/html"
           
           # Upload documentation.html
-          aws s3 cp ${GITHUB_WORKSPACE}/ui/documentation.html "s3://$UI_BUCKET/documentation.html" --content-type "text/html"
+          aws s3 cp ${GITHUB_WORKSPACE}/ui/documentation.html s3://${UI_BUCKET}/documentation.html --content-type "text/html"
           
           # Upload all image files
-          aws s3 cp ${GITHUB_WORKSPACE}/ui/images/ "s3://$UI_BUCKET/images/" --recursive
+          aws s3 cp ${GITHUB_WORKSPACE}/ui/images/ s3://${UI_BUCKET}/images/ --recursive
           
           echo "UI files deployed successfully to $UI_BUCKET"
           echo "UI is accessible at: $CLOUDFRONT_URL"
