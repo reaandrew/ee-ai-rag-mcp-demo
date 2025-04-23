@@ -156,43 +156,32 @@ jobs:
           python -m pip install jinja2>=3.1.2
           chmod +x ./scripts/render_template.py
       
-      - name: Display Terraform Outputs
+      - name: Capture Terraform Outputs (filtered)
         working-directory: ./terraform/app
         run: |
           echo "Terraform deployment completed successfully!"
-          echo "Bucket Name: $(terraform output -raw raw_pdfs_bucket_name)"
-          echo "Bucket ARN: $(terraform output -raw raw_pdfs_bucket_arn)"
-          echo "Deployed Version: $(terraform output -raw deployed_version)"
-          echo "API URL: $(terraform output -raw policy_search_api_url)"
-          echo "API Script: $(terraform output -raw api_curl_script_path)"
+          echo "Capturing only the last line of each Terraform output..."
           
-          # Write outputs to files for UI deployment - most reliable way
-          terraform output -raw ui_bucket_name > ui_bucket.txt
-          terraform output -raw policy_search_api_url > search_api_url.txt
-          terraform output -raw document_status_api_url > status_api_url.txt
-          terraform output -raw cloudfront_url > cloudfront_url.txt
+          terraform output -raw ui_bucket_name 2>/dev/null | tail -n1 > ui_bucket.txt
+          terraform output -raw policy_search_api_url 2>/dev/null | tail -n1 > search_api_url.txt
+          terraform output -raw document_status_api_url 2>/dev/null | tail -n1 > status_api_url.txt
+          terraform output -raw cloudfront_url 2>/dev/null | tail -n1 > cloudfront_url.txt
           
-          # Quick verification
-          cat ui_bucket.txt
-          cat search_api_url.txt
-          cat status_api_url.txt
-          cat cloudfront_url.txt
+          echo "✓ UI Bucket:    $(cat ui_bucket.txt)"
+          echo "✓ Search API:   $(cat search_api_url.txt)"
+          echo "✓ Status API:   $(cat status_api_url.txt)"
+          echo "✓ CloudFront:   $(cat cloudfront_url.txt)"
       
       - name: Process and Deploy UI Files
         working-directory: ./terraform/app
         run: |
-          # Use values from files - avoid command substitution issues
+          # Read in the pure values
           UI_BUCKET=$(cat ui_bucket.txt)
           SEARCH_API_URL=$(cat search_api_url.txt)
           STATUS_API_URL=$(cat status_api_url.txt)
           CLOUDFRONT_URL=$(cat cloudfront_url.txt)
           
-          echo "UI Bucket: $UI_BUCKET"
-          echo "Search API URL: $SEARCH_API_URL"
-          echo "Status API URL: $STATUS_API_URL"
-          echo "CloudFront URL: $CLOUDFRONT_URL"
-          
-          # Create build directory
+          echo "Deploying UI to bucket: $UI_BUCKET"
           mkdir -p ${GITHUB_WORKSPACE}/build/ui
           
           # Process index.html template
@@ -203,21 +192,24 @@ jobs:
             --status-api "$STATUS_API_URL"
           
           # Upload index.html - using explicit bucket name
-          aws s3 cp ${GITHUB_WORKSPACE}/build/ui/index.html s3://${UI_BUCKET}/index.html --content-type "text/html"
+          aws s3 cp ${GITHUB_WORKSPACE}/build/ui/index.html \
+            s3://${UI_BUCKET}/index.html --content-type "text/html"
           
           # Upload documentation.html
-          aws s3 cp ${GITHUB_WORKSPACE}/ui/documentation.html s3://${UI_BUCKET}/documentation.html --content-type "text/html"
+          aws s3 cp ${GITHUB_WORKSPACE}/ui/documentation.html \
+            s3://${UI_BUCKET}/documentation.html --content-type "text/html"
           
           # Upload all image files
-          aws s3 cp ${GITHUB_WORKSPACE}/ui/images/ s3://${UI_BUCKET}/images/ --recursive
-          
-          echo "UI files deployed successfully to $UI_BUCKET"
-          echo "UI is accessible at: $CLOUDFRONT_URL"
+          aws s3 cp ${GITHUB_WORKSPACE}/ui/images/ \
+            s3://${UI_BUCKET}/images/ --recursive
+            
+          echo "✅ UI deployed; available at: $CLOUDFRONT_URL"
           
           # Debug Bruno collection (only if it exists)
-          if [ -f "$(terraform output -raw bruno_collection_path 2>/dev/null)" ]; then
+          BRUNO_PATH=$(terraform output -raw bruno_collection_path 2>/dev/null | tail -n1)
+          if [ -f "$BRUNO_PATH" ]; then
             echo "Bruno collection URL inclusion check:"
-            cat "$(terraform output -raw bruno_collection_path)" | grep -A 2 "API_URL" || echo "No API_URL found in Bruno collection"
+            cat "$BRUNO_PATH" | grep -A 2 "API_URL" || echo "No API_URL found in Bruno collection"
           else
             echo "Bruno collection file not found - will be created during apply"
           fi
