@@ -147,56 +147,20 @@ jobs:
         working-directory: ./terraform/app
         run: terraform apply -auto-approve tfplan
         
-      - name: Install Jinja2 for UI templating
-        run: |
-          python -m pip install jinja2>=3.1.2
-          chmod +x ./scripts/render_template.py
-      
-      - name: Set environment variables for UI deployment
+      - name: Export Terraform outputs as artifact
         working-directory: ./terraform/app
         run: |
-          set -euo pipefail
+          # Export all Terraform outputs to a JSON file
+          terraform output -json > terraform_outputs.json
+          mkdir -p ${GITHUB_WORKSPACE}/artifacts
+          cp terraform_outputs.json ${GITHUB_WORKSPACE}/artifacts/
           
-          # Extract clean values by taking only the first line
-          UI_BUCKET_NAME=$(terraform output -raw ui_bucket_name          | head -n1)
-          SEARCH_API_URL=$(terraform output -raw policy_search_api_url   | head -n1)
-          STATUS_API_URL=$(terraform output -raw document_status_api_url | head -n1)
-          CLOUDFRONT_URL=$(terraform output -raw cloudfront_url          | head -n1)
-          
-          # Write clean values to GITHUB_ENV
-          {
-            echo "UI_BUCKET_NAME=$UI_BUCKET_NAME"
-            echo "SEARCH_API_URL=$SEARCH_API_URL"
-            echo "STATUS_API_URL=$STATUS_API_URL"
-            echo "CLOUDFRONT_URL=$CLOUDFRONT_URL"
-          } >> "$GITHUB_ENV"
-          
-          # Display for logging
-          echo "✓ UI Bucket:    $UI_BUCKET_NAME"
-          echo "✓ Search API:   $SEARCH_API_URL"
-          echo "✓ Status API:   $STATUS_API_URL"
-          echo "✓ CloudFront:   $CLOUDFRONT_URL"
+          # Display summary of what was deployed
+          echo "✓ Terraform deployment completed"
+          echo "✓ Outputs saved to artifacts/terraform_outputs.json"
       
-      - name: Process and Deploy UI Files
-        run: |
-          echo "Deploying UI to bucket: $UI_BUCKET_NAME"
-          mkdir -p build/ui
-
-          ${GITHUB_WORKSPACE}/scripts/render_template.py \
-            --template ui/index.html \
-            --output   build/ui/index.html \
-            --search-api "$SEARCH_API_URL" \
-            --status-api "$STATUS_API_URL"
-
-          aws s3 cp build/ui/index.html \
-            s3://$UI_BUCKET_NAME/index.html \
-            --content-type "text/html"
-
-          aws s3 cp ui/documentation.html \
-            s3://$UI_BUCKET_NAME/documentation.html \
-            --content-type "text/html"
-
-          aws s3 cp ui/images/ \
-            s3://$UI_BUCKET_NAME/images/ --recursive
-
-          echo "✅ UI deployed – see it at $CLOUDFRONT_URL"
+      - name: Upload Terraform outputs as artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: terraform-outputs
+          path: artifacts/terraform_outputs.json
