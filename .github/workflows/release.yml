@@ -152,47 +152,43 @@ jobs:
           python -m pip install jinja2>=3.1.2
           chmod +x ./scripts/render_template.py
       
-      - name: Read Terraform outputs (JSON-safe)
-        id: tf
+      - name: Set environment variables for UI deployment
         working-directory: ./terraform/app
         run: |
           set -euo pipefail
-
-          # Pull every output once, as JSON
-          TF_JSON=$(terraform output -json)
-
-          # Extract the fields we need; jq prints *only* the value
-          echo "ui_bucket=$(echo "$TF_JSON" | jq -r '.ui_bucket_name.value')"               >> $GITHUB_OUTPUT
-          echo "search_api_url=$(echo "$TF_JSON" | jq -r '.policy_search_api_url.value')"   >> $GITHUB_OUTPUT
-          echo "status_api_url=$(echo "$TF_JSON" | jq -r '.document_status_api_url.value')" >> $GITHUB_OUTPUT
-          echo "cloudfront_url=$(echo "$TF_JSON" | jq -r '.cloudfront_url.value')"          >> $GITHUB_OUTPUT
+          
+          # Store the outputs directly in environment variables that persist across steps
+          echo "UI_BUCKET_NAME=$(terraform output -raw ui_bucket_name)" >> $GITHUB_ENV
+          echo "SEARCH_API_URL=$(terraform output -raw policy_search_api_url)" >> $GITHUB_ENV
+          echo "STATUS_API_URL=$(terraform output -raw document_status_api_url)" >> $GITHUB_ENV
+          echo "CLOUDFRONT_URL=$(terraform output -raw cloudfront_url)" >> $GITHUB_ENV
           
           # Display for logging
-          echo "✓ UI Bucket:    $(echo "$TF_JSON" | jq -r '.ui_bucket_name.value')"
-          echo "✓ Search API:   $(echo "$TF_JSON" | jq -r '.policy_search_api_url.value')"
-          echo "✓ Status API:   $(echo "$TF_JSON" | jq -r '.document_status_api_url.value')"
-          echo "✓ CloudFront:   $(echo "$TF_JSON" | jq -r '.cloudfront_url.value')"
+          echo "✓ UI Bucket:    $(terraform output -raw ui_bucket_name)"
+          echo "✓ Search API:   $(terraform output -raw policy_search_api_url)"
+          echo "✓ Status API:   $(terraform output -raw document_status_api_url)"
+          echo "✓ CloudFront:   $(terraform output -raw cloudfront_url)"
       
       - name: Process and Deploy UI Files
         run: |
-          echo "Deploying UI to bucket: ${{ steps.tf.outputs.ui_bucket }}"
+          echo "Deploying UI to bucket: ${{ env.UI_BUCKET_NAME }}"
           mkdir -p build/ui
 
           ${GITHUB_WORKSPACE}/scripts/render_template.py \
             --template ui/index.html \
             --output   build/ui/index.html \
-            --search-api "${{ steps.tf.outputs.search_api_url }}" \
-            --status-api "${{ steps.tf.outputs.status_api_url }}"
+            --search-api "${{ env.SEARCH_API_URL }}" \
+            --status-api "${{ env.STATUS_API_URL }}"
 
           aws s3 cp build/ui/index.html \
-            s3://${{ steps.tf.outputs.ui_bucket }}/index.html \
+            s3://${{ env.UI_BUCKET_NAME }}/index.html \
             --content-type "text/html"
 
           aws s3 cp ui/documentation.html \
-            s3://${{ steps.tf.outputs.ui_bucket }}/documentation.html \
+            s3://${{ env.UI_BUCKET_NAME }}/documentation.html \
             --content-type "text/html"
 
           aws s3 cp ui/images/ \
-            s3://${{ steps.tf.outputs.ui_bucket }}/images/ --recursive
+            s3://${{ env.UI_BUCKET_NAME }}/images/ --recursive
 
-          echo "✅ UI deployed – see it at ${{ steps.tf.outputs.cloudfront_url }}"
+          echo "✅ UI deployed – see it at ${{ env.CLOUDFRONT_URL }}"
