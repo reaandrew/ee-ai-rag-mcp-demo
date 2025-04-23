@@ -134,45 +134,6 @@ jobs:
           # For debugging
           echo "Setting up Terraform for version: ${RELEASE_VERSION}"
           
-      - name: Process UI Templates
-        run: |
-          # Install Jinja2 for template processing
-          python -m pip install jinja2>=3.1.2
-          
-          # Ensure scripts are executable
-          chmod +x ./scripts/render_template.py
-          
-          # Create build directory if it doesn't exist
-          mkdir -p ./build/ui
-          
-          # Get API Gateway URL from Terraform outputs (if available)
-          cd ./terraform/app
-          API_URL=""
-          if terraform output -json 2>/dev/null | grep -q "policy_search_api_url"; then
-            API_URL=$(terraform output -raw policy_search_api_url | sed 's|/search$||')
-          fi
-          cd ../..
-          
-          # If we couldn't get the URL from terraform output, use a default placeholder
-          # It will be replaced with the actual URL in the next deployment
-          if [ -z "$API_URL" ]; then
-            API_URL="https://api.example.com"
-          fi
-          
-          echo "Using API URL: $API_URL"
-          
-          # Process index.html template
-          ./scripts/render_template.py \
-            --template ./ui/index.html \
-            --output ./build/ui/index.html \
-            --search-api "${API_URL}/search" \
-            --status-api "${API_URL}/status"
-          
-          # Copy the processed template to ui directory to be picked up by Terraform
-          cp ./build/ui/index.html ./ui/processed_index.html
-          
-          # Verify the file was created
-          ls -la ./ui/processed_index.html
 
       - name: Terraform Init
         working-directory: ./terraform/app
@@ -215,3 +176,73 @@ jobs:
           else
             echo "Bruno README file not found - will be created during apply"
           fi
+          
+      # Add a separate job for deploying UI files
+  ui-deploy:
+    name: Deploy UI Files
+    needs: terraform
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/ee-ai-rag-mcp-demo-ci-role
+          role-session-name: GitHub_AWS_S3_UI_Deploy
+          aws-region: eu-west-2
+          
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install jinja2>=3.1.2 boto3>=1.28.0
+          chmod +x ./scripts/render_template.py
+      
+      - name: Get Terraform Outputs
+        working-directory: ./terraform/app
+        run: |
+          # Initialize Terraform to access remote state
+          terraform init -backend-config="bucket=ee-ai-rag-mcp-demo-terraform-state" -backend-config="region=eu-west-2" -backend-config="dynamodb_table=ee-ai-rag-mcp-demo-terraform-locks" -backend-config="key=terraform/app/terraform.tfstate"
+          
+          # Extract outputs and export as environment variables
+          echo "UI_BUCKET=$(terraform output -raw ui_bucket_name)" >> $GITHUB_ENV
+          echo "SEARCH_API_URL=$(terraform output -raw policy_search_api_url)" >> $GITHUB_ENV
+          echo "STATUS_API_URL=$(terraform output -raw document_status_api_url)" >> $GITHUB_ENV
+          echo "CLOUDFRONT_URL=$(terraform output -raw cloudfront_url)" >> $GITHUB_ENV
+        
+      - name: Process Templates and Upload UI Files
+        run: |
+          echo "UI Bucket: $UI_BUCKET"
+          echo "Search API URL: $SEARCH_API_URL"
+          echo "Status API URL: $STATUS_API_URL"
+          echo "CloudFront URL: $CLOUDFRONT_URL"
+          
+          # Create build directory
+          mkdir -p ./build/ui
+          
+          # Process index.html template
+          ./scripts/render_template.py \
+            --template ./ui/index.html \
+            --output ./build/ui/index.html \
+            --search-api "$SEARCH_API_URL" \
+            --status-api "$STATUS_API_URL"
+          
+          # Upload index.html
+          aws s3 cp ./build/ui/index.html "s3://$UI_BUCKET/index.html" --content-type "text/html"
+          
+          # Upload documentation.html
+          aws s3 cp ./ui/documentation.html "s3://$UI_BUCKET/documentation.html" --content-type "text/html"
+          
+          # Upload all image files
+          aws s3 cp ./ui/images/ "s3://$UI_BUCKET/images/" --recursive
+          
+          echo "UI files deployed successfully to $UI_BUCKET"
+          echo "UI is accessible at: $CLOUDFRONT_URL"

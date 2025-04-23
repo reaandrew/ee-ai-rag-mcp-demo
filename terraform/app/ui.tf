@@ -78,49 +78,9 @@ resource "terraform_data" "ui_files" {
   }
 }
 
-# Upload the pre-processed index.html file to the bucket
-resource "aws_s3_object" "index_html" {
-  depends_on = [
-    aws_s3_bucket_ownership_controls.ui_ownership
-  ]
-  
-  bucket       = aws_s3_bucket.ui.id
-  key          = "index.html"
-  source       = fileexists("${local.ui_dir_path}/processed_index.html") ? "${local.ui_dir_path}/processed_index.html" : "${local.ui_dir_path}/index.html"
-  content_type = "text/html"
-  etag         = fileexists("${local.ui_dir_path}/processed_index.html") ? filemd5("${local.ui_dir_path}/processed_index.html") : filemd5("${local.ui_dir_path}/index.html")
-  acl          = local.ui_object_acl
-}
-
-# Upload documentation.html file to the bucket
-resource "aws_s3_object" "documentation_html" {
-  depends_on = [
-    aws_s3_bucket_ownership_controls.ui_ownership
-  ]
-  
-  bucket       = aws_s3_bucket.ui.id
-  key          = "documentation.html"
-  source       = "${local.ui_dir_path}/documentation.html"
-  content_type = "text/html"
-  etag         = filemd5("${local.ui_dir_path}/documentation.html")
-  acl          = local.ui_object_acl
-}
-
-# Upload all image files
-resource "aws_s3_object" "image_files" {
-  depends_on = [
-    aws_s3_bucket_ownership_controls.ui_ownership
-  ]
-  
-  for_each     = fileset(local.ui_dir_path, "images/**")
-  
-  bucket       = aws_s3_bucket.ui.id
-  key          = each.value
-  source       = "${local.ui_dir_path}/${each.value}"
-  content_type = lookup(local.content_types, regex("\\.[^.]+$", each.value), "application/octet-stream")
-  etag         = filemd5("${local.ui_dir_path}/${each.value}")
-  acl          = local.ui_object_acl
-}
+# NOTE: UI file deployment has been moved to a separate post-Terraform step
+# This allows us to use actual Terraform outputs to populate template variables
+# The S3 objects will be uploaded directly using AWS CLI instead of via Terraform
 
 # CloudFront distribution for secure HTTPS access to S3 website
 resource "aws_cloudfront_origin_access_control" "ui_oac" {
@@ -237,4 +197,9 @@ output "s3_website_url" {
 output "cloudfront_url" {
   value       = "https://${aws_cloudfront_distribution.ui_distribution.domain_name}"
   description = "CloudFront distribution URL (HTTPS)"
+}
+
+output "ui_bucket_name" {
+  value       = aws_s3_bucket.ui.bucket
+  description = "Name of the S3 bucket hosting the UI"
 }
