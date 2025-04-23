@@ -151,6 +151,9 @@ def trace_lambda_handler(name=None):
                     else:
                         logger.warning(f"Failed to set segment name: {str(e)}")
 
+            # Set up global_xray_recorder reference before try block
+            global_xray_recorder = xray_recorder
+            
             # Add Lambda context information to the segment - safely handling FacadeSegments
             try:
                 segment.put_annotation("function_name", context.function_name)
@@ -158,7 +161,6 @@ def trace_lambda_handler(name=None):
                 segment.put_annotation("memory_limit_mb", context.memory_limit_in_mb)
 
                 # Add cold start annotation
-                global_xray_recorder = xray_recorder
                 is_cold_start = getattr(global_xray_recorder, "is_cold_start", True)
                 segment.put_annotation("cold_start", is_cold_start)
             except Exception as e:
@@ -168,9 +170,12 @@ def trace_lambda_handler(name=None):
                 else:
                     logger.warning(f"Failed to add X-Ray annotations: {str(e)}")
 
-            # Mark lambda as no longer cold starting
-            if hasattr(global_xray_recorder, "is_cold_start"):
-                global_xray_recorder.is_cold_start = False
+            # Mark lambda as no longer cold starting - safely
+            try:
+                if hasattr(global_xray_recorder, "is_cold_start"):
+                    global_xray_recorder.is_cold_start = False
+            except Exception as e:
+                logger.warning(f"Failed to update cold start flag: {str(e)}")
 
             # Add event information to metadata (safely)
             try:
