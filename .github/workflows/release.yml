@@ -157,17 +157,25 @@ jobs:
         run: |
           set -euo pipefail
           
-          # Store the outputs directly in environment variables that persist across steps
-          echo "UI_BUCKET_NAME=$(terraform output -raw ui_bucket_name)" >> $GITHUB_ENV
-          echo "SEARCH_API_URL=$(terraform output -raw policy_search_api_url)" >> $GITHUB_ENV
-          echo "STATUS_API_URL=$(terraform output -raw document_status_api_url)" >> $GITHUB_ENV
-          echo "CLOUDFRONT_URL=$(terraform output -raw cloudfront_url)" >> $GITHUB_ENV
+          # Extract clean values by taking only the first line
+          UI_BUCKET_NAME=$(terraform output -raw ui_bucket_name          | head -n1)
+          SEARCH_API_URL=$(terraform output -raw policy_search_api_url   | head -n1)
+          STATUS_API_URL=$(terraform output -raw document_status_api_url | head -n1)
+          CLOUDFRONT_URL=$(terraform output -raw cloudfront_url          | head -n1)
+          
+          # Write clean values to GITHUB_ENV
+          {
+            echo "UI_BUCKET_NAME=$UI_BUCKET_NAME"
+            echo "SEARCH_API_URL=$SEARCH_API_URL"
+            echo "STATUS_API_URL=$STATUS_API_URL"
+            echo "CLOUDFRONT_URL=$CLOUDFRONT_URL"
+          } >> "$GITHUB_ENV"
           
           # Display for logging
-          echo "✓ UI Bucket:    $(terraform output -raw ui_bucket_name)"
-          echo "✓ Search API:   $(terraform output -raw policy_search_api_url)"
-          echo "✓ Status API:   $(terraform output -raw document_status_api_url)"
-          echo "✓ CloudFront:   $(terraform output -raw cloudfront_url)"
+          echo "✓ UI Bucket:    $UI_BUCKET_NAME"
+          echo "✓ Search API:   $SEARCH_API_URL"
+          echo "✓ Status API:   $STATUS_API_URL"
+          echo "✓ CloudFront:   $CLOUDFRONT_URL"
       
       - name: Process and Deploy UI Files
         run: |
