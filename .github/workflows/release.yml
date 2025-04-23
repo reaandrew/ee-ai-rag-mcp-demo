@@ -97,9 +97,13 @@ jobs:
           # Install pip dependencies
           python -m pip install --upgrade pip
           
+          # Install Jinja2 for template processing
+          python -m pip install jinja2>=3.1.2
+          
           # Ensure build scripts are executable
           chmod +x ./install_lambda_deps.sh
           chmod +x ./build_lambda.sh
+          chmod +x ./scripts/render_template.py
           
           # Build the Lambda layers - using simplified approach with minimal dependencies
           ./install_lambda_deps.sh

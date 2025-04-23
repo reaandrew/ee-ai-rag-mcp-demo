@@ -86,9 +86,9 @@ resource "null_resource" "render_index_template" {
     template_changed = filemd5("${local.ui_dir_path}/index.html")
   }
 
-  # Use the Python script to render the template
+  # Use the Python script to render the template with absolute paths
   provisioner "local-exec" {
-    command = "python3 ${path.module}/../../scripts/render_template.py --template ${local.ui_dir_path}/index.html --output ${path.module}/../../build/processed_index.html --search-api ${aws_apigatewayv2_stage.policy_search_stage.invoke_url}search --status-api ${aws_apigatewayv2_stage.policy_search_stage.invoke_url}status"
+    command = "python3 ${abspath("${path.module}/../../scripts/render_template.py")} --template ${abspath("${local.ui_dir_path}/index.html")} --output ${abspath("${path.module}/../../build/processed_index.html")} --search-api ${aws_apigatewayv2_stage.policy_search_stage.invoke_url}search --status-api ${aws_apigatewayv2_stage.policy_search_stage.invoke_url}status"
   }
 }
 
@@ -101,9 +101,9 @@ resource "aws_s3_object" "index_html" {
   
   bucket       = aws_s3_bucket.ui.id
   key          = "index.html"
-  source       = "${path.module}/../../build/processed_index.html"
+  source       = fileexists("${path.module}/../../build/processed_index.html") ? "${path.module}/../../build/processed_index.html" : "${local.ui_dir_path}/index.html"
   content_type = "text/html"
-  etag         = fileexists("${path.module}/../../build/processed_index.html") ? filemd5("${path.module}/../../build/processed_index.html") : md5("default")
+  etag         = fileexists("${path.module}/../../build/processed_index.html") ? filemd5("${path.module}/../../build/processed_index.html") : filemd5("${local.ui_dir_path}/index.html")
   acl          = local.ui_object_acl
 }
 

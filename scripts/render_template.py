@@ -31,7 +31,9 @@ def render_template(template_path, output_path, context):
     rendered_content = template.render(**context)
     
     # Create output directory if it doesn't exist
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    output_dir = os.path.dirname(output_path)
+    if output_dir:  # Only try to create directory if there's a parent directory
+        os.makedirs(output_dir, exist_ok=True)
     
     # Write the rendered content to the output file
     with open(output_path, 'w') as f:
