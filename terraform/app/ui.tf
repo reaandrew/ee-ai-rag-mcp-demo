@@ -78,17 +78,32 @@ resource "terraform_data" "ui_files" {
   }
 }
 
-# Upload index.html file to the bucket - keeping explicit for clarity
+# Process index.html template using Jinja2 during deployment
+resource "null_resource" "render_index_template" {
+  # Trigger this resource whenever the API endpoints or HTML template changes
+  triggers = {
+    api_url_changed = aws_apigatewayv2_stage.policy_search_stage.invoke_url
+    template_changed = filemd5("${local.ui_dir_path}/index.html")
+  }
+
+  # Use the Python script to render the template
+  provisioner "local-exec" {
+    command = "python3 ${path.module}/../../scripts/render_template.py --template ${local.ui_dir_path}/index.html --output ${path.module}/../../build/processed_index.html --search-api ${aws_apigatewayv2_stage.policy_search_stage.invoke_url}search --status-api ${aws_apigatewayv2_stage.policy_search_stage.invoke_url}status"
+  }
+}
+
+# Upload the processed index.html file to the bucket
 resource "aws_s3_object" "index_html" {
   depends_on = [
-    aws_s3_bucket_ownership_controls.ui_ownership
+    aws_s3_bucket_ownership_controls.ui_ownership,
+    null_resource.render_index_template
   ]
   
   bucket       = aws_s3_bucket.ui.id
   key          = "index.html"
-  source       = "${local.ui_dir_path}/index.html"
+  source       = "${path.module}/../../build/processed_index.html"
   content_type = "text/html"
-  etag         = filemd5("${local.ui_dir_path}/index.html")
+  etag         = fileexists("${path.module}/../../build/processed_index.html") ? filemd5("${path.module}/../../build/processed_index.html") : md5("default")
   acl          = local.ui_object_acl
 }
 

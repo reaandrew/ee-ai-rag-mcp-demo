@@ -849,9 +849,9 @@
       const lastUpdated = document.getElementById('last-updated');
       const updateTime = document.getElementById('update-time');
 
-      // API endpoints - using single consolidated API Gateway for both endpoints
-      const searchApiEndpoint = 'https://b8du9bakt4.execute-api.eu-west-2.amazonaws.com/search';
-      const statusApiEndpoint = 'https://b8du9bakt4.execute-api.eu-west-2.amazonaws.com/status';
+      // API endpoints - dynamically set during deployment
+      const searchApiEndpoint = '{{ search_api_endpoint }}';
+      const statusApiEndpoint = '{{ status_api_endpoint }}';
 
       // Check if token is already stored
       const storedToken = localStorage.getItem('apiToken');
