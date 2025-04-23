@@ -153,7 +153,6 @@ def trace_lambda_handler(name=None):
 
             # Set up global_xray_recorder reference before try block
             global_xray_recorder = xray_recorder
-            
             # Add Lambda context information to the segment - safely handling FacadeSegments
             try:
                 segment.put_annotation("function_name", context.function_name)
