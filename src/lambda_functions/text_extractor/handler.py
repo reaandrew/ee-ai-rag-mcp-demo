@@ -7,24 +7,7 @@ import re
 import secrets
 from urllib.parse import unquote_plus
 
-# pragma: no cover
-try:
-    from aws_xray_sdk.core import xray_recorder
-    from aws_xray_sdk.core import patch_all
-
-    patch_all()  # Patch all supported libraries for X-Ray tracing
-except ImportError:
-    xray_recorder = None
-    patch_all = None
-
-# pragma: no cover
-try:
-    from utils import xray_utils
-except ImportError:
-    try:
-        from src.utils import xray_utils
-    except ImportError:
-        xray_utils = None
+# X-Ray imports and initialization removed
 
 
 # Custom exceptions
@@ -442,7 +425,6 @@ def process_document_async(bucket_name, file_key):
     return extracted_text, page_count
 
 
-@ xray_utils.trace_lambda_handler() if xray_utils else lambda x: x
 def lambda_handler(event, context):
     """
     Lambda function handler that processes S3 object creation events.
