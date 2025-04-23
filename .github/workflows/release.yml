@@ -207,6 +207,11 @@ jobs:
       
       - name: Install Dependencies
         run: |
+          # Install required system packages
+          sudo apt-get update
+          sudo apt-get install -y jq
+          
+          # Install Python dependencies
           python -m pip install --upgrade pip
           python -m pip install jinja2>=3.1.2 boto3>=1.28.0
           chmod +x ./scripts/render_template.py
@@ -217,11 +222,26 @@ jobs:
           # Initialize Terraform to access remote state
           terraform init -backend-config="bucket=ee-ai-rag-mcp-demo-terraform-state" -backend-config="region=eu-west-2" -backend-config="dynamodb_table=ee-ai-rag-mcp-demo-terraform-locks" -backend-config="key=terraform/app/terraform.tfstate"
           
-          # Extract outputs and export as environment variables
-          echo "UI_BUCKET=$(terraform output -raw ui_bucket_name)" >> $GITHUB_ENV
-          echo "SEARCH_API_URL=$(terraform output -raw policy_search_api_url)" >> $GITHUB_ENV
-          echo "STATUS_API_URL=$(terraform output -raw document_status_api_url)" >> $GITHUB_ENV
-          echo "CLOUDFRONT_URL=$(terraform output -raw cloudfront_url)" >> $GITHUB_ENV
+          # Save all outputs to a JSON file first
+          terraform output -json > tf_outputs.json
+          
+          # Extract specific values using jq and set as environment variables
+          UI_BUCKET=$(jq -r '.ui_bucket_name.value' tf_outputs.json)
+          SEARCH_API_URL=$(jq -r '.policy_search_api_url.value' tf_outputs.json)
+          STATUS_API_URL=$(jq -r '.document_status_api_url.value' tf_outputs.json)
+          CLOUDFRONT_URL=$(jq -r '.cloudfront_url.value' tf_outputs.json)
+          
+          # Set as GitHub environment variables
+          echo "UI_BUCKET=$UI_BUCKET" >> $GITHUB_ENV
+          echo "SEARCH_API_URL=$SEARCH_API_URL" >> $GITHUB_ENV
+          echo "STATUS_API_URL=$STATUS_API_URL" >> $GITHUB_ENV
+          echo "CLOUDFRONT_URL=$CLOUDFRONT_URL" >> $GITHUB_ENV
+          
+          # Debug output
+          echo "UI Bucket: $UI_BUCKET"
+          echo "Search API URL: $SEARCH_API_URL"
+          echo "Status API URL: $STATUS_API_URL"
+          echo "CloudFront URL: $CLOUDFRONT_URL"
         
       - name: Process Templates and Upload UI Files
         run: |
