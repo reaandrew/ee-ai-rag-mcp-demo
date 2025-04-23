@@ -23,36 +23,24 @@ resource "aws_s3_bucket_website_configuration" "ui_website" {
   }
 }
 
-# Set ownership controls for the UI bucket
+# Set ownership controls for the UI bucket to enforce bucket owner ownership
 resource "aws_s3_bucket_ownership_controls" "ui_ownership" {
   bucket = aws_s3_bucket.ui.id
   
   rule {
-    object_ownership = "BucketOwnerPreferred"
+    object_ownership = "BucketOwnerEnforced"  # Disables ACLs entirely and gives bucket owner full control
   }
 }
 
-# Set ACL to public-read for website access
-resource "aws_s3_bucket_acl" "ui_acl" {
-  depends_on = [
-    aws_s3_bucket_ownership_controls.ui_ownership
-  ]
-  
-  bucket = aws_s3_bucket.ui.id
-  acl    = "public-read"
-}
-
-# Configure public access settings - required for website hosting but restricted to read-only
-# This configuration is intentionally permissive for S3 website hosting purposes
-# Note: For production, consider using CloudFront with OAC or OAI for better security
+# Configure public access settings - restricting public access since we're using CloudFront OAC
 resource "aws_s3_bucket_public_access_block" "ui_public_access" {
   bucket = aws_s3_bucket.ui.id
 
-  # These settings are required for S3 static website hosting to work properly
-  block_public_acls       = false  # Allow ACLs that grant public access
-  block_public_policy     = false  # Allow policies that grant public access
-  ignore_public_acls      = false  # Don't ignore public ACLs
-  restrict_public_buckets = false  # Don't restrict public policies
+  # Block public access since we're using CloudFront OAC for secure access
+  block_public_acls       = true
+  block_public_policy     = false  # Allow bucket policy for CloudFront
+  ignore_public_acls      = true
+  restrict_public_buckets = false  # Allow bucket policy for CloudFront
 }
 
 # This policy is now replaced by ui_policy_cloudfront which restricts access to CloudFront only
@@ -82,26 +70,39 @@ resource "terraform_data" "ui_files" {
 
 # Upload index.html file to the bucket - keeping explicit for clarity
 resource "aws_s3_object" "index_html" {
+  depends_on = [
+    aws_s3_bucket_ownership_controls.ui_ownership,
+    aws_s3_bucket_public_access_block.ui_public_access
+  ]
+  
   bucket       = aws_s3_bucket.ui.id
   key          = "index.html"
   source       = "${local.ui_dir_path}/index.html"
   content_type = "text/html"
   etag         = filemd5("${local.ui_dir_path}/index.html")
-  acl          = "public-read"
 }
 
 # Upload documentation.html file to the bucket
 resource "aws_s3_object" "documentation_html" {
+  depends_on = [
+    aws_s3_bucket_ownership_controls.ui_ownership,
+    aws_s3_bucket_public_access_block.ui_public_access
+  ]
+  
   bucket       = aws_s3_bucket.ui.id
   key          = "documentation.html"
   source       = "${local.ui_dir_path}/documentation.html"
   content_type = "text/html"
   etag         = filemd5("${local.ui_dir_path}/documentation.html")
-  acl          = "public-read"
 }
 
 # Upload all image files
 resource "aws_s3_object" "image_files" {
+  depends_on = [
+    aws_s3_bucket_ownership_controls.ui_ownership,
+    aws_s3_bucket_public_access_block.ui_public_access
+  ]
+  
   for_each     = fileset(local.ui_dir_path, "images/**")
   
   bucket       = aws_s3_bucket.ui.id
@@ -109,7 +110,6 @@ resource "aws_s3_object" "image_files" {
   source       = "${local.ui_dir_path}/${each.value}"
   content_type = lookup(local.content_types, regex("\\.[^.]+$", each.value), "application/octet-stream")
   etag         = filemd5("${local.ui_dir_path}/${each.value}")
-  acl          = "public-read"
 }
 
 # CloudFront distribution for secure HTTPS access to S3 website
