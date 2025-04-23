@@ -143,17 +143,30 @@ def trace_lambda_handler(name=None):
             # Start a segment/ensure segment exists
             segment = xray_recorder.current_segment()
             if segment:
-                segment.name = segment_name
+                try:
+                    segment.name = segment_name
+                except Exception as e:
+                    if "FacadeSegment" in str(e):
+                        logger.info(f"Cannot set name on FacadeSegment: {str(e)}")
+                    else:
+                        logger.warning(f"Failed to set segment name: {str(e)}")
 
-            # Add Lambda context information to the segment
-            segment.put_annotation("function_name", context.function_name)
-            segment.put_annotation("function_version", context.function_version)
-            segment.put_annotation("memory_limit_mb", context.memory_limit_in_mb)
+            # Add Lambda context information to the segment - safely handling FacadeSegments
+            try:
+                segment.put_annotation("function_name", context.function_name)
+                segment.put_annotation("function_version", context.function_version)
+                segment.put_annotation("memory_limit_mb", context.memory_limit_in_mb)
 
-            # Add cold start annotation
-            global_xray_recorder = xray_recorder
-            is_cold_start = getattr(global_xray_recorder, "is_cold_start", True)
-            segment.put_annotation("cold_start", is_cold_start)
+                # Add cold start annotation
+                global_xray_recorder = xray_recorder
+                is_cold_start = getattr(global_xray_recorder, "is_cold_start", True)
+                segment.put_annotation("cold_start", is_cold_start)
+            except Exception as e:
+                # Handle FacadeSegmentMutationException gracefully
+                if "FacadeSegment" in str(e):
+                    logger.info(f"Skipping X-Ray annotations for FacadeSegment: {str(e)}")
+                else:
+                    logger.warning(f"Failed to add X-Ray annotations: {str(e)}")
 
             # Mark lambda as no longer cold starting
             if hasattr(global_xray_recorder, "is_cold_start"):
@@ -164,7 +177,10 @@ def trace_lambda_handler(name=None):
                 safe_event = scrub_sensitive_data(event)
                 segment.put_metadata("event", safe_event, "lambda")
             except Exception as e:
-                logger.warning(f"Failed to add event metadata to X-Ray segment: {str(e)}")
+                if "FacadeSegment" in str(e):
+                    logger.info(f"Skipping X-Ray metadata for FacadeSegment: {str(e)}")
+                else:
+                    logger.warning(f"Failed to add event metadata to X-Ray segment: {str(e)}")
 
             # Now wrap the actual handler call with exception handling
             try:
@@ -172,9 +188,15 @@ def trace_lambda_handler(name=None):
                 return result
             except Exception as e:
                 if segment:
-                    segment.add_exception(
-                        exception=e, stack=traceback.extract_stack(), remote=False
-                    )
+                    try:
+                        segment.add_exception(
+                            exception=e, stack=traceback.extract_stack(), remote=False
+                        )
+                    except Exception as xray_e:
+                        if "FacadeSegment" in str(xray_e):
+                            logger.info(f"Cannot add exception to FacadeSegment: {str(xray_e)}")
+                        else:
+                            logger.warning(f"Failed to add exception to segment: {str(xray_e)}")
                 raise
 
         return wrapper
