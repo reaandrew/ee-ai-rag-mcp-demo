@@ -23,8 +23,13 @@ resource "aws_s3_bucket_website_configuration" "ui_website" {
   }
 }
 
-# Set ownership controls for the UI bucket to enforce bucket owner ownership
+# Set ownership controls for the UI bucket
 resource "aws_s3_bucket_ownership_controls" "ui_ownership" {
+  # Must apply after the bucket is created
+  depends_on = [
+    aws_s3_bucket.ui
+  ]
+  
   bucket = aws_s3_bucket.ui.id
   
   rule {
@@ -34,6 +39,12 @@ resource "aws_s3_bucket_ownership_controls" "ui_ownership" {
 
 # Configure public access settings - restricting public access since we're using CloudFront OAC
 resource "aws_s3_bucket_public_access_block" "ui_public_access" {
+  # Must apply after the bucket and ownership controls are created
+  depends_on = [
+    aws_s3_bucket.ui,
+    aws_s3_bucket_ownership_controls.ui_ownership
+  ]
+  
   bucket = aws_s3_bucket.ui.id
 
   # Block public access since we're using CloudFront OAC for secure access
