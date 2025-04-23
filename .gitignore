@@ -26,6 +26,7 @@ yarn.lock
 /out
 /.next
 /.nuxt
+/ui/processed_index.html
 
 # Lambda dependencies
 src/lambda_functions/*/dependencies/

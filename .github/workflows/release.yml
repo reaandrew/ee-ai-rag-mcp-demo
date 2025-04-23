@@ -97,13 +97,9 @@ jobs:
           # Install pip dependencies
           python -m pip install --upgrade pip
           
-          # Install Jinja2 for template processing
-          python -m pip install jinja2>=3.1.2
-          
           # Ensure build scripts are executable
           chmod +x ./install_lambda_deps.sh
           chmod +x ./build_lambda.sh
-          chmod +x ./scripts/render_template.py
           
           # Build the Lambda layers - using simplified approach with minimal dependencies
           ./install_lambda_deps.sh
@@ -138,6 +134,46 @@ jobs:
           # For debugging
           echo "Setting up Terraform for version: ${RELEASE_VERSION}"
           
+      - name: Process UI Templates
+        run: |
+          # Install Jinja2 for template processing
+          python -m pip install jinja2>=3.1.2
+          
+          # Ensure scripts are executable
+          chmod +x ./scripts/render_template.py
+          
+          # Create build directory if it doesn't exist
+          mkdir -p ./build/ui
+          
+          # Get API Gateway URL from Terraform outputs (if available)
+          cd ./terraform/app
+          API_URL=""
+          if terraform output -json 2>/dev/null | grep -q "policy_search_api_url"; then
+            API_URL=$(terraform output -raw policy_search_api_url | sed 's|/search$||')
+          fi
+          cd ../..
+          
+          # If we couldn't get the URL from terraform output, use a default placeholder
+          # It will be replaced with the actual URL in the next deployment
+          if [ -z "$API_URL" ]; then
+            API_URL="https://api.example.com"
+          fi
+          
+          echo "Using API URL: $API_URL"
+          
+          # Process index.html template
+          ./scripts/render_template.py \
+            --template ./ui/index.html \
+            --output ./build/ui/index.html \
+            --search-api "${API_URL}/search" \
+            --status-api "${API_URL}/status"
+          
+          # Copy the processed template to ui directory to be picked up by Terraform
+          cp ./build/ui/index.html ./ui/processed_index.html
+          
+          # Verify the file was created
+          ls -la ./ui/processed_index.html
+
       - name: Terraform Init
         working-directory: ./terraform/app
         run: terraform init -backend-config="bucket=${{ env.TF_STATE_BUCKET }}" -backend-config="region=eu-west-2" -backend-config="dynamodb_table=${{ env.TF_LOCK_TABLE }}" -backend-config="key=terraform/app/terraform.tfstate"
