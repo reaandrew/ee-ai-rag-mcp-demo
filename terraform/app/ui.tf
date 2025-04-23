@@ -2,6 +2,7 @@
 resource "aws_s3_bucket" "ui" {
   bucket = var.ui_bucket_name
   force_destroy = true  # Allow terraform to delete bucket even if it contains objects
+  acl = null  # stops the provider sending any PutBucketAcl call
 
   tags = {
     Environment = var.environment
@@ -23,17 +24,12 @@ resource "aws_s3_bucket_website_configuration" "ui_website" {
   }
 }
 
-# Set ownership controls for the UI bucket
+# Set ownership controls for the UI bucket (disable ACLs)
 resource "aws_s3_bucket_ownership_controls" "ui_ownership" {
-  # Must apply after the bucket is created
-  depends_on = [
-    aws_s3_bucket.ui
-  ]
-  
   bucket = aws_s3_bucket.ui.id
   
   rule {
-    object_ownership = "BucketOwnerEnforced"  # Disables ACLs entirely and gives bucket owner full control
+    object_ownership = "BucketOwnerEnforced"  # Disables ACLs entirely
   }
 }
 
@@ -58,6 +54,9 @@ resource "aws_s3_bucket_public_access_block" "ui_public_access" {
 
 # Upload all UI files using the for_each approach with file path lookup
 locals {
+  # The only ACL S3 will accept with BucketOwnerEnforced
+  ui_object_acl = "bucket-owner-full-control"
+  
   ui_dir_path = "${path.module}/../../ui"
   content_types = {
     ".html" = "text/html",
@@ -82,8 +81,7 @@ resource "terraform_data" "ui_files" {
 # Upload index.html file to the bucket - keeping explicit for clarity
 resource "aws_s3_object" "index_html" {
   depends_on = [
-    aws_s3_bucket_ownership_controls.ui_ownership,
-    aws_s3_bucket_public_access_block.ui_public_access
+    aws_s3_bucket_ownership_controls.ui_ownership
   ]
   
   bucket       = aws_s3_bucket.ui.id
@@ -91,13 +89,13 @@ resource "aws_s3_object" "index_html" {
   source       = "${local.ui_dir_path}/index.html"
   content_type = "text/html"
   etag         = filemd5("${local.ui_dir_path}/index.html")
+  acl          = local.ui_object_acl
 }
 
 # Upload documentation.html file to the bucket
 resource "aws_s3_object" "documentation_html" {
   depends_on = [
-    aws_s3_bucket_ownership_controls.ui_ownership,
-    aws_s3_bucket_public_access_block.ui_public_access
+    aws_s3_bucket_ownership_controls.ui_ownership
   ]
   
   bucket       = aws_s3_bucket.ui.id
@@ -105,13 +103,13 @@ resource "aws_s3_object" "documentation_html" {
   source       = "${local.ui_dir_path}/documentation.html"
   content_type = "text/html"
   etag         = filemd5("${local.ui_dir_path}/documentation.html")
+  acl          = local.ui_object_acl
 }
 
 # Upload all image files
 resource "aws_s3_object" "image_files" {
   depends_on = [
-    aws_s3_bucket_ownership_controls.ui_ownership,
-    aws_s3_bucket_public_access_block.ui_public_access
+    aws_s3_bucket_ownership_controls.ui_ownership
   ]
   
   for_each     = fileset(local.ui_dir_path, "images/**")
@@ -121,6 +119,7 @@ resource "aws_s3_object" "image_files" {
   source       = "${local.ui_dir_path}/${each.value}"
   content_type = lookup(local.content_types, regex("\\.[^.]+$", each.value), "application/octet-stream")
   etag         = filemd5("${local.ui_dir_path}/${each.value}")
+  acl          = local.ui_object_acl
 }
 
 # CloudFront distribution for secure HTTPS access to S3 website
