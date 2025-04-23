@@ -171,24 +171,24 @@ jobs:
       
       - name: Process and Deploy UI Files
         run: |
-          echo "Deploying UI to bucket: ${{ env.UI_BUCKET_NAME }}"
+          echo "Deploying UI to bucket: $UI_BUCKET_NAME"
           mkdir -p build/ui
 
           ${GITHUB_WORKSPACE}/scripts/render_template.py \
             --template ui/index.html \
             --output   build/ui/index.html \
-            --search-api "${{ env.SEARCH_API_URL }}" \
-            --status-api "${{ env.STATUS_API_URL }}"
+            --search-api "$SEARCH_API_URL" \
+            --status-api "$STATUS_API_URL"
 
           aws s3 cp build/ui/index.html \
-            s3://${{ env.UI_BUCKET_NAME }}/index.html \
+            s3://$UI_BUCKET_NAME/index.html \
             --content-type "text/html"
 
           aws s3 cp ui/documentation.html \
-            s3://${{ env.UI_BUCKET_NAME }}/documentation.html \
+            s3://$UI_BUCKET_NAME/documentation.html \
             --content-type "text/html"
 
           aws s3 cp ui/images/ \
-            s3://${{ env.UI_BUCKET_NAME }}/images/ --recursive
+            s3://$UI_BUCKET_NAME/images/ --recursive
 
-          echo "✅ UI deployed – see it at ${{ env.CLOUDFRONT_URL }}"
+          echo "✅ UI deployed – see it at $CLOUDFRONT_URL"
