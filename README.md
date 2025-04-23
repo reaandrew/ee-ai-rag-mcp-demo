@@ -27,7 +27,7 @@ This repository uses SonarQube for quality checks:
 
 ### Configuration
 
-The SonarCloud configuration is simplifies using the standard approach:
+The SonarCloud configuration is simplified using the standard approach:
 - Configuration is stored in sonar-project.properties
 - Uses SonarSource's official GitHub Actions
 - Works with both PR analysis and branch analysis
@@ -165,3 +165,4 @@ For details on the OpenSearch configuration and how to query the vectors, refer 
   - Create comprehensive tests for `src/utils/bedrock_utils.py` (current coverage: 0%)
   - Create comprehensive tests for `src/utils/opensearch_utils.py` (current coverage: 0%)
   - Target at least 80% coverage for these modules
+- Enhance X-Ray tracing for better request tracking and performance monitoring
