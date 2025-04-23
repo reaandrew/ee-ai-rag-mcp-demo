@@ -147,83 +147,52 @@ jobs:
         working-directory: ./terraform/app
         run: terraform apply -auto-approve tfplan
         
-      - name: Ensure build directories exist
-        run: |
-          mkdir -p ${GITHUB_WORKSPACE}/build/bruno/RAG-Policy-Search
-          
       - name: Install Jinja2 for UI templating
         run: |
           python -m pip install jinja2>=3.1.2
           chmod +x ./scripts/render_template.py
       
-      - name: Read Terraform outputs
+      - name: Read Terraform outputs (JSON-safe)
         id: tf
         working-directory: ./terraform/app
         run: |
-          echo "Terraform deployment completed successfully!"
-          
-          # Grab each value into a shell variable
-          UI_BUCKET=$(terraform output -raw ui_bucket_name)
-          SEARCH_API=$(terraform output -raw policy_search_api_url)
-          STATUS_API=$(terraform output -raw document_status_api_url)
-          CF_URL=$(terraform output -raw cloudfront_url)
-          
-          # Expose them as action outputs
-          echo "ui_bucket=$UI_BUCKET" >> $GITHUB_OUTPUT
-          echo "search_api_url=$SEARCH_API" >> $GITHUB_OUTPUT
-          echo "status_api_url=$STATUS_API" >> $GITHUB_OUTPUT
-          echo "cloudfront_url=$CF_URL" >> $GITHUB_OUTPUT
+          set -euo pipefail
+
+          # Pull every output once, as JSON
+          TF_JSON=$(terraform output -json)
+
+          # Extract the fields we need; jq prints *only* the value
+          echo "ui_bucket=$(echo "$TF_JSON" | jq -r '.ui_bucket_name.value')"               >> $GITHUB_OUTPUT
+          echo "search_api_url=$(echo "$TF_JSON" | jq -r '.policy_search_api_url.value')"   >> $GITHUB_OUTPUT
+          echo "status_api_url=$(echo "$TF_JSON" | jq -r '.document_status_api_url.value')" >> $GITHUB_OUTPUT
+          echo "cloudfront_url=$(echo "$TF_JSON" | jq -r '.cloudfront_url.value')"          >> $GITHUB_OUTPUT
           
           # Display for logging
-          echo "✓ UI Bucket:    $UI_BUCKET"
-          echo "✓ Search API:   $SEARCH_API"
-          echo "✓ Status API:   $STATUS_API"
-          echo "✓ CloudFront:   $CF_URL"
+          echo "✓ UI Bucket:    $(echo "$TF_JSON" | jq -r '.ui_bucket_name.value')"
+          echo "✓ Search API:   $(echo "$TF_JSON" | jq -r '.policy_search_api_url.value')"
+          echo "✓ Status API:   $(echo "$TF_JSON" | jq -r '.document_status_api_url.value')"
+          echo "✓ CloudFront:   $(echo "$TF_JSON" | jq -r '.cloudfront_url.value')"
       
       - name: Process and Deploy UI Files
-        working-directory: ./terraform/app
         run: |
           echo "Deploying UI to bucket: ${{ steps.tf.outputs.ui_bucket }}"
-          
-          mkdir -p ${GITHUB_WORKSPACE}/build/ui
-          
-          # Process index.html template
+          mkdir -p build/ui
+
           ${GITHUB_WORKSPACE}/scripts/render_template.py \
-            --template ${GITHUB_WORKSPACE}/ui/index.html \
-            --output ${GITHUB_WORKSPACE}/build/ui/index.html \
+            --template ui/index.html \
+            --output   build/ui/index.html \
             --search-api "${{ steps.tf.outputs.search_api_url }}" \
             --status-api "${{ steps.tf.outputs.status_api_url }}"
-          
-          # Upload index.html - using explicit step output
-          aws s3 cp ${GITHUB_WORKSPACE}/build/ui/index.html \
+
+          aws s3 cp build/ui/index.html \
             s3://${{ steps.tf.outputs.ui_bucket }}/index.html \
             --content-type "text/html"
-          
-          # Upload documentation.html
-          aws s3 cp ${GITHUB_WORKSPACE}/ui/documentation.html \
+
+          aws s3 cp ui/documentation.html \
             s3://${{ steps.tf.outputs.ui_bucket }}/documentation.html \
             --content-type "text/html"
-          
-          # Upload all image files
-          aws s3 cp ${GITHUB_WORKSPACE}/ui/images/ \
-            s3://${{ steps.tf.outputs.ui_bucket }}/images/ \
-            --recursive
-            
-          echo "✅ UI deployed; available at: ${{ steps.tf.outputs.cloudfront_url }}"
-          
-          # Debug Bruno collection using the same approach
-          if [ -f "$(terraform output -raw bruno_collection_path)" ]; then
-            BRUNO_PATH=$(terraform output -raw bruno_collection_path)
-            echo "Bruno collection URL inclusion check:"
-            cat "$BRUNO_PATH" | grep -A 2 "API_URL" || echo "No API_URL found in Bruno collection"
-          else
-            echo "Bruno collection file not found - will be created during apply"
-          fi
-          
-          # Verify Bruno README (only if it exists)
-          if [ -f "${GITHUB_WORKSPACE}/build/bruno/README.md" ]; then
-            echo "Bruno README API URL check:"
-            cat "${GITHUB_WORKSPACE}/build/bruno/README.md" | grep -A 1 "API URL" || echo "No API URL found in README"
-          else
-            echo "Bruno README file not found - will be created during apply"
-          fi
+
+          aws s3 cp ui/images/ \
+            s3://${{ steps.tf.outputs.ui_bucket }}/images/ --recursive
+
+          echo "✅ UI deployed – see it at ${{ steps.tf.outputs.cloudfront_url }}"
